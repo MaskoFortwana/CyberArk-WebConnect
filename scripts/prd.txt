@@ -1,0 +1,75 @@
+<context>
+# ChromeConnect Project Context
+ChromeConnect is a Windows application that automates web portal authentication. It opens Google Chrome on a specified website, performs automated login by locating credential fields, and verifies login success. This is a C# rewrite of the existing Python-based WebConnect application.
+</context>
+
+<PRD>
+
+## Core Features
+1. Command-line interface matching the original WebConnect parameters (USR, PSW, URL, DOM, etc.)
+2. Chrome browser automation using Selenium WebDriver
+3. Multiple login field detection strategies for different websites
+4. Secure credential handling
+5. Login success/failure verification
+6. Screenshot capture for failed logins
+7. Human-like typing simulation
+8. Standalone Windows executable (.exe) deployment
+
+## Technical Architecture
+- C# with .NET 8.0 
+- Selenium WebDriver for Chrome automation
+- Command-line argument parsing
+- Browser manager for Chrome configuration and control
+- Login detector for finding form elements
+- Credential entry module for secure credential handling
+- Login verification module for success/failure detection
+
+## Development Roadmap
+### Phase 1: Core Infrastructure
+- Set up project structure and references
+- Implement basic command-line parsing
+- Create browser management functionality
+
+### Phase 2: Login Automation
+- Implement login form detection
+- Create credential entry with human-like typing
+- Develop login success verification
+
+### Phase 3: Error Handling and Logging
+- Add comprehensive error handling
+- Implement screenshot capture
+- Create logging functionality
+
+### Phase 4: Testing and Refinement
+- Test with various login pages
+- Optimize detection strategies
+- Handle edge cases
+
+### Phase 5: Packaging and Deployment
+- Create self-contained executable
+- Write documentation
+- Prepare for distribution
+
+## Logical Dependency Chain
+1. Project structure and command-line parsing
+2. Browser automation and control
+3. Login form detection
+4. Credential entry handling
+5. Login success verification
+6. Error handling and screenshot capture
+7. Testing and refinement
+8. Packaging and deployment
+
+## Risks and Mitigations
+- Risk: Different login form structures across websites
+  Mitigation: Implement multiple detection strategies
+
+- Risk: Chrome version compatibility issues
+  Mitigation: Use WebDriverManager for automatic driver management
+
+- Risk: Security concerns with credential handling
+  Mitigation: Implement secure credential management
+
+- Risk: Error handling in various network conditions
+  Mitigation: Comprehensive error handling and timeouts
+</PRD>
