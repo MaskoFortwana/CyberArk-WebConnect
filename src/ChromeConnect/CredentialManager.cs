@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
+using ChromeConnect.Models;
 
 namespace ChromeConnect.Core;
 
@@ -17,7 +18,7 @@ public class CredentialManager
         _logger = logger;
     }
 
-    public async Task<bool> EnterCredentialsAsync(
+    public virtual async Task<bool> EnterCredentialsAsync(
         IWebDriver driver, 
         LoginFormElements loginForm, 
         string username,

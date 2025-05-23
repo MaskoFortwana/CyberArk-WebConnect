@@ -13,17 +13,15 @@ namespace ChromeConnect.Exceptions
         /// <summary>
         /// Gets the timestamp when the exception occurred.
         /// </summary>
-        public DateTime Timestamp { get; } = DateTime.UtcNow;
-
-        /// <summary>
+        public DateTime Timestamp { get; } = DateTime.UtcNow;        /// <summary>
         /// Gets or sets an error code associated with this exception.
         /// </summary>
-        public string ErrorCode { get; set; }
+        public string? ErrorCode { get; set; }
 
         /// <summary>
         /// Gets or sets additional context information about the error.
         /// </summary>
-        public string Context { get; set; }
+        public string? Context { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromeConnectException"/> class.
@@ -52,7 +50,7 @@ namespace ChromeConnect.Exceptions
         /// <param name="message">The message that describes the error.</param>
         /// <param name="errorCode">A code that identifies the error type.</param>
         /// <param name="context">Additional contextual information about the error.</param>
-        public ChromeConnectException(string message, string errorCode, string context = null) 
+        public ChromeConnectException(string message, string errorCode, string? context = null) 
             : base(message)
         {
             ErrorCode = errorCode;
@@ -86,13 +84,12 @@ namespace ChromeConnect.Exceptions
             ErrorCode = info.GetString(nameof(ErrorCode));
             Context = info.GetString(nameof(Context));
             Timestamp = info.GetDateTime(nameof(Timestamp));
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// When overridden in a derived class, sets the <see cref="SerializationInfo"/> with information about the exception.
         /// </summary>
         /// <param name="info">The <see cref="SerializationInfo"/> that holds the serialized object data about the exception being thrown.</param>
         /// <param name="context">The <see cref="StreamingContext"/> that contains contextual information about the source or destination.</param>
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             if (info == null)

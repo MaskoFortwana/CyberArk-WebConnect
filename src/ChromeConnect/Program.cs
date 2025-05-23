@@ -2,13 +2,14 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using CommandLine;
 using ChromeConnect.Core;
 using ChromeConnect.Models;
 using ChromeConnect.Services;
+using Serilog;
+using Serilog.Events;
 
 namespace ChromeConnect;
 
@@ -24,42 +25,66 @@ public class Program
     /// <returns>The exit code of the application.</returns>
     public static async Task<int> Main(string[] args)
     {
+        // Configure Serilog logger first
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true)
+            .AddEnvironmentVariables()
+            .AddCommandLine(args)
+            .Build();
+
+        Log.Logger = new LoggerConfiguration()
+            // .ReadFrom.Configuration(configuration) // Remove this line - causes issues in single-file deployment
+            .MinimumLevel.Information()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Override("System", LogEventLevel.Warning)
+            .Enrich.FromLogContext()
+            .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .WriteTo.File(Path.Combine(AppContext.BaseDirectory, "logs", "chromeconnect-.log"),
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 5,
+                fileSizeLimitBytes: 10 * 1024 * 1024,
+                outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .CreateBootstrapLogger(); // Use CreateBootstrapLogger for early logging, then replaced by Host
+
         try
         {
-            // Parse command-line options first to check for debug mode and version info
+            Log.Information("Starting ChromeConnect application");
+
             var parserResult = Parser.Default.ParseArguments<CommandLineOptions>(args);
             CommandLineOptions options = null;
             
-            // Handle the case where we just need to show version info and exit
             if (parserResult.Value?.ShowVersion == true)
             {
                 Console.WriteLine($"{CoreConstants.ApplicationName} version {CoreConstants.Version}");
                 return 0;
             }
             
-            // Store the options if parsing was successful
             if (parserResult is Parsed<CommandLineOptions> parsed)
             {
                 options = parsed.Value;
             }
             
-            // Build the host
-            using var host = CreateHostBuilder(args, options?.Debug ?? false).Build();
+            using var host = CreateHostBuilder(args, options?.Debug ?? false, configuration).Build();
             
             if (options == null)
             {
-                // If command line parsing failed, return error code
+                Log.Error("Command line argument parsing failed.");
                 return 1;
             }
             
-            // Resolve the ChromeConnectService from the DI container and run it
             var chromeConnectService = host.Services.GetRequiredService<ChromeConnectService>();
             return await chromeConnectService.ExecuteAsync(options);
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error: {ex.Message}");
+            Log.Fatal(ex, "Application terminated unexpectedly");
             return 1;
+        }
+        finally
+        {
+            Log.CloseAndFlush();
         }
     }
 
@@ -68,38 +93,44 @@ public class Program
     /// </summary>
     /// <param name="args">Command-line arguments.</param>
     /// <param name="debugMode">Whether debug mode is enabled.</param>
+    /// <param name="configuration">The configuration.</param>
     /// <returns>The configured host builder.</returns>
-    private static IHostBuilder CreateHostBuilder(string[] args, bool debugMode)
+    private static IHostBuilder CreateHostBuilder(string[] args, bool debugMode, IConfigurationRoot configuration)
     {
         return Host.CreateDefaultBuilder(args)
-            .ConfigureAppConfiguration((hostContext, config) =>
+            .UseSerilog((context, services, loggerConfiguration) => loggerConfiguration
+                // .ReadFrom.Configuration(context.Configuration) // Remove this line - causes issues in single-file deployment
+                .MinimumLevel.Information()
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+                .MinimumLevel.Override("System", LogEventLevel.Warning)
+                .Enrich.FromLogContext()
+                .WriteTo.Console(debugMode ? LogEventLevel.Debug : LogEventLevel.Information,
+                    outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+                .WriteTo.File(Path.Combine(AppContext.BaseDirectory, "logs", "chromeconnect-.log"),
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 5,
+                    fileSizeLimitBytes: 10 * 1024 * 1024,
+                    restrictedToMinimumLevel: debugMode ? LogEventLevel.Debug : LogEventLevel.Information,
+                    outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+                // File sink should be configured in appsettings.json under "Serilog" section
+            )
+            .ConfigureAppConfiguration((hostContext, configBuilder) =>
             {
-                // Add appsettings.json
-                config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-                
-                // Add appsettings.{Environment}.json if it exists
-                config.AddJsonFile($"appsettings.{hostContext.HostingEnvironment.EnvironmentName}.json", 
-                    optional: true, 
-                    reloadOnChange: true);
-                
-                // Add environment variables
-                config.AddEnvironmentVariables();
-                
-                // Add command-line args
-                config.AddCommandLine(args);
+                // Configuration is already built and passed in, 
+                // but Host.CreateDefaultBuilder adds some default sources.
+                // We can clear them if we want full control from the initial IConfigurationRoot
+                // configBuilder.Sources.Clear(); // Optional: if you want to remove default sources
+                // configBuilder.AddConfiguration(configuration); // Add our pre-built configuration
+                // Default setup is fine, CreateDefaultBuilder reads appsettings.json, env vars, cmd line already.
             })
             .ConfigureServices((hostContext, services) =>
             {
-                // Create logs directory if it doesn't exist
+                // Create logs directory if it doesn't exist (Serilog might need it if configured for file sink)
                 string logDirectory = Path.Combine(AppContext.BaseDirectory, "logs");
-                if (!Directory.Exists(logDirectory))
-                {
-                    Directory.CreateDirectory(logDirectory);
-                }
+                Directory.CreateDirectory(logDirectory); // Idempotent
                 
-                // Add ChromeConnect services and configuration
                 services.AddChromeConnectConfiguration(hostContext.Configuration);
-                services.AddChromeConnectLogging(hostContext.Configuration, debugMode);
+                // services.AddChromeConnectLogging(hostContext.Configuration, debugMode); // REMOVED - Serilog handles this
                 services.AddChromeConnectServices();
             });
     }

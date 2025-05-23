@@ -28,7 +28,7 @@ namespace ChromeConnect.Services
         public ErrorHandler(
             ILogger<ErrorHandler> logger,
             IScreenshotCapture screenshotCapture,
-            ErrorHandlerSettings settings = null)
+            ErrorHandlerSettings? settings = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _screenshotCapture = screenshotCapture ?? throw new ArgumentNullException(nameof(screenshotCapture));
@@ -50,12 +50,12 @@ namespace ChromeConnect.Services
         /// <param name="exception">The exception to handle.</param>
         /// <param name="driver">The WebDriver instance associated with the exception, if any.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        public async Task HandleExceptionAsync(Exception exception, IWebDriver driver = null)
+        public async Task HandleExceptionAsync(Exception exception, IWebDriver? driver = null)
         {
             if (exception == null)
                 throw new ArgumentNullException(nameof(exception));
 
-            string screenshotPath = null;
+            string? screenshotPath = null;
 
             try
             {
@@ -92,7 +92,7 @@ namespace ChromeConnect.Services
         /// <param name="action">The action to execute.</param>
         /// <param name="driver">The WebDriver instance to use for screenshots if an error occurs.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        public async Task ExecuteWithErrorHandlingAsync(Func<Task> action, IWebDriver driver = null)
+        public virtual async Task ExecuteWithErrorHandlingAsync(Func<Task> action, IWebDriver? driver = null)
         {
             try
             {
@@ -112,7 +112,7 @@ namespace ChromeConnect.Services
         /// <param name="func">The function to execute.</param>
         /// <param name="driver">The WebDriver instance to use for screenshots if an error occurs.</param>
         /// <returns>A task representing the asynchronous operation, with the function's result.</returns>
-        public async Task<T> ExecuteWithErrorHandlingAsync<T>(Func<Task<T>> func, IWebDriver driver = null)
+        public virtual async Task<T> ExecuteWithErrorHandlingAsync<T>(Func<Task<T>> func, IWebDriver? driver = null)
         {
             try
             {
@@ -137,10 +137,10 @@ namespace ChromeConnect.Services
         /// <returns>A task representing the asynchronous operation.</returns>
         public async Task ExecuteWithRetryAsync(
             Func<Task> action,
-            IWebDriver driver = null,
+            IWebDriver? driver = null,
             int? retryCount = null,
             int? retryDelayMs = null,
-            Func<Exception, bool> shouldRetryFunc = null,
+            Func<Exception, bool>? shouldRetryFunc = null,
             CancellationToken cancellationToken = default)
         {
             int maxRetries = retryCount ?? _settings.DefaultRetryCount;
@@ -191,12 +191,12 @@ namespace ChromeConnect.Services
         /// <param name="shouldRetryFunc">A function that determines if a particular exception should be retried.</param>
         /// <param name="cancellationToken">Optional cancellation token.</param>
         /// <returns>A task representing the asynchronous operation, with the function's result.</returns>
-        public async Task<T> ExecuteWithRetryAsync<T>(
+        public virtual async Task<T> ExecuteWithRetryAsync<T>(
             Func<Task<T>> func,
-            IWebDriver driver = null,
+            IWebDriver? driver = null,
             int? retryCount = null,
             int? retryDelayMs = null,
-            Func<Exception, bool> shouldRetryFunc = null,
+            Func<Exception, bool>? shouldRetryFunc = null,
             CancellationToken cancellationToken = default)
         {
             int maxRetries = retryCount ?? _settings.DefaultRetryCount;
@@ -240,7 +240,7 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Handles a specific exception type based on its type.
         /// </summary>
-        private async Task HandleSpecificExceptionAsync(Exception exception, IWebDriver driver)
+        private async Task HandleSpecificExceptionAsync(Exception exception, IWebDriver? driver)
         {
             // Find the most specific exception handler for this exception type
             Type exceptionType = exception.GetType();
@@ -249,7 +249,7 @@ namespace ChromeConnect.Services
             {
                 if (handler.Key.IsAssignableFrom(exceptionType))
                 {
-                    await handler.Value(exception, driver);
+                    await handler.Value(exception, driver!);
                     return;
                 }
             }
@@ -359,7 +359,7 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Handles a general exception that doesn't match any specific type.
         /// </summary>
-        private Task HandleGeneralExceptionAsync(Exception exception, IWebDriver driver)
+        private Task HandleGeneralExceptionAsync(Exception exception, IWebDriver? driver)
         {
             _logger.LogError(exception, "An unexpected error occurred: {Message}", exception.Message);
             return Task.CompletedTask;
@@ -368,7 +368,7 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Executes global error actions that should happen for all exception types.
         /// </summary>
-        private async Task ExecuteGlobalErrorActionsAsync(Exception exception, IWebDriver driver)
+        private async Task ExecuteGlobalErrorActionsAsync(Exception exception, IWebDriver? driver)
         {
             // Cleanup resources
             CleanupResources(driver);
@@ -390,15 +390,15 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Logs an exception with an appropriate log level.
         /// </summary>
-        private void LogException(Exception exception, string screenshotPath)
+        private void LogException(Exception exception, string? screenshotPath)
         {
             // Determine log level based on exception type
-            LogLevel logLevel = DetermineLogLevel(exception);
+            Microsoft.Extensions.Logging.LogLevel logLevel = DetermineLogLevel(exception);
             
             // Add screenshot path to exception context if available
             string screenshotInfo = string.IsNullOrEmpty(screenshotPath) 
                 ? string.Empty 
-                : $" Screenshot saved to: {screenshotPath}";
+                : $". Screenshot saved to: {screenshotPath}";
             
             // Extract additional context information
             string context = ExtractExceptionContext(exception);
@@ -414,7 +414,7 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Cleans up resources associated with the error.
         /// </summary>
-        private void CleanupResources(IWebDriver driver)
+        private void CleanupResources(IWebDriver? driver)
         {
             if (driver != null && _settings.CloseDriverOnError)
             {
@@ -447,18 +447,18 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Determines the appropriate log level for an exception.
         /// </summary>
-        private LogLevel DetermineLogLevel(Exception exception)
+        private Microsoft.Extensions.Logging.LogLevel DetermineLogLevel(Exception exception)
         {
             // Canceled operations are warnings, not errors
             if (exception is AppOperationCanceledException)
-                return LogLevel.Warning;
+                return Microsoft.Extensions.Logging.LogLevel.Warning;
                 
             // Invalid credentials is a warning (user error, not system error)
             if (exception is InvalidCredentialsException)
-                return LogLevel.Warning;
+                return Microsoft.Extensions.Logging.LogLevel.Warning;
                 
             // All other exceptions are errors
-            return LogLevel.Error;
+            return Microsoft.Extensions.Logging.LogLevel.Error;
         }
 
         /// <summary>
@@ -562,6 +562,6 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Gets or sets a callback that will be called when an error occurs.
         /// </summary>
-        public Func<Exception, Task> OnError { get; set; }
+        public Func<Exception, Task>? OnError { get; set; }
     }
-} 
+}

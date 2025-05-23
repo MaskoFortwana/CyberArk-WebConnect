@@ -23,7 +23,7 @@ namespace ChromeConnect.Services
         /// <param name="settings">Optional timeout settings.</param>
         public TimeoutManager(
             ILogger<TimeoutManager> logger,
-            TimeoutSettings settings = null)
+            TimeoutSettings? settings = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _settings = settings ?? new TimeoutSettings();

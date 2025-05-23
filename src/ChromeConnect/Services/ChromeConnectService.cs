@@ -5,6 +5,7 @@ using OpenQA.Selenium;
 using ChromeConnect.Core;
 using ChromeConnect.Models;
 using ChromeConnect.Exceptions;
+using System.Collections.Generic;
 
 namespace ChromeConnect.Services
 {

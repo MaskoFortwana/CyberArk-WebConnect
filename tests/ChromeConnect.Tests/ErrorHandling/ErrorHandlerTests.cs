@@ -1,35 +1,46 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using OpenQA.Selenium;
-using Xunit;
 using ChromeConnect.Exceptions;
 using ChromeConnect.Services;
 
 namespace ChromeConnect.Tests.ErrorHandling
 {
+    [TestClass]
     public class ErrorHandlerTests
     {
-        private readonly Mock<ILogger<ErrorHandler>> _mockLogger;
-        private readonly Mock<IScreenshotCapture> _mockScreenshotCapture;
-        private readonly Mock<IWebDriver> _mockDriver;
-        private readonly ErrorHandler _errorHandler;
+        private Mock<ILogger<ErrorHandler>> _mockLogger;
+        private Mock<IScreenshotCapture> _mockScreenshotCapture;
+        private Mock<IWebDriver> _mockDriver;
+        private ErrorHandlerSettings _settings;
+        private ErrorHandler _errorHandler;
 
-        public ErrorHandlerTests()
+        [TestInitialize]
+        public void TestInitialize()
         {
             _mockLogger = new Mock<ILogger<ErrorHandler>>();
             _mockScreenshotCapture = new Mock<IScreenshotCapture>();
             _mockDriver = new Mock<IWebDriver>();
+            _settings = new ErrorHandlerSettings
+            { 
+                CaptureScreenshots = true,
+                CloseDriverOnError = true,
+                DefaultRetryCount = 3,
+                DefaultRetryDelayMs = 10,
+                BackoffMultiplier = 2.0,
+                AddJitter = false 
+            };
+            _errorHandler = new ErrorHandler(_mockLogger.Object, _mockScreenshotCapture.Object, _settings);
             
             _mockScreenshotCapture
                 .Setup(x => x.CaptureScreenshot(It.IsAny<IWebDriver>(), It.IsAny<string>()))
                 .Returns("test_screenshot.png");
-                
-            _errorHandler = new ErrorHandler(_mockLogger.Object, _mockScreenshotCapture.Object);
         }
 
-        [Fact]
+        [TestMethod]
         public async Task HandleExceptionAsync_CapturesScreenshot_WhenDriverProvided()
         {
             // Arrange
@@ -46,7 +57,7 @@ namespace ChromeConnect.Tests.ErrorHandling
                 Times.Once);
         }
         
-        [Fact]
+        [TestMethod]
         public async Task HandleExceptionAsync_DoesNotCaptureScreenshot_WhenDriverIsNull()
         {
             // Arrange
@@ -61,7 +72,7 @@ namespace ChromeConnect.Tests.ErrorHandling
                 Times.Never);
         }
         
-        [Fact]
+        [TestMethod]
         public async Task ExecuteWithErrorHandlingAsync_ExecutesAction_WhenNoExceptions()
         {
             // Arrange
@@ -74,17 +85,17 @@ namespace ChromeConnect.Tests.ErrorHandling
             });
             
             // Assert
-            Assert.True(actionExecuted);
+            Assert.IsTrue(actionExecuted);
         }
         
-        [Fact]
+        [TestMethod]
         public async Task ExecuteWithErrorHandlingAsync_HandlesException_WhenExceptionThrown()
         {
             // Arrange
             var exception = new LoginException("Test login exception");
             
             // Act & Assert
-            await Assert.ThrowsAsync<LoginException>(async () => {
+            await Assert.ThrowsExceptionAsync<LoginException>(async () => {
                 await _errorHandler.ExecuteWithErrorHandlingAsync(async () => {
                     throw exception;
                 }, _mockDriver.Object);
@@ -96,47 +107,43 @@ namespace ChromeConnect.Tests.ErrorHandling
                 Times.Once);
         }
         
-        [Fact]
+        [TestMethod]
         public async Task ExecuteWithRetryAsync_RetriesCorrectNumberOfTimes_BeforeFailure()
         {
             // Arrange
             int attemptCount = 0;
-            var settings = new ErrorHandlerSettings { DefaultRetryCount = 3 };
-            var retryHandler = new ErrorHandler(_mockLogger.Object, _mockScreenshotCapture.Object, settings);
             
             // Act & Assert
-            await Assert.ThrowsAsync<NetworkException>(async () => {
-                await retryHandler.ExecuteWithRetryAsync(async () => {
+            await Assert.ThrowsExceptionAsync<ConnectionFailedException>(async () => {
+                await _errorHandler.ExecuteWithRetryAsync(async () => {
                     attemptCount++;
-                    throw new ConnectionFailedException("Test connection exception");
+                    throw new ConnectionFailedException();
                 });
+                await Task.CompletedTask;
             });
             
-            // Verify retry count (initial + 3 retries)
-            Assert.Equal(4, attemptCount);
+            Assert.AreEqual(_settings.DefaultRetryCount + 1, attemptCount);
         }
         
-        [Fact]
+        [TestMethod]
         public async Task ExecuteWithRetryAsync_DoesNotRetry_ForNonTransientExceptions()
         {
             // Arrange
             int attemptCount = 0;
-            var settings = new ErrorHandlerSettings { DefaultRetryCount = 3 };
-            var retryHandler = new ErrorHandler(_mockLogger.Object, _mockScreenshotCapture.Object, settings);
             
             // Act & Assert
-            await Assert.ThrowsAsync<InvalidCredentialsException>(async () => {
-                await retryHandler.ExecuteWithRetryAsync(async () => {
+            await Assert.ThrowsExceptionAsync<InvalidCredentialsException>(async () => {
+                await _errorHandler.ExecuteWithRetryAsync(async () => {
                     attemptCount++;
                     throw new InvalidCredentialsException("Test invalid credentials");
                 });
+                await Task.CompletedTask;
             });
             
-            // Verify only attempted once (no retries for non-transient exceptions)
-            Assert.Equal(1, attemptCount);
+            Assert.AreEqual(1, attemptCount);
         }
         
-        [Fact]
+        [TestMethod]
         public async Task ExecuteWithRetryAsync_SucceedsEventually_WhenErrorsAreTransient()
         {
             // Arrange
@@ -149,43 +156,28 @@ namespace ChromeConnect.Tests.ErrorHandling
                 
                 if (attemptCount < SuccessfulAttempt)
                 {
-                    throw new ConnectionFailedException("Simulated transient error");
+                    throw new ConnectionFailedException();
                 }
                 
-                // Success on the third attempt
                 await Task.CompletedTask;
             });
             
-            // Assert
-            Assert.Equal(SuccessfulAttempt, attemptCount);
+            Assert.AreEqual(SuccessfulAttempt, attemptCount);
         }
         
-        [Fact]
+        [TestMethod]
         public async Task ExecuteWithRetryAsync_UsesExponentialBackoff_BetweenRetries()
         {
-            // This test verifies that the delay between retries increases exponentially
-            // Note: This is a more complex test that would require tracking of the actual delay times
-            
             // Arrange
-            var settings = new ErrorHandlerSettings { 
-                DefaultRetryCount = 3,
-                DefaultRetryDelayMs = 10, // Small value for testing
-                BackoffMultiplier = 2.0,
-                AddJitter = false // Disable jitter for predictable testing
-            };
-            
-            var retryHandler = new ErrorHandler(_mockLogger.Object, _mockScreenshotCapture.Object, settings);
-            
             int attemptCount = 0;
             DateTime lastAttemptTime = DateTime.UtcNow;
-            TimeSpan[] delaysBetweenAttempts = new TimeSpan[3]; // For 3 retries
+            TimeSpan[] delaysBetweenAttempts = new TimeSpan[_settings.DefaultRetryCount]; 
             
             // Act & Assert
-            await Assert.ThrowsAsync<ConnectionFailedException>(async () => {
-                await retryHandler.ExecuteWithRetryAsync(async () => {
-                    if (attemptCount > 0)
+            await Assert.ThrowsExceptionAsync<ConnectionFailedException>(async () => {
+                await _errorHandler.ExecuteWithRetryAsync(async () => {
+                    if (attemptCount > 0 && attemptCount <= _settings.DefaultRetryCount)
                     {
-                        // Record the time since last attempt (i.e., the delay)
                         TimeSpan delay = DateTime.UtcNow - lastAttemptTime;
                         delaysBetweenAttempts[attemptCount - 1] = delay;
                     }
@@ -193,15 +185,207 @@ namespace ChromeConnect.Tests.ErrorHandling
                     lastAttemptTime = DateTime.UtcNow;
                     attemptCount++;
                     
-                    throw new ConnectionFailedException("Simulated transient error");
+                    throw new ConnectionFailedException();
                 });
+                await Task.CompletedTask;
             });
             
-            // Verify exponential backoff pattern
-            // Each delay should be approximately double the previous one
-            // Allow for some variance due to execution time
-            Assert.True(delaysBetweenAttempts[1].TotalMilliseconds > delaysBetweenAttempts[0].TotalMilliseconds * 1.5);
-            Assert.True(delaysBetweenAttempts[2].TotalMilliseconds > delaysBetweenAttempts[1].TotalMilliseconds * 1.5);
+            if (_settings.DefaultRetryCount >= 1) Assert.IsTrue(delaysBetweenAttempts[0].TotalMilliseconds >= _settings.DefaultRetryDelayMs * 0.8);
+            if (_settings.DefaultRetryCount >= 2) Assert.IsTrue(delaysBetweenAttempts[1].TotalMilliseconds > delaysBetweenAttempts[0].TotalMilliseconds * (_settings.BackoffMultiplier - 0.5));
+            if (_settings.DefaultRetryCount >= 3) Assert.IsTrue(delaysBetweenAttempts[2].TotalMilliseconds > delaysBetweenAttempts[1].TotalMilliseconds * (_settings.BackoffMultiplier - 0.5));
+        }
+
+        [TestMethod]
+        public async Task HandleExceptionAsync_GeneralException_LogsErrorAndCapturesScreenshotAndClosesBrowser()
+        {
+            // Arrange
+            var exception = new Exception("Test Exception");
+            var mockWebDriver = new Mock<IWebDriver>();
+            _settings.CaptureScreenshots = true;
+            _settings.CloseDriverOnError = true;
+
+            // Act
+            await _errorHandler.HandleExceptionAsync(exception, mockWebDriver.Object);
+
+            // Assert
+            _mockLogger.Verify(
+                x => x.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<object>(v => v != null && v.ToString().Contains("Test Exception")),
+                    exception,
+                    It.Is<Func<object, Exception?, string>>((v, t) => true)),
+                Times.Once
+            );
+            _mockScreenshotCapture.Verify(s => s.CaptureScreenshot(mockWebDriver.Object, "Error_"), Times.Once);
+            mockWebDriver.Verify(d => d.Quit(), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task ExecuteWithErrorHandlingAsync_ActionSucceeds_ReturnsResultAndNoLogging()
+        {
+            // Arrange
+            var expectedResult = "Success";
+            Func<Task<string>> action = () => Task.FromResult(expectedResult);
+
+            // Act
+            var result = await _errorHandler.ExecuteWithErrorHandlingAsync(action);
+
+            // Assert
+            Assert.AreEqual(expectedResult, result);
+            _mockLogger.Verify(
+                x => x.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.IsAny<object>(),
+                    It.IsAny<Exception?>(),
+                    It.Is<Func<object, Exception?, string>>((v,t) => true)),
+                Times.Never
+            );
+        }
+
+        [TestMethod]
+        public async Task ExecuteWithErrorHandlingAsync_ActionThrowsKnownException_LogsErrorAndReturnsDefault()
+        {
+            // Arrange
+            var exception = new BrowserInitializationException();
+            Func<Task<string>> action = () => throw exception;
+            _settings.CaptureScreenshots = false;
+            _settings.CloseDriverOnError = false;
+
+            // Act & Assert
+            await Assert.ThrowsExceptionAsync<BrowserInitializationException>(async () => {
+                await _errorHandler.ExecuteWithErrorHandlingAsync(action);
+            });
+
+            // Assert exception was logged
+            _mockLogger.Verify(
+                x => x.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.IsAny<object>(),
+                    exception,
+                    It.Is<Func<object, Exception?, string>>((v, t) => true)),
+                Times.Once
+            );
+        }
+        
+        [TestMethod]
+        public async Task ExecuteWithRetryAsync_ActionSucceedsOnFirstTry_ReturnsResult()
+        {
+            // Arrange
+            int attempt = 0;
+            Func<Task<string>> action = () => 
+            {
+                attempt++;
+                return Task.FromResult("Success");
+            };
+            var mockWebDriver = new Mock<IWebDriver>();
+
+            // Act
+            var result = await _errorHandler.ExecuteWithRetryAsync(action, mockWebDriver.Object);
+
+            // Assert
+            Assert.AreEqual("Success", result);
+            Assert.AreEqual(1, attempt);
+        }
+
+        [TestMethod]
+        public async Task ExecuteWithRetryAsync_ActionFailsInitiallyThenSucceeds_ReturnsResultAndLogsWarning()
+        {
+            // Arrange
+            int attempt = 0;
+            Func<Task<string>> action = () => 
+            {
+                attempt++;
+                if (attempt < 2) throw new ConnectionFailedException();
+                return Task.FromResult("Success");
+            };
+            var mockWebDriver = new Mock<IWebDriver>();
+
+            // Act
+            var result = await _errorHandler.ExecuteWithRetryAsync(action, mockWebDriver.Object);
+
+            // Assert
+            Assert.AreEqual("Success", result);
+            Assert.AreEqual(2, attempt);
+            _mockLogger.Verify(
+                x => x.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.IsAny<object>(),
+                    It.IsAny<ConnectionFailedException>(),
+                    It.Is<Func<object, Exception?, string>>((v, t) => true)),
+                Times.Once
+            );
+        }
+
+        [TestMethod]
+        public async Task ExecuteWithRetryAsync_ActionFailsConsistently_ThrowsAndLogsError()
+        {
+            // Arrange
+            int attempt = 0;
+            var exception = new ConnectionFailedException();
+            Func<Task<string>> action = () => 
+            {
+                attempt++;
+                throw exception;
+            };
+            var mockWebDriver = new Mock<IWebDriver>();
+            // Use local settings for this specific test scenario to control retries
+            var localSettings = new ErrorHandlerSettings {
+                DefaultRetryCount = 2,
+                DefaultRetryDelayMs = 10,
+                CaptureScreenshots = true,
+                CloseDriverOnError = true
+            };
+            // Important: Create a new ErrorHandler instance with these localSettings for this test
+            var localErrorHandler = new ErrorHandler(_mockLogger.Object, _mockScreenshotCapture.Object, localSettings);
+
+            // Act & Assert
+            await Assert.ThrowsExceptionAsync<ConnectionFailedException>(() => localErrorHandler.ExecuteWithRetryAsync(action, mockWebDriver.Object));
+            Assert.AreEqual(localSettings.DefaultRetryCount + 1, attempt);
+            _mockLogger.Verify(
+                x => x.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.IsAny<object>(),
+                    exception,
+                    It.Is<Func<object, Exception?, string>>((v, t) => true)),
+                Times.AtLeastOnce
+            );
+            _mockScreenshotCapture.Verify(s => s.CaptureScreenshot(mockWebDriver.Object, It.IsAny<string>()), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task HandleExceptionAsync_ActionThrowsKnownException_LogsErrorAndClosesBrowser_WhenConfigured()
+        {
+            // Arrange
+            var exception = new BrowserInitializationException();
+            var mockWebDriver = new Mock<IWebDriver>();
+            var localSettings = new ErrorHandlerSettings
+            {
+                CaptureScreenshots = false,
+                CloseDriverOnError = true,
+                DefaultRetryCount = 0
+            };
+            var localErrorHandler = new ErrorHandler(_mockLogger.Object, _mockScreenshotCapture.Object, localSettings);
+
+            // Act
+            await localErrorHandler.HandleExceptionAsync(exception, mockWebDriver.Object);
+
+            // Assert
+            _mockLogger.Verify(
+                x => x.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.IsAny<object>(),
+                    exception,
+                    It.Is<Func<object, Exception?, string>>((v, t) => true)),
+                Times.Once
+            );
+            mockWebDriver.Verify(d => d.Quit(), Times.Once);
+            _mockScreenshotCapture.Verify(s => s.CaptureScreenshot(It.IsAny<IWebDriver>(), It.IsAny<string>()), Times.Never);
         }
     }
 } 

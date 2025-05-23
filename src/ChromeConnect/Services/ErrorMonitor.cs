@@ -21,7 +21,7 @@ namespace ChromeConnect.Services
         private readonly ConcurrentQueue<ErrorEvent> _recentErrors = new ConcurrentQueue<ErrorEvent>();
         private DateTime _lastReportTime = DateTime.UtcNow;
         private int _totalErrorCount = 0;
-        private Timer _reportingTimer;
+        private Timer? _reportingTimer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ErrorMonitor"/> class.
@@ -30,7 +30,7 @@ namespace ChromeConnect.Services
         /// <param name="settings">Optional settings for the error monitor.</param>
         public ErrorMonitor(
             ILogger<ErrorMonitor> logger,
-            ErrorMonitorSettings settings = null)
+            ErrorMonitorSettings? settings = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _settings = settings ?? new ErrorMonitorSettings();
@@ -52,7 +52,7 @@ namespace ChromeConnect.Services
         /// <param name="exception">The exception to record.</param>
         /// <param name="source">Optional source identifier for the error.</param>
         /// <param name="additionalData">Optional additional contextual data about the error.</param>
-        public void RecordError(Exception exception, string source = null, Dictionary<string, object> additionalData = null)
+        public void RecordError(Exception exception, string? source = null, Dictionary<string, object>? additionalData = null)
         {
             if (exception == null) return;
             
@@ -90,7 +90,7 @@ namespace ChromeConnect.Services
                         Timestamp = DateTime.UtcNow,
                         Exception = exception,
                         Source = source ?? "Unknown",
-                        AdditionalData = additionalData
+                        AdditionalData = additionalData ?? new Dictionary<string, object>()
                     };
                     
                     // Add to recent errors queue
@@ -369,7 +369,7 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Gets or sets the error type.
         /// </summary>
-        public string ErrorType { get; set; }
+        public string ErrorType { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the first time this error type was observed.
@@ -400,17 +400,17 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Gets or sets the exception that occurred.
         /// </summary>
-        public Exception Exception { get; set; }
+        public Exception? Exception { get; set; }
 
         /// <summary>
         /// Gets or sets the source of the error.
         /// </summary>
-        public string Source { get; set; }
+        public string Source { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets additional contextual data about the error.
         /// </summary>
-        public Dictionary<string, object> AdditionalData { get; set; }
+        public Dictionary<string, object> AdditionalData { get; set; } = new Dictionary<string, object>();
     }
 
     /// <summary>
@@ -421,7 +421,7 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Gets or sets the error type.
         /// </summary>
-        public string ErrorType { get; set; }
+        public string ErrorType { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the count of occurrences.
@@ -457,17 +457,17 @@ namespace ChromeConnect.Services
         /// <summary>
         /// Gets or sets the counts of errors by type in the reporting period.
         /// </summary>
-        public Dictionary<string, int> ErrorCountsByType { get; set; }
+        public Dictionary<string, int> ErrorCountsByType { get; set; } = new Dictionary<string, int>();
 
         /// <summary>
         /// Gets or sets the most frequent error types in the reporting period.
         /// </summary>
-        public List<ErrorTypeFrequency> MostFrequentErrors { get; set; }
+        public List<ErrorTypeFrequency> MostFrequentErrors { get; set; } = new List<ErrorTypeFrequency>();
 
         /// <summary>
         /// Gets or sets the recent error events in the reporting period.
         /// </summary>
-        public List<ErrorEvent> RecentErrors { get; set; }
+        public List<ErrorEvent> RecentErrors { get; set; } = new List<ErrorEvent>();
     }
 
     /// <summary>

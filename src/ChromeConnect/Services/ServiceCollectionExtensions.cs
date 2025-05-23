@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using ChromeConnect.Core;
 using ChromeConnect.Services;
 using ChromeConnect.Models;
+using Serilog;
 
 namespace ChromeConnect.Services
 {
@@ -20,7 +21,7 @@ namespace ChromeConnect.Services
         /// <param name="services">The service collection to add services to.</param>
         /// <param name="setupAction">Optional action to configure additional settings.</param>
         /// <returns>The service collection for chaining.</returns>
-        public static IServiceCollection AddChromeConnectServices(this IServiceCollection services, Action<ChromeConnectOptions> setupAction = null)
+        public static IServiceCollection AddChromeConnectServices(this IServiceCollection services, Action<ChromeConnectOptions>? setupAction = null)
         {
             // Create and configure options
             var options = new ChromeConnectOptions();
@@ -29,6 +30,7 @@ namespace ChromeConnect.Services
             // Register browser-related services
             services.AddSingleton<BrowserManager>();
             services.AddSingleton<LoginDetector>();
+            services.AddSingleton<DetectionMetricsService>();
 
             // Register credential handling and verification
             services.AddSingleton<CredentialManager>();
@@ -39,6 +41,84 @@ namespace ChromeConnect.Services
             services.AddSingleton<ErrorHandler>();
             services.AddSingleton<TimeoutManager>();
             services.AddSingleton<ErrorMonitor>();
+
+            // Register multi-step login navigation
+            services.AddSingleton<MultiStepLoginConfiguration>(provider =>
+            {
+                return new MultiStepLoginConfiguration
+                {
+                    DefaultStepTimeoutSeconds = 30,
+                    DefaultMaxRetries = 3,
+                    RetryDelayMs = 1000,
+                    CaptureScreenshotsOnFailure = true,
+                    EnableDetailedLogging = true,
+                    StopOnFirstFailure = true
+                };
+            });
+            services.AddSingleton<MultiStepLoginNavigator>();
+
+            // Register popup and iFrame handling
+            services.AddSingleton<PopupAndIFrameConfiguration>(provider =>
+            {
+                return new PopupAndIFrameConfiguration
+                {
+                    PopupDetectionTimeoutSeconds = 10,
+                    IFrameDetectionTimeoutSeconds = 5,
+                    DetectionPollingIntervalMs = 500,
+                    AutoCloseAbandonedPopups = true,
+                    AutoSwitchBackToMain = true,
+                    MaxNestedIFrameDepth = 5,
+                    EnableDetailedLogging = true,
+                    CrossDomainTimeoutSeconds = 3
+                };
+            });
+            services.AddSingleton<PopupAndIFrameHandler>();
+
+            // Register JavaScript interaction handling
+            services.AddSingleton<JavaScriptInteractionConfiguration>(provider =>
+            {
+                return new JavaScriptInteractionConfiguration
+                {
+                    DefaultExecutionTimeoutSeconds = 30,
+                    DefaultWaitTimeoutSeconds = 15,
+                    PollingIntervalMs = 500,
+                    EnablePerformanceMonitoring = true,
+                    CaptureJavaScriptErrors = true,
+                    MaxRetryAttempts = 3,
+                    RetryDelayMs = 1000,
+                    EnableDetailedLogging = true,
+                    NetworkIdleTimeoutMs = 2000,
+                    EnableShadowDomSupport = true
+                };
+            });
+            services.AddSingleton<JavaScriptInteractionManager>();
+
+            // Register session management
+            services.AddSingleton<SessionManagementConfiguration>(provider =>
+            {
+                return new SessionManagementConfiguration
+                {
+                    DefaultSessionTimeoutMinutes = 30,
+                    ValidationIntervalMinutes = 5,
+                    PreferredStorageType = SessionStorageType.Cookies,
+                    FallbackStorageTypes = new List<SessionStorageType>
+                    {
+                        SessionStorageType.LocalStorage,
+                        SessionStorageType.SessionStorage,
+                        SessionStorageType.Memory
+                    },
+                    EnableAutoRefresh = true,
+                    RefreshStrategy = SessionRefreshStrategy.OnExpiry,
+                    RefreshBeforeExpiryMinutes = 5,
+                    EnableEncryption = true,
+                    EnableAutoRecovery = true,
+                    MaxRecoveryAttempts = 3,
+                    EnableDetailedLogging = true,
+                    SessionCookieName = "chromeconnect_session",
+                    ValidationUrls = new List<string>()
+                };
+            });
+            services.AddSingleton<SessionManager>();
 
             // Register main application service
             services.AddSingleton<ChromeConnectService>();
@@ -89,6 +169,8 @@ namespace ChromeConnect.Services
             return services;
         }
 
+        // AddChromeConnectLogging methods (both overloads) are removed as Serilog handles logging configuration in Program.cs
+        /*
         /// <summary>
         /// Adds ChromeConnect logging configuration.
         /// </summary>
@@ -161,6 +243,7 @@ namespace ChromeConnect.Services
 
             return services;
         }
+        */
     }
 
     /// <summary>

@@ -12,7 +12,7 @@ namespace ChromeConnect.Exceptions
         public NetworkException() : base() { }
         public NetworkException(string message) : base(message) { }
         public NetworkException(string message, Exception innerException) : base(message, innerException) { }
-        public NetworkException(string message, string errorCode, string context = null) : base(message, errorCode, context) { }
+        public NetworkException(string message, string errorCode, string? context = null) : base(message, errorCode, context ?? string.Empty) { }
         public NetworkException(string message, string errorCode, string context, Exception innerException) : base(message, errorCode, context, innerException) { }
         protected NetworkException(SerializationInfo info, StreamingContext context) : base(info, context) { }
     }
@@ -28,7 +28,10 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string TargetUrl { get; }
 
-        public ConnectionFailedException() : base() { }
+        public ConnectionFailedException() : base() 
+        {
+            TargetUrl = "Unknown URL";
+        }
         
         public ConnectionFailedException(string message, string targetUrl) 
             : base(message, "CONNECTION_FAILED_001", $"Target URL: {targetUrl}")
@@ -45,9 +48,10 @@ namespace ChromeConnect.Exceptions
         protected ConnectionFailedException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            TargetUrl = info.GetString(nameof(TargetUrl));
+            TargetUrl = info.GetString(nameof(TargetUrl)) ?? "Unknown URL";
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(TargetUrl), TargetUrl);
@@ -69,16 +73,21 @@ namespace ChromeConnect.Exceptions
         /// <summary>
         /// Gets the certificate subject.
         /// </summary>
-        public string CertificateSubject { get; }
+        public string? CertificateSubject { get; }
         
         /// <summary>
         /// Gets the certificate validation errors.
         /// </summary>
-        public string ValidationErrors { get; }
+        public string? ValidationErrors { get; }
 
-        public CertificateException() : base() { }
+        public CertificateException() : base() 
+        {
+            TargetUrl = "Unknown URL";
+            CertificateSubject = null;
+            ValidationErrors = null;
+        }
         
-        public CertificateException(string message, string targetUrl, string certificateSubject = null, string validationErrors = null) 
+        public CertificateException(string message, string targetUrl, string? certificateSubject = null, string? validationErrors = null) 
             : base(message, "CERTIFICATE_001", FormatContext(targetUrl, certificateSubject, validationErrors))
         {
             TargetUrl = targetUrl;
@@ -97,11 +106,12 @@ namespace ChromeConnect.Exceptions
         protected CertificateException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            TargetUrl = info.GetString(nameof(TargetUrl));
+            TargetUrl = info.GetString(nameof(TargetUrl)) ?? "Unknown URL";
             CertificateSubject = info.GetString(nameof(CertificateSubject));
             ValidationErrors = info.GetString(nameof(ValidationErrors));
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(TargetUrl), TargetUrl);
@@ -140,7 +150,10 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public int TimeoutMilliseconds { get; }
 
-        public RequestTimeoutException() : base() { }
+        public RequestTimeoutException() : base() 
+        {
+            RequestUrl = "Unknown URL";
+        }
         
         public RequestTimeoutException(string message, string requestUrl, int timeoutMilliseconds) 
             : base(message, "REQUEST_TIMEOUT_001", $"Request URL: {requestUrl}, Timeout: {timeoutMilliseconds}ms")
@@ -159,10 +172,11 @@ namespace ChromeConnect.Exceptions
         protected RequestTimeoutException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            RequestUrl = info.GetString(nameof(RequestUrl));
+            RequestUrl = info.GetString(nameof(RequestUrl)) ?? "Unknown URL";
             TimeoutMilliseconds = info.GetInt32(nameof(TimeoutMilliseconds));
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(RequestUrl), RequestUrl);

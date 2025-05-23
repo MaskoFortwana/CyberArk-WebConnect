@@ -47,7 +47,25 @@
               "target": "Package",
               "version": "[2.9.1, )"
             },
+            "Microsoft.CodeAnalysis.NetAnalyzers": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Binder": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Json": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "Microsoft.Extensions.DependencyInjection": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Hosting": {
               "target": "Package",
               "version": "[8.0.0, )"
             },
@@ -59,11 +77,21 @@
               "target": "Package",
               "version": "[8.0.0, )"
             },
+            "Microsoft.Extensions.Options.ConfigurationExtensions": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "Microsoft.NET.ILLink.Tasks": {
               "suppressParent": "All",
               "target": "Package",
               "version": "[8.0.16, )",
               "autoReferenced": true
+            },
+            "Roslynator.Analyzers": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[4.12.0, )"
             },
             "Selenium.Support": {
               "target": "Package",
@@ -73,13 +101,13 @@
               "target": "Package",
               "version": "[4.15.0, )"
             },
-            "Serilog.Extensions.Logging.File": {
+            "Serilog.AspNetCore": {
               "target": "Package",
-              "version": "[3.0.0, )"
+              "version": "[8.0.0, )"
             },
             "WebDriverManager": {
               "target": "Package",
-              "version": "[2.17.1, )"
+              "version": "[2.17.4, )"
             }
           },
           "imports": [

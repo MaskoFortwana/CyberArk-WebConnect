@@ -12,7 +12,7 @@ namespace ChromeConnect.Exceptions
         public AppSystemException() : base() { }
         public AppSystemException(string message) : base(message) { }
         public AppSystemException(string message, Exception innerException) : base(message, innerException) { }
-        public AppSystemException(string message, string errorCode, string context = null) : base(message, errorCode, context) { }
+        public AppSystemException(string message, string errorCode, string? context = null) : base(message, errorCode, context ?? string.Empty) { }
         public AppSystemException(string message, string errorCode, string context, Exception innerException) : base(message, errorCode, context, innerException) { }
         protected AppSystemException(SerializationInfo info, StreamingContext context) : base(info, context) { }
     }
@@ -28,7 +28,10 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string ParameterName { get; }
 
-        public ConfigurationException() : base() { }
+        public ConfigurationException() : base() 
+        {
+            ParameterName = "Unknown Parameter";
+        }
         
         public ConfigurationException(string message, string parameterName) 
             : base(message, "CONFIG_001", $"Parameter: {parameterName}")
@@ -45,9 +48,10 @@ namespace ChromeConnect.Exceptions
         protected ConfigurationException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            ParameterName = info.GetString(nameof(ParameterName));
+            ParameterName = info.GetString(nameof(ParameterName)) ?? "Unknown Parameter";
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(ParameterName), ParameterName);
@@ -71,7 +75,11 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string OperationType { get; }
 
-        public FileOperationException() : base() { }
+        public FileOperationException() : base() 
+        {
+            FilePath = "Unknown File";
+            OperationType = "Unknown Operation";
+        }
         
         public FileOperationException(string message, string filePath, string operationType) 
             : base(message, "FILE_OP_001", $"File: {filePath}, Operation: {operationType}")
@@ -90,10 +98,11 @@ namespace ChromeConnect.Exceptions
         protected FileOperationException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            FilePath = info.GetString(nameof(FilePath));
-            OperationType = info.GetString(nameof(OperationType));
+            FilePath = info.GetString(nameof(FilePath)) ?? "Unknown File";
+            OperationType = info.GetString(nameof(OperationType)) ?? "Unknown Operation";
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(FilePath), FilePath);
@@ -116,11 +125,15 @@ namespace ChromeConnect.Exceptions
         /// <summary>
         /// Gets the path where the resource was expected to be found.
         /// </summary>
-        public string ResourcePath { get; }
+        public string? ResourcePath { get; }
 
-        public ResourceNotFoundException() : base() { }
+        public ResourceNotFoundException() : base() 
+        {
+            ResourceName = "Unknown Resource";
+            ResourcePath = null;
+        }
         
-        public ResourceNotFoundException(string message, string resourceName, string resourcePath = null) 
+        public ResourceNotFoundException(string message, string resourceName, string? resourcePath = null) 
             : base(message, "RESOURCE_NOT_FOUND_001", FormatContext(resourceName, resourcePath))
         {
             ResourceName = resourceName;
@@ -137,10 +150,11 @@ namespace ChromeConnect.Exceptions
         protected ResourceNotFoundException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            ResourceName = info.GetString(nameof(ResourceName));
+            ResourceName = info.GetString(nameof(ResourceName)) ?? "Unknown Resource";
             ResourcePath = info.GetString(nameof(ResourcePath));
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(ResourceName), ResourceName);
@@ -148,7 +162,7 @@ namespace ChromeConnect.Exceptions
             base.GetObjectData(info, context);
         }
 
-        private static string FormatContext(string resourceName, string resourcePath)
+        private static string FormatContext(string resourceName, string? resourcePath)
         {
             if (string.IsNullOrEmpty(resourcePath))
                 return $"Resource: {resourceName}";
@@ -166,7 +180,7 @@ namespace ChromeConnect.Exceptions
         /// <summary>
         /// Gets the name of the operation that was canceled.
         /// </summary>
-        public string OperationName { get; }
+        public string? OperationName { get; }
 
         /// <summary>
         /// Gets the time when the operation was canceled.
@@ -175,6 +189,7 @@ namespace ChromeConnect.Exceptions
 
         public AppOperationCanceledException() : base() 
         {
+            OperationName = "Unknown Operation";
             CancelTime = DateTime.UtcNow;
         }
         
@@ -199,6 +214,7 @@ namespace ChromeConnect.Exceptions
             CancelTime = info.GetDateTime(nameof(CancelTime));
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(OperationName), OperationName);

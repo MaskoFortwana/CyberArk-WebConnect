@@ -12,7 +12,7 @@ namespace ChromeConnect.Exceptions
         public LoginException() : base() { }
         public LoginException(string message) : base(message) { }
         public LoginException(string message, Exception innerException) : base(message, innerException) { }
-        public LoginException(string message, string errorCode, string context = null) : base(message, errorCode, context) { }
+        public LoginException(string message, string errorCode, string? context = null) : base(message, errorCode, context ?? string.Empty) { }
         public LoginException(string message, string errorCode, string context, Exception innerException) : base(message, errorCode, context, innerException) { }
         protected LoginException(SerializationInfo info, StreamingContext context) : base(info, context) { }
     }
@@ -28,7 +28,10 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string PageUrl { get; }
 
-        public LoginFormNotFoundException() : base() { }
+        public LoginFormNotFoundException() : base() 
+        {
+            PageUrl = "Unknown URL";
+        }
         
         public LoginFormNotFoundException(string message, string pageUrl) 
             : base(message, "LOGIN_FORM_001", $"Page URL: {pageUrl}")
@@ -45,9 +48,10 @@ namespace ChromeConnect.Exceptions
         protected LoginFormNotFoundException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            PageUrl = info.GetString(nameof(PageUrl));
+            PageUrl = info.GetString(nameof(PageUrl)) ?? "Unknown URL";
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(PageUrl), PageUrl);
@@ -66,7 +70,10 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string FieldType { get; }
 
-        public CredentialEntryException() : base() { }
+        public CredentialEntryException() : base() 
+        {
+            FieldType = "Unknown Field";
+        }
         
         public CredentialEntryException(string message, string fieldType) 
             : base(message, "CREDENTIAL_ENTRY_001", $"Field Type: {fieldType}")
@@ -83,9 +90,10 @@ namespace ChromeConnect.Exceptions
         protected CredentialEntryException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            FieldType = info.GetString(nameof(FieldType));
+            FieldType = info.GetString(nameof(FieldType)) ?? "Unknown Field";
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(FieldType), FieldType);
@@ -109,7 +117,11 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string[] ErrorMessages { get; }
 
-        public LoginVerificationException() : base() { }
+        public LoginVerificationException() : base() 
+        {
+            ErrorMessagesFound = false;
+            ErrorMessages = Array.Empty<string>();
+        }
         
         public LoginVerificationException(string message) 
             : base(message, "LOGIN_VERIFY_001")
@@ -119,7 +131,7 @@ namespace ChromeConnect.Exceptions
         }
         
         public LoginVerificationException(string message, string[] errorMessages) 
-            : base(message, "LOGIN_VERIFY_001", $"Error Messages: {string.Join(", ", errorMessages)}")
+            : base(message, "LOGIN_VERIFY_001", $"Error Messages: {string.Join(", ", errorMessages ?? Array.Empty<string>())}")
         {
             ErrorMessagesFound = errorMessages != null && errorMessages.Length > 0;
             ErrorMessages = errorMessages ?? Array.Empty<string>();
@@ -136,9 +148,10 @@ namespace ChromeConnect.Exceptions
             : base(info, context)
         {
             ErrorMessagesFound = info.GetBoolean(nameof(ErrorMessagesFound));
-            ErrorMessages = (string[])info.GetValue(nameof(ErrorMessages), typeof(string[]));
+            ErrorMessages = (string[]?)info.GetValue(nameof(ErrorMessages), typeof(string[])) ?? Array.Empty<string>();
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(ErrorMessagesFound), ErrorMessagesFound);
@@ -158,7 +171,10 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string[] ErrorMessages { get; }
 
-        public InvalidCredentialsException() : base() { }
+        public InvalidCredentialsException() : base() 
+        {
+            ErrorMessages = Array.Empty<string>();
+        }
         
         public InvalidCredentialsException(string message) 
             : base(message, "INVALID_CREDS_001")
@@ -175,9 +191,10 @@ namespace ChromeConnect.Exceptions
         protected InvalidCredentialsException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            ErrorMessages = (string[])info.GetValue(nameof(ErrorMessages), typeof(string[]));
+            ErrorMessages = (string[]?)info.GetValue(nameof(ErrorMessages), typeof(string[])) ?? Array.Empty<string>();
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(ErrorMessages), ErrorMessages);

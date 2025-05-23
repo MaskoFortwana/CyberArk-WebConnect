@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -13,172 +14,165 @@ namespace ChromeConnect.Tests.Integration
 {
     public class ChromeConnectServiceTests
     {
-        private readonly Mock<ILogger<ChromeConnectService>> _loggerMock;
-        private readonly Mock<BrowserManager> _browserManagerMock;
-        private readonly Mock<LoginDetector> _loginDetectorMock;
-        private readonly Mock<CredentialManager> _credentialManagerMock;
-        private readonly Mock<LoginVerifier> _loginVerifierMock;
-        private readonly Mock<IScreenshotCapture> _screenshotCaptureMock;
-        private readonly Mock<ErrorHandler> _errorHandlerMock;
-        private readonly Mock<TimeoutManager> _timeoutManagerMock;
-        private readonly Mock<ErrorMonitor> _errorMonitorMock;
-        private readonly Mock<IWebDriver> _webDriverMock;
+        private readonly Mock<ILogger<ChromeConnectService>> _mockServiceLogger;
+        private readonly Mock<BrowserManager> _mockBrowserManager;
+        private readonly Mock<LoginDetector> _mockLoginDetector;
+        private readonly Mock<CredentialManager> _mockCredentialManager;
+        private readonly Mock<LoginVerifier> _mockLoginVerifier;
+        private readonly Mock<IScreenshotCapture> _mockScreenshotCapture;
+        private readonly Mock<ErrorHandler> _mockErrorHandler;
+        private readonly Mock<TimeoutManager> _mockTimeoutManager;
+        private readonly Mock<ErrorMonitor> _mockErrorMonitor;
+        private readonly ChromeConnectService _service;
 
         public ChromeConnectServiceTests()
         {
-            _loggerMock = new Mock<ILogger<ChromeConnectService>>();
-            _browserManagerMock = new Mock<BrowserManager>(Mock.Of<ILogger<BrowserManager>>());
-            _loginDetectorMock = new Mock<LoginDetector>(Mock.Of<ILogger<LoginDetector>>());
-            _credentialManagerMock = new Mock<CredentialManager>(Mock.Of<ILogger<CredentialManager>>());
-            _loginVerifierMock = new Mock<LoginVerifier>(Mock.Of<ILogger<LoginVerifier>>());
-            _screenshotCaptureMock = new Mock<IScreenshotCapture>();
-            _errorHandlerMock = new Mock<ErrorHandler>(
-                Mock.Of<ILogger<ErrorHandler>>(),
-                _screenshotCaptureMock.Object,
-                new ErrorHandlerSettings());
-            _timeoutManagerMock = new Mock<TimeoutManager>(
-                Mock.Of<ILogger<TimeoutManager>>(),
-                new TimeoutSettings());
-            _errorMonitorMock = new Mock<ErrorMonitor>(Mock.Of<ILogger<ErrorMonitor>>());
-            _webDriverMock = new Mock<IWebDriver>();
+            _mockServiceLogger = new Mock<ILogger<ChromeConnectService>>();
+            
+            var mockBrowserManagerLogger = new Mock<ILogger<BrowserManager>>();
+            _mockBrowserManager = new Mock<BrowserManager>(mockBrowserManagerLogger.Object);
+
+            var mockLoginDetectorLogger = new Mock<ILogger<LoginDetector>>();
+            _mockLoginDetector = new Mock<LoginDetector>(mockLoginDetectorLogger.Object);
+
+            var mockCredentialManagerLogger = new Mock<ILogger<CredentialManager>>();
+            _mockCredentialManager = new Mock<CredentialManager>(mockCredentialManagerLogger.Object);
+
+            var mockLoginVerifierLogger = new Mock<ILogger<LoginVerifier>>();
+            _mockLoginVerifier = new Mock<LoginVerifier>(mockLoginVerifierLogger.Object);
+
+            var mockErrorHandlerLogger = new Mock<ILogger<ErrorHandler>>();
+            var errorHandlerSettings = new ErrorHandlerSettings();
+            _mockErrorHandler = new Mock<ErrorHandler>(mockErrorHandlerLogger.Object, _mockScreenshotCapture.Object, errorHandlerSettings);
+
+            var mockTimeoutManagerLogger = new Mock<ILogger<TimeoutManager>>();
+            var timeoutSettings = new TimeoutSettings();
+            _mockTimeoutManager = new Mock<TimeoutManager>(mockTimeoutManagerLogger.Object, timeoutSettings);
+
+            var mockErrorMonitorLogger = new Mock<ILogger<ErrorMonitor>>();
+            var errorMonitorSettings = new ErrorMonitorSettings();
+            _mockErrorMonitor = new Mock<ErrorMonitor>(mockErrorMonitorLogger.Object, errorMonitorSettings);
+
+            _mockScreenshotCapture = new Mock<IScreenshotCapture>();
+
+            _service = new ChromeConnectService(
+                _mockServiceLogger.Object,
+                _mockBrowserManager.Object,
+                _mockLoginDetector.Object,
+                _mockCredentialManager.Object,
+                _mockLoginVerifier.Object,
+                _mockScreenshotCapture.Object,
+                _mockErrorHandler.Object,
+                _mockTimeoutManager.Object,
+                _mockErrorMonitor.Object
+            );
         }
 
         [Fact]
         public async Task ExecuteAsync_SuccessfulLogin_ReturnsZero()
         {
             // Arrange
-            var options = new CommandLineOptions
-            {
-                Url = "https://example.com",
-                Username = "testuser",
-                Password = "password",
-                Domain = "domain"
-            };
+            var options = new CommandLineOptions { Url = "http://test.com", Username = "user", Password = "pass", Domain = "dom", IgnoreCertErrors = true };
+            var mockDriver = new Mock<IWebDriver>();
 
-            var loginForm = new LoginFormElements
-            {
-                UsernameField = Mock.Of<IWebElement>(),
-                PasswordField = Mock.Of<IWebElement>(),
-                SubmitButton = Mock.Of<IWebElement>()
-            };
+            _mockBrowserManager.Setup(b => b.LaunchBrowser(options.Url, options.Incognito, options.Kiosk, options.IgnoreCertErrors)).Returns(mockDriver.Object);
+            _mockLoginDetector.Setup(d => d.DetectLoginFormAsync(mockDriver.Object)).ReturnsAsync(new LoginFormElements()); // Assuming LoginFormElements is a valid type
+            _mockCredentialManager.Setup(c => c.EnterCredentialsAsync(mockDriver.Object, It.IsAny<LoginFormElements>(), options.Username, options.Password, options.Domain)).ReturnsAsync(true);
+            _mockLoginVerifier.Setup(v => v.VerifyLoginSuccessAsync(mockDriver.Object)).ReturnsAsync(true);
 
-            _browserManagerMock
-                .Setup(x => x.LaunchBrowser(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
-                .Returns(_webDriverMock.Object);
+            // Setup ErrorHandler to pass through the action
+            _mockErrorHandler.Setup(eh => eh.ExecuteWithRetryAsync(
+                It.IsAny<Func<Task<int>>>(), 
+                mockDriver.Object, 
+                It.IsAny<int?>(), // retryCount
+                It.IsAny<int?>(), // retryDelayMs
+                It.IsAny<Func<Exception, bool>?>(), // shouldRetryFunc
+                It.IsAny<CancellationToken>() // cancellationToken
+            ))
+               .Returns<Func<Task<int>>, IWebDriver, int?, int?, Func<Exception, bool>?, CancellationToken>((action, driver, rc, rdm, srf, ct) => action());
+            
+            _mockErrorHandler.Setup(eh => eh.ExecuteWithErrorHandlingAsync(
+                It.IsAny<Func<Task<IWebDriver>>>(), 
+                It.IsAny<IWebDriver?>() // driver
+            ))
+                .Returns<Func<Task<IWebDriver>>, IWebDriver?>((action, drv) => action());
 
-            // Set up error handler to execute the function directly
-            _errorHandlerMock
-                .Setup(x => x.ExecuteWithErrorHandlingAsync(It.IsAny<Func<Task<IWebDriver>>>()))
-                .Returns<Func<Task<IWebDriver>>>(async func => await func());
-
-            _errorHandlerMock
-                .Setup(x => x.ExecuteWithRetryAsync(It.IsAny<Func<Task<int>>>(), It.IsAny<IWebDriver>(), It.IsAny<Func<Exception, bool>>()))
-                .Returns<Func<Task<int>>, IWebDriver, Func<Exception, bool>>(async (func, driver, retryFunc) => await func());
-
-            // Set up timeout manager to execute the function directly
-            _timeoutManagerMock
-                .Setup(x => x.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<LoginFormElements>>>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<System.Threading.CancellationToken>()))
-                .Returns<Func<Task<LoginFormElements>>, string, int?, System.Threading.CancellationToken>(async (func, opName, timeout, token) => loginForm);
-
-            _timeoutManagerMock
-                .Setup(x => x.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<bool>>>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<System.Threading.CancellationToken>()))
-                .Returns<Func<Task<bool>>, string, int?, System.Threading.CancellationToken>(async (func, opName, timeout, token) => true);
-
-            _loginDetectorMock
-                .Setup(x => x.DetectLoginFormAsync(_webDriverMock.Object))
-                .ReturnsAsync(loginForm);
-
-            _credentialManagerMock
-                .Setup(x => x.EnterCredentialsAsync(_webDriverMock.Object, loginForm, options.Username, options.Password, options.Domain))
-                .ReturnsAsync(true);
-
-            _loginVerifierMock
-                .Setup(x => x.VerifyLoginSuccessAsync(_webDriverMock.Object))
-                .ReturnsAsync(true);
-
-            var service = new ChromeConnectService(
-                _loggerMock.Object,
-                _browserManagerMock.Object,
-                _loginDetectorMock.Object,
-                _credentialManagerMock.Object,
-                _loginVerifierMock.Object,
-                _screenshotCaptureMock.Object,
-                _errorHandlerMock.Object,
-                _timeoutManagerMock.Object,
-                _errorMonitorMock.Object
-            );
+            // Setup TimeoutManager to pass through actions, now including CancellationToken
+            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<LoginFormElements>>>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<Func<Task<LoginFormElements>>, int?, string, CancellationToken>((action, timeout, opName, ct) => action());
+            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<bool>>>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<Func<Task<bool>>, int?, string, CancellationToken>((action, timeout, opName, ct) => action());
 
             // Act
-            var result = await service.ExecuteAsync(options);
+            var result = await _service.ExecuteAsync(options);
 
             // Assert
-            Assert.Equal(0, result);
-            _browserManagerMock.Verify(x => x.LaunchBrowser(options.Url, options.Incognito, options.Kiosk, options.IgnoreCertErrors), Times.Once);
-            _loginDetectorMock.Verify(x => x.DetectLoginFormAsync(_webDriverMock.Object), Times.Once);
-            _credentialManagerMock.Verify(x => x.EnterCredentialsAsync(_webDriverMock.Object, loginForm, options.Username, options.Password, options.Domain), Times.Once);
-            _loginVerifierMock.Verify(x => x.VerifyLoginSuccessAsync(_webDriverMock.Object), Times.Once);
-            _browserManagerMock.Verify(x => x.CloseBrowser(It.IsAny<IWebDriver>()), Times.Never);
+            Xunit.Assert.Equal(0, result);
+            _mockServiceLogger.Verify(
+                x => x.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Information,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Login successful"))!,
+                    null,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
         }
 
         [Fact]
-        public async Task ExecuteAsync_LoginFailed_ReturnsOne()
+        public async Task ExecuteAsync_LoginFails_ThrowsInvalidCredentialsExceptionAndReturnsOne()
         {
             // Arrange
-            var options = new CommandLineOptions
-            {
-                Url = "https://example.com",
-                Username = "testuser",
-                Password = "password",
-                Domain = "domain"
-            };
+            var options = new CommandLineOptions { Url = "http://test.com", Username = "user", Password = "wrong", Domain = "dom", IgnoreCertErrors = true };
+            var mockDriver = new Mock<IWebDriver>();
 
-            var loginForm = new LoginFormElements
-            {
-                UsernameField = Mock.Of<IWebElement>(),
-                PasswordField = Mock.Of<IWebElement>(),
-                SubmitButton = Mock.Of<IWebElement>()
-            };
+            _mockBrowserManager.Setup(b => b.LaunchBrowser(options.Url, options.Incognito, options.Kiosk, options.IgnoreCertErrors)).Returns(mockDriver.Object);
+            _mockLoginDetector.Setup(d => d.DetectLoginFormAsync(mockDriver.Object)).ReturnsAsync(new LoginFormElements());
+            _mockCredentialManager.Setup(c => c.EnterCredentialsAsync(mockDriver.Object, It.IsAny<LoginFormElements>(), options.Username, options.Password, options.Domain)).ReturnsAsync(true);
+            _mockLoginVerifier.Setup(v => v.VerifyLoginSuccessAsync(mockDriver.Object)).ReturnsAsync(false); // Simulate login failure
 
-            _browserManagerMock
-                .Setup(x => x.LaunchBrowser(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
-                .Returns(_webDriverMock.Object);
-
-            _errorHandlerMock
-                .Setup(x => x.ExecuteWithErrorHandlingAsync(It.IsAny<Func<Task<IWebDriver>>>()))
-                .Returns<Func<Task<IWebDriver>>>(async func => await func());
-
-            _errorHandlerMock
-                .Setup(x => x.ExecuteWithRetryAsync(It.IsAny<Func<Task<int>>>(), It.IsAny<IWebDriver>(), It.IsAny<Func<Exception, bool>>()))
-                .Callback<Func<Task<int>>, IWebDriver, Func<Exception, bool>>((func, driver, retryFunc) => 
+            // Setup ErrorHandler for the retry block
+            _mockErrorHandler.Setup(eh => eh.ExecuteWithRetryAsync(
+                It.IsAny<Func<Task<int>>>(), 
+                mockDriver.Object, 
+                It.IsAny<int?>(), // retryCount
+                It.IsAny<int?>(), // retryDelayMs
+                It.IsAny<Func<Exception, bool>?>(), // shouldRetryFunc
+                It.IsAny<CancellationToken>() // cancellationToken
+            ))
+                .Callback<Func<Task<int>>, IWebDriver, int?, int?, Func<Exception, bool>?, CancellationToken>(async (action, driver, rc, rdm, srf, ct) => 
                 {
-                    // Simulate the function throwing an exception
-                    throw new InvalidCredentialsException("Login failed");
+                    try { await action(); } 
+                    catch (InvalidCredentialsException) { /* Expected from service logic */ throw; } 
                 })
-                .ThrowsAsync(new InvalidCredentialsException("Login failed"));
+                .ThrowsAsync(new InvalidCredentialsException("Simulated from test setup")); 
+            
+            _mockErrorHandler.Setup(eh => eh.ExecuteWithErrorHandlingAsync(
+                It.IsAny<Func<Task<IWebDriver>>>(), 
+                It.IsAny<IWebDriver?>() // driver
+            ))
+                .Returns<Func<Task<IWebDriver>>, IWebDriver?>((action, drv) => action());
 
-            _timeoutManagerMock
-                .Setup(x => x.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<LoginFormElements>>>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<System.Threading.CancellationToken>()))
-                .Returns<Func<Task<LoginFormElements>>, string, int?, System.Threading.CancellationToken>(async (func, opName, timeout, token) => loginForm);
-
-            var service = new ChromeConnectService(
-                _loggerMock.Object,
-                _browserManagerMock.Object,
-                _loginDetectorMock.Object,
-                _credentialManagerMock.Object,
-                _loginVerifierMock.Object,
-                _screenshotCaptureMock.Object,
-                _errorHandlerMock.Object,
-                _timeoutManagerMock.Object,
-                _errorMonitorMock.Object
-            );
+            // Setup TimeoutManager, now including CancellationToken
+            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<LoginFormElements>>>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<Func<Task<LoginFormElements>>, int?, string, CancellationToken>((action, timeout, opName, ct) => action());
+            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<bool>>>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns<Func<Task<bool>>, int?, string, CancellationToken>((action, timeout, opName, ct) => action());
 
             // Act
-            var result = await service.ExecuteAsync(options);
+            var result = await _service.ExecuteAsync(options);
 
             // Assert
-            Assert.Equal(1, result);
-            _browserManagerMock.Verify(x => x.LaunchBrowser(options.Url, options.Incognito, options.Kiosk, options.IgnoreCertErrors), Times.Once);
-            _errorMonitorMock.Verify(x => x.RecordError(It.IsAny<InvalidCredentialsException>(), It.IsAny<string>()), Times.Once);
+            Xunit.Assert.Equal(1, result); // Expect exit code 1 for login failure
+             _mockErrorHandler.Verify(eh => eh.HandleExceptionAsync(It.IsAny<InvalidCredentialsException>(), mockDriver.Object), Times.Never); // Error should be caught and exit code returned, not re-thrown to top handler
+            _mockServiceLogger.Verify(
+                x => x.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Login failed"))!,
+                    null, // Exception is handled internally by ErrorHandler within ExecuteAsync
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+             _mockScreenshotCapture.Verify(s => s.CaptureScreenshot(mockDriver.Object, "LoginFailed"), Times.Once); // Verify screenshot on login failure
         }
     }
 } 

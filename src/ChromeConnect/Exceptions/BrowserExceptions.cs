@@ -12,7 +12,7 @@ namespace ChromeConnect.Exceptions
         public BrowserException() : base() { }
         public BrowserException(string message) : base(message) { }
         public BrowserException(string message, Exception innerException) : base(message, innerException) { }
-        public BrowserException(string message, string errorCode, string context = null) : base(message, errorCode, context) { }
+        public BrowserException(string message, string errorCode, string? context = null) : base(message, errorCode, context ?? string.Empty) { }
         public BrowserException(string message, string errorCode, string context, Exception innerException) : base(message, errorCode, context, innerException) { }
         protected BrowserException(SerializationInfo info, StreamingContext context) : base(info, context) { }
     }
@@ -29,7 +29,7 @@ namespace ChromeConnect.Exceptions
             : base(message, "BROWSER_INIT_001") { }
         
         public BrowserInitializationException(string message, Exception innerException) 
-            : base(message, "BROWSER_INIT_001", null, innerException) { }
+            : base(message, "BROWSER_INIT_001", string.Empty, innerException) { }
         
         public BrowserInitializationException(string message, string context) 
             : base(message, "BROWSER_INIT_001", context) { }
@@ -53,7 +53,7 @@ namespace ChromeConnect.Exceptions
             : base(message, "CHROME_DRIVER_001") { }
         
         public ChromeDriverMissingException(string message, Exception innerException) 
-            : base(message, "CHROME_DRIVER_001", null, innerException) { }
+            : base(message, "CHROME_DRIVER_001", string.Empty, innerException) { }
         
         public ChromeDriverMissingException(string message, string driverPath) 
             : base(message, "CHROME_DRIVER_001", $"Driver Path: {driverPath}") { }
@@ -76,7 +76,10 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string TargetUrl { get; }
         
-        public BrowserNavigationException() : base() { }
+        public BrowserNavigationException() : base() 
+        {
+            TargetUrl = "Unknown URL";
+        }
         
         public BrowserNavigationException(string message, string targetUrl) 
             : base(message, "BROWSER_NAV_001", $"Target URL: {targetUrl}")
@@ -93,9 +96,9 @@ namespace ChromeConnect.Exceptions
         protected BrowserNavigationException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            TargetUrl = info.GetString(nameof(TargetUrl));
+            TargetUrl = info.GetString(nameof(TargetUrl)) ?? "Unknown URL";
         }
-        
+          [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(TargetUrl), TargetUrl);
@@ -119,7 +122,11 @@ namespace ChromeConnect.Exceptions
         /// </summary>
         public string Operation { get; }
         
-        public BrowserTimeoutException() : base() { }
+        public BrowserTimeoutException() : base() 
+        {
+            Operation = "Unknown Operation";
+            // TimeoutMilliseconds is int, defaults to 0 which is acceptable.
+        }
         
         public BrowserTimeoutException(string message, string operation, int timeoutMilliseconds) 
             : base(message, "BROWSER_TIMEOUT_001", $"Operation: {operation}, Timeout: {timeoutMilliseconds}ms")
@@ -138,10 +145,11 @@ namespace ChromeConnect.Exceptions
         protected BrowserTimeoutException(SerializationInfo info, StreamingContext context) 
             : base(info, context)
         {
-            Operation = info.GetString(nameof(Operation));
+            Operation = info.GetString(nameof(Operation)) ?? "Unknown Operation";
             TimeoutMilliseconds = info.GetInt32(nameof(TimeoutMilliseconds));
         }
         
+        [Obsolete("This method overrides an obsolete member in Exception. It may be removed in a future release.", DiagnosticId = "SYSLIB0051")]
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue(nameof(Operation), Operation);

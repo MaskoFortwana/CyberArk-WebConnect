@@ -5,9 +5,8 @@ using System.Reflection;
 using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
-using WebDriverManager;
 using WebDriverManager.DriverConfigs.Impl;
-using WebDriverManager.Helpers;
+using WebDriverManager;
 
 namespace ChromeConnect.Core;
 
@@ -20,14 +19,14 @@ public class BrowserManager
         _logger = logger;
     }
 
-    public IWebDriver? LaunchBrowser(string url, bool incognito, bool kiosk, bool ignoreCertErrors)
+    public virtual IWebDriver? LaunchBrowser(string url, bool incognito, bool kiosk, bool ignoreCertErrors)
     {
         try
         {
             _logger.LogInformation("Setting up Chrome browser");
 
-            // Ensure ChromeDriver is installed and configured
-            new DriverManager().SetUpDriver(new ChromeConfig(), VersionResolveStrategy.MatchingBrowser);
+            // Configure WebDriverManager for self-contained deployment
+            string chromeDriverPath = SetupChromeDriver();
 
             // Configure Chrome options
             var options = new ChromeOptions();
@@ -40,11 +39,13 @@ public class BrowserManager
                 "--disable-translate",
                 "--disable-extensions",
                 "--disable-infobars",
-                "--disable-gpu"
+                "--disable-gpu",
+                "--no-sandbox", // Required for some environments
+                "--disable-dev-shm-usage" // Required for some environments
             });
 
             // Configure the browser to stay open after the script exits
-            options.AddAdditionalChromeOption("detach", true);
+            options.LeaveBrowserRunning = true;
 
             // Add optional flags based on parameters
             if (incognito)
@@ -65,9 +66,23 @@ public class BrowserManager
                 options.AddArgument("--ignore-certificate-errors");
             }
 
+            // Create ChromeDriverService with the correct path
+            ChromeDriverService chromeDriverService;
+            if (!string.IsNullOrEmpty(chromeDriverPath) && File.Exists(chromeDriverPath))
+            {
+                _logger.LogDebug($"Using ChromeDriver from: {chromeDriverPath}");
+                string driverDir = Path.GetDirectoryName(chromeDriverPath)!;
+                chromeDriverService = ChromeDriverService.CreateDefaultService(driverDir);
+            }
+            else
+            {
+                _logger.LogDebug("Using default ChromeDriverService");
+                chromeDriverService = ChromeDriverService.CreateDefaultService();
+            }
+
             // Create the ChromeDriver with configured options
             _logger.LogInformation("Creating Chrome driver");
-            var driver = new ChromeDriver(options);
+            var driver = new ChromeDriver(chromeDriverService, options);
             
             // Set window size if not in kiosk mode
             if (!kiosk)
@@ -92,7 +107,58 @@ public class BrowserManager
         }
     }
 
-    public void CloseBrowser(IWebDriver? driver)
+    private string SetupChromeDriver()
+    {
+        try
+        {
+            _logger.LogInformation("Setting up ChromeDriver using WebDriverManager");
+            
+            // Get the application directory
+            string appDir = AppContext.BaseDirectory;
+            string driversDir = Path.Combine(appDir, "drivers");
+            
+            // Ensure drivers directory exists
+            Directory.CreateDirectory(driversDir);
+            
+            // Configure WebDriverManager with custom cache path for self-contained deployment
+            var driverManager = new DriverManager();
+            
+            // Set up the Chrome driver configuration
+            var chromeConfig = new ChromeConfig();
+            
+            // Try to set up the driver and get its path
+            string driverPath = driverManager.SetUpDriver(chromeConfig);
+            
+            _logger.LogInformation($"ChromeDriver set up successfully at: {driverPath}");
+            return driverPath;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "WebDriverManager setup failed, falling back to system PATH");
+            
+            // Try to find chromedriver in system PATH or common locations
+            string[] commonPaths = {
+                "chromedriver.exe",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Google", "Chrome", "chromedriver.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Chrome", "Application", "chromedriver.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Google", "Chrome", "Application", "chromedriver.exe")
+            };
+            
+            foreach (string path in commonPaths)
+            {
+                if (File.Exists(path))
+                {
+                    _logger.LogInformation($"Found ChromeDriver at: {path}");
+                    return path;
+                }
+            }
+            
+            _logger.LogWarning("ChromeDriver not found in common locations, will use Selenium's default behavior");
+            return string.Empty;
+        }
+    }
+
+    public virtual void CloseBrowser(IWebDriver? driver)
     {
         if (driver != null)
         {

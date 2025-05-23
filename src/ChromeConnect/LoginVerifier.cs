@@ -18,7 +18,7 @@ public class LoginVerifier : IScreenshotCapture
         _logger = logger;
     }
 
-    public async Task<bool> VerifyLoginSuccessAsync(IWebDriver driver)
+    public virtual async Task<bool> VerifyLoginSuccessAsync(IWebDriver driver)
     {
         try
         {
