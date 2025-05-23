@@ -5,16 +5,9 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
+using ChromeConnect.Models;
 
 namespace ChromeConnect.Core;
-
-public class LoginFormElements
-{
-    public IWebElement? UsernameField { get; set; }
-    public IWebElement? PasswordField { get; set; }
-    public IWebElement? DomainField { get; set; }
-    public IWebElement? SubmitButton { get; set; }
-}
 
 public class LoginDetector
 {

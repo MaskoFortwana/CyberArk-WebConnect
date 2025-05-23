@@ -1,0 +1,15 @@
+C:\projects\ChromeConnect\ChromeConnect.Console\bin\Debug\net8.0\ChromeConnect.Console.exe
+C:\projects\ChromeConnect\ChromeConnect.Console\bin\Debug\net8.0\ChromeConnect.Console.deps.json
+C:\projects\ChromeConnect\ChromeConnect.Console\bin\Debug\net8.0\ChromeConnect.Console.runtimeconfig.json
+C:\projects\ChromeConnect\ChromeConnect.Console\bin\Debug\net8.0\ChromeConnect.Console.dll
+C:\projects\ChromeConnect\ChromeConnect.Console\bin\Debug\net8.0\ChromeConnect.Console.pdb
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ChromeConnect.Console.GeneratedMSBuildEditorConfig.editorconfig
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ChromeConnect.Console.AssemblyInfoInputs.cache
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ChromeConnect.Console.AssemblyInfo.cs
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ChromeConnect.Console.csproj.CoreCompileInputs.cache
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ChromeConnect.Console.sourcelink.json
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ChromeConnect.Console.dll
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\refint\ChromeConnect.Console.dll
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ChromeConnect.Console.pdb
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ChromeConnect.Console.genruntimeconfig.cache
+C:\projects\ChromeConnect\ChromeConnect.Console\obj\Debug\net8.0\ref\ChromeConnect.Console.dll

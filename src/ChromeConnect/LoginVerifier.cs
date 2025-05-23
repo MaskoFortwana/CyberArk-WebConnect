@@ -5,10 +5,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
+using ChromeConnect.Services;
 
 namespace ChromeConnect.Core;
 
-public class LoginVerifier
+public class LoginVerifier : IScreenshotCapture
 {
     private readonly ILogger<LoginVerifier> _logger;
 
@@ -190,7 +191,13 @@ public class LoginVerifier
         return false;
     }
 
-    private void CaptureScreenshot(IWebDriver driver, string prefix)
+    /// <summary>
+    /// Captures a screenshot of the current browser state.
+    /// </summary>
+    /// <param name="driver">The WebDriver instance to capture from.</param>
+    /// <param name="prefix">A prefix for the screenshot filename.</param>
+    /// <returns>The path to the saved screenshot, or null if the capture failed.</returns>
+    public string CaptureScreenshot(IWebDriver driver, string prefix)
     {
         try
         {
@@ -212,10 +219,13 @@ public class LoginVerifier
             screenshot.SaveAsFile(screenshotPath);
 
             _logger.LogInformation("Screenshot saved: {Path}", screenshotPath);
+            
+            return screenshotPath;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to capture screenshot");
+            return null;
         }
     }
 }

@@ -35,6 +35,25 @@ ChromeConnect.exe -USR alice -PSW s3cr3t -URL https://login.example.com -DOM myc
 - **Successful Login**: The application will terminate, but the Chrome browser session it initiated will remain open. This allows you to continue using the authenticated session.
 - **Unsuccessful Login**: The application will terminate, and the Chrome browser will be closed automatically.
 
+## Screenshot Capture
+
+ChromeConnect automatically captures screenshots during failed login attempts to assist with troubleshooting:
+
+- **When Captured**: Screenshots are taken when error messages are detected or when exceptions occur during login verification
+- **Location**: Saved in the `screenshots` directory within the application's installation folder
+- **Filename Format**: `[Scenario]_[Timestamp].png` (e.g., `LoginFailed_20250522_152412.png`)
+- **Screenshot Types**:
+  - `LoginFailed_*.png`: Shows error messages displayed by the login page
+  - `VerificationError_*.png`: Captures exceptions during the verification process
+
+These screenshots provide valuable diagnostic information for identifying login issues, including:
+- Visible error messages
+- Form field validation states
+- UI inconsistencies or unexpected page layouts
+- Browser rendering problems
+
+When requesting support, include relevant screenshots along with the command used (with sensitive data redacted).
+
 ## Requirements
 
 - Windows OS (Windows 10/11 recommended)

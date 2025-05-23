@@ -1,0 +1,6 @@
+C:\projects\ChromeConnect\src\ChromeConnect\obj\Debug\net8.0\win-x64\ChromeConnect.csproj.AssemblyReference.cache
+C:\projects\ChromeConnect\src\ChromeConnect\obj\Debug\net8.0\win-x64\ChromeConnect.GeneratedMSBuildEditorConfig.editorconfig
+C:\projects\ChromeConnect\src\ChromeConnect\obj\Debug\net8.0\win-x64\ChromeConnect.AssemblyInfoInputs.cache
+C:\projects\ChromeConnect\src\ChromeConnect\obj\Debug\net8.0\win-x64\ChromeConnect.AssemblyInfo.cs
+C:\projects\ChromeConnect\src\ChromeConnect\obj\Debug\net8.0\win-x64\ChromeConnect.csproj.CoreCompileInputs.cache
+C:\projects\ChromeConnect\src\ChromeConnect\obj\Debug\net8.0\win-x64\ChromeConnect.sourcelink.json
