@@ -12,183 +12,303 @@ namespace ChromeConnect.Core;
 public class LoginVerifier : IScreenshotCapture
 {
     private readonly ILogger<LoginVerifier> _logger;
+    private readonly LoginVerificationConfig _config;
 
-    public LoginVerifier(ILogger<LoginVerifier> logger)
+    public LoginVerifier(ILogger<LoginVerifier> logger, LoginVerificationConfig? config = null)
     {
         _logger = logger;
+        _config = config ?? new LoginVerificationConfig();
     }
 
     public virtual async Task<bool> VerifyLoginSuccessAsync(IWebDriver driver)
     {
+        var startTime = DateTime.Now;
+        
         try
         {
-            // Wait for page to load after login attempt
-            await Task.Delay(2000);
+            _logger.LogInformation("Starting login verification with {MaxDuration}s timeout", _config.MaxVerificationTimeSeconds);
             
-            _logger.LogInformation("Checking login status");
-
-            // Try several strategies to determine if login was successful
-            if (await CheckUrlChangedAsync(driver))
+            // Immediate fast-fail checks (under 500ms)
+            if (await QuickErrorDetectionAsync(driver))
             {
-                _logger.LogInformation("URL changed, login appears successful");
-                return true;
-            }
-
-            if (await CheckLoginFormGoneAsync(driver))
-            {
-                _logger.LogInformation("Login form no longer present, login appears successful");
-                return true;
-            }
-
-            if (await CheckForSuccessElementsAsync(driver))
-            {
-                _logger.LogInformation("Found elements indicating successful login");
-                return true;
-            }
-
-            if (await CheckForErrorMessagesAsync(driver))
-            {
-                _logger.LogError("Found error messages indicating failed login");
-                CaptureScreenshot(driver, "LoginFailed");
+                _logger.LogError("Login failed - immediate error detected in {Duration}ms", 
+                    (DateTime.Now - startTime).TotalMilliseconds);
+                CaptureScreenshot(driver, "LoginFailed_QuickDetection");
                 return false;
             }
 
-            // Default assumption - if we've gotten this far without determining success or failure, 
-            // assume login was successful
-            _logger.LogInformation("Unable to definitively determine login status, assuming success");
-            return true;
+            // Progressive verification with escalating timeouts
+            var progressiveResult = await ProgressiveVerificationAsync(driver, startTime);
+            
+            var totalDuration = DateTime.Now - startTime;
+            _logger.LogInformation("Login verification completed in {Duration}ms with result: {Result}", 
+                totalDuration.TotalMilliseconds, progressiveResult);
+                
+            return progressiveResult;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error verifying login status");
+            var duration = DateTime.Now - startTime;
+            _logger.LogError(ex, "Error during login verification after {Duration}ms", duration.TotalMilliseconds);
             CaptureScreenshot(driver, "VerificationError");
             return false;
         }
     }
 
-    private async Task<bool> CheckUrlChangedAsync(IWebDriver driver)
+    /// <summary>
+    /// Quick error detection with under 500ms timeout for immediate failures
+    /// </summary>
+    private async Task<bool> QuickErrorDetectionAsync(IWebDriver driver)
     {
-        string currentUrl = driver.Url;
-        _logger.LogDebug("Current URL: {Url}", currentUrl);
-
-        // Check if the URL contains common signs of login failure
-        if (currentUrl.Contains("login") || 
-            currentUrl.Contains("signin") || 
-            currentUrl.Contains("auth") ||
-            currentUrl.Contains("error"))
+        try
         {
-            // These are common URL patterns for login pages - still being on such a URL 
-            // could mean login failed
+            // Quick check for immediate error indicators (100ms timeout)
+            var quickWait = new WebDriverWait(driver, TimeSpan.FromMilliseconds(100));
+            quickWait.IgnoreExceptionTypes(typeof(NoSuchElementException), typeof(WebDriverTimeoutException));
             
-            // Check the page source for error messages
-            if (driver.PageSource.Contains("incorrect") ||
-                driver.PageSource.Contains("failed") ||
-                driver.PageSource.Contains("invalid") ||
-                driver.PageSource.Contains("wrong"))
+            // Check for immediate error messages
+            var errorSelectors = new[]
             {
-                _logger.LogInformation("Found error indicators on login page");
-                return false;
+                "div.error:not(:empty)",
+                "span.error:not(:empty)", 
+                "p.error:not(:empty)",
+                "div.alert-danger:not(:empty)",
+                "div.alert-error:not(:empty)",
+                "[role='alert']:not(:empty)"
+            };
+
+            foreach (var selector in errorSelectors)
+            {
+                try
+                {
+                    var errorElement = quickWait.Until(d => d.FindElement(By.CssSelector(selector)));
+                    if (errorElement?.Displayed == true && !string.IsNullOrWhiteSpace(errorElement.Text))
+                    {
+                        _logger.LogDebug("Quick error detected: {Selector} - {Text}", selector, errorElement.Text);
+                        return true;
+                    }
+                }
+                catch { /* Continue to next selector */ }
             }
+
+            // Check page source for immediate error text patterns (only first 5000 chars for speed)
+            var pageSource = driver.PageSource;
+            if (pageSource.Length > 5000) pageSource = pageSource.Substring(0, 5000);
             
-            // If we're still on a login-like page but don't see errors, 
-            // possibly just a multi-step login
+            var errorPatterns = new[] { "invalid credentials", "login failed", "incorrect password", "access denied" };
+            foreach (var pattern in errorPatterns)
+            {
+                if (pageSource.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogDebug("Quick error pattern detected: {Pattern}", pattern);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch
+        {
+            // If quick detection fails, continue with normal verification
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Progressive verification with escalating timeouts for thorough checking
+    /// </summary>
+    private async Task<bool> ProgressiveVerificationAsync(IWebDriver driver, DateTime startTime)
+    {
+        var maxDuration = TimeSpan.FromSeconds(_config.MaxVerificationTimeSeconds);
+        
+        // Phase 1: Quick success indicators (2 seconds)
+        await Task.Delay(_config.InitialDelayMs);
+        
+        if (DateTime.Now - startTime > maxDuration) return false;
+        
+        if (await CheckUrlChangedAsync(driver, 2))
+        {
+            _logger.LogInformation("URL changed, login appears successful");
+            return true;
+        }
+
+        // Phase 2: Form disappearance check (3 seconds total)
+        if (DateTime.Now - startTime > maxDuration) return false;
+        
+        if (await CheckLoginFormGoneAsync(driver))
+        {
+            _logger.LogInformation("Login form no longer present, login appears successful");
+            return true;
+        }
+
+        // Phase 3: Success elements check (5 seconds total)
+        if (DateTime.Now - startTime > maxDuration) return false;
+        
+        if (await CheckForSuccessElementsAsync(driver, 2))
+        {
+            _logger.LogInformation("Found elements indicating successful login");
+            return true;
+        }
+
+        // Phase 4: Comprehensive error check (7 seconds total)  
+        if (DateTime.Now - startTime > maxDuration) return false;
+        
+        if (await CheckForErrorMessagesAsync(driver, 2))
+        {
+            _logger.LogError("Found error messages indicating failed login");
+            CaptureScreenshot(driver, "LoginFailed_DetailedCheck");
             return false;
         }
 
-        // If we're on a page that doesn't appear to be a login page anymore, 
-        // login was probably successful
+        // Phase 5: Final timeout check
+        var remainingTime = maxDuration - (DateTime.Now - startTime);
+        if (remainingTime.TotalSeconds > 1)
+        {
+            _logger.LogDebug("Waiting {RemainingSeconds}s for final verification", remainingTime.TotalSeconds);
+            await Task.Delay((int)remainingTime.TotalMilliseconds);
+        }
+
+        // Default assumption - if no clear success or failure, assume success to avoid blocking
+        _logger.LogInformation("No definitive result found within timeout, assuming success");
         return true;
+    }
+
+    private async Task<bool> CheckUrlChangedAsync(IWebDriver driver, int timeoutSeconds = 2)
+    {
+        try
+        {
+            string currentUrl = driver.Url;
+            _logger.LogDebug("Current URL: {Url}", currentUrl);
+
+            // Quick check if URL still looks like a login page
+            var loginIndicators = new[] { "login", "signin", "auth", "logon" };
+            bool stillOnLoginPage = loginIndicators.Any(indicator => 
+                currentUrl.Contains(indicator, StringComparison.OrdinalIgnoreCase));
+
+            if (!stillOnLoginPage)
+            {
+                return true; // Successfully navigated away from login page
+            }
+
+            // For login-like URLs, check for error indicators in page content
+            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
+            try
+            {
+                wait.Until(d => !d.PageSource.Contains("incorrect", StringComparison.OrdinalIgnoreCase) &&
+                               !d.PageSource.Contains("invalid", StringComparison.OrdinalIgnoreCase) &&
+                               !d.PageSource.Contains("failed", StringComparison.OrdinalIgnoreCase));
+                return true;
+            }
+            catch (WebDriverTimeoutException)
+            {
+                // Still on login page with possible errors
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error checking URL change");
+            return false;
+        }
     }
 
     private async Task<bool> CheckLoginFormGoneAsync(IWebDriver driver)
     {
         try
         {
-            // Check if password field is still present
+            // Quick check if password field is still present and visible
             var passwordFields = driver.FindElements(By.CssSelector("input[type='password']"));
             if (passwordFields.Count == 0)
             {
                 return true; // No password field found, likely logged in
             }
             
-            // If password field exists, check if it's visible
-            // Sometimes login forms are still in DOM but hidden after successful login
+            // Check if password field exists but is hidden (common after login)
             return !passwordFields[0].Displayed;
         }
         catch
         {
-            // If we can't find password fields, that's potentially a good sign
+            // If we can't find password fields, that's likely a good sign
             return true;
         }
     }
 
-    private async Task<bool> CheckForSuccessElementsAsync(IWebDriver driver)
+    private async Task<bool> CheckForSuccessElementsAsync(IWebDriver driver, int timeoutSeconds = 2)
     {
-        // Check for elements that typically appear after successful login
-        string[] successIndicators = {
-            "//a[contains(., 'Logout')]",
-            "//a[contains(., 'Sign Out')]",
-            "//button[contains(., 'Logout')]",
-            "//button[contains(., 'Sign Out')]",
-            "//div[contains(@class, 'welcome')]",
-            "//span[contains(@class, 'user-name')]",
-            "//div[contains(@class, 'dashboard')]",
-            "//div[contains(@class, 'profile')]"
-        };
-
-        foreach (var xpath in successIndicators)
+        try
         {
-            try
-            {
-                var elements = driver.FindElements(By.XPath(xpath));
-                if (elements.Count > 0 && elements[0].Displayed)
-                {
-                    _logger.LogDebug("Found success indicator: {Element}", xpath);
-                    return true;
-                }
-            }
-            catch { /* Continue to next indicator */ }
-        }
+            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
+            wait.IgnoreExceptionTypes(typeof(NoSuchElementException));
 
-        return false;
+            // Quick CSS selector checks for common success indicators
+            var successSelectors = new[]
+            {
+                "a[href*='logout']", "a[href*='signout']", "button[onclick*='logout']",
+                "div.welcome", "span.username", "div.dashboard", "nav.user-menu",
+                ".logged-in", ".user-authenticated", "#user-menu"
+            };
+
+            foreach (var selector in successSelectors)
+            {
+                try
+                {
+                    var element = wait.Until(d => d.FindElement(By.CssSelector(selector)));
+                    if (element?.Displayed == true)
+                    {
+                        _logger.LogDebug("Found success indicator: {Selector}", selector);
+                        return true;
+                    }
+                }
+                catch { /* Continue to next selector */ }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error checking for success elements");
+            return false;
+        }
     }
 
-    private async Task<bool> CheckForErrorMessagesAsync(IWebDriver driver)
+    private async Task<bool> CheckForErrorMessagesAsync(IWebDriver driver, int timeoutSeconds = 2)
     {
-        // Check for elements that typically appear after failed login
-        string[] errorIndicators = {
-            "//div[contains(@class, 'error')]",
-            "//span[contains(@class, 'error')]",
-            "//p[contains(@class, 'error')]",
-            "//div[contains(@class, 'alert')]",
-            "//div[contains(@class, 'danger')]",
-            "//p[contains(., 'incorrect')]",
-            "//div[contains(., 'incorrect')]",
-            "//span[contains(., 'incorrect')]",
-            "//p[contains(., 'invalid')]",
-            "//div[contains(., 'invalid')]",
-            "//span[contains(., 'invalid')]",
-            "//p[contains(., 'failed')]",
-            "//div[contains(., 'failed')]",
-            "//span[contains(., 'failed')]"
-        };
-
-        foreach (var xpath in errorIndicators)
+        try
         {
-            try
-            {
-                var elements = driver.FindElements(By.XPath(xpath));
-                if (elements.Count > 0 && elements[0].Displayed)
-                {
-                    _logger.LogDebug("Found error indicator: {Element} with text: {Text}", 
-                        xpath, elements[0].Text);
-                    return true;
-                }
-            }
-            catch { /* Continue to next indicator */ }
-        }
+            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
+            wait.IgnoreExceptionTypes(typeof(NoSuchElementException));
 
-        return false;
+            // Comprehensive error selectors with visible text check
+            var errorSelectors = new[]
+            {
+                "div.error:not(:empty)", "span.error:not(:empty)", "p.error:not(:empty)",
+                "div.alert:not(:empty)", "div.alert-danger:not(:empty)", "div.alert-error:not(:empty)",
+                "[role='alert']:not(:empty)", ".validation-error:not(:empty)", 
+                ".field-error:not(:empty)", ".login-error:not(:empty)"
+            };
+
+            foreach (var selector in errorSelectors)
+            {
+                try
+                {
+                    var element = wait.Until(d => d.FindElement(By.CssSelector(selector)));
+                    if (element?.Displayed == true && !string.IsNullOrWhiteSpace(element.Text))
+                    {
+                        _logger.LogDebug("Found error indicator: {Selector} with text: {Text}", 
+                            selector, element.Text);
+                        return true;
+                    }
+                }
+                catch { /* Continue to next selector */ }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error checking for error messages");
+            return false;
+        }
     }
 
     /// <summary>
@@ -201,31 +321,57 @@ public class LoginVerifier : IScreenshotCapture
     {
         try
         {
-            // Ensure screenshots directory exists
-            string screenshotDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots");
-            if (!Directory.Exists(screenshotDir))
+            if (driver is ITakesScreenshot screenshotDriver)
             {
-                Directory.CreateDirectory(screenshotDir);
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss-fff");
+                string filename = $"{prefix}_{timestamp}.png";
+                string filePath = Path.Combine("screenshots", filename);
+                
+                // Ensure directory exists
+                Directory.CreateDirectory("screenshots");
+                
+                Screenshot screenshot = screenshotDriver.GetScreenshot();
+                screenshot.SaveAsFile(filePath);
+                
+                _logger.LogInformation("Screenshot captured: {FilePath}", filePath);
+                return filePath;
             }
-
-            // Generate unique filename with timestamp
-            string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            string screenshotPath = Path.Combine(
-                screenshotDir, 
-                $"{prefix}_{timestamp}.png");
-
-            // Take screenshot
-            var screenshot = ((ITakesScreenshot)driver).GetScreenshot();
-            screenshot.SaveAsFile(screenshotPath);
-
-            _logger.LogInformation("Screenshot saved: {Path}", screenshotPath);
-            
-            return screenshotPath;
+            else
+            {
+                _logger.LogWarning("WebDriver does not support screenshot capture");
+                return string.Empty;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to capture screenshot");
-            return null;
+            _logger.LogError(ex, "Failed to capture screenshot with prefix: {Prefix}", prefix);
+            return string.Empty;
         }
     }
+}
+
+/// <summary>
+/// Configuration for login verification behavior
+/// </summary>
+public class LoginVerificationConfig
+{
+    /// <summary>
+    /// Maximum time to spend on login verification in seconds
+    /// </summary>
+    public int MaxVerificationTimeSeconds { get; set; } = 10;
+
+    /// <summary>
+    /// Initial delay before starting verification checks in milliseconds
+    /// </summary>
+    public int InitialDelayMs { get; set; } = 500;
+
+    /// <summary>
+    /// Whether to enable detailed timing logs
+    /// </summary>
+    public bool EnableTimingLogs { get; set; } = true;
+
+    /// <summary>
+    /// Whether to capture screenshots on verification failures
+    /// </summary>
+    public bool CaptureScreenshotsOnFailure { get; set; } = true;
 }

@@ -37,9 +37,9 @@ public class LoginTests
         _loggerFactory = LoggerFactory.Create(builder => 
         {
             builder
-                .AddFilter("Microsoft", LogLevel.Warning)
-                .AddFilter("System", LogLevel.Warning)
-                .AddFilter("ChromeConnect", LogLevel.Debug)
+                .AddFilter("Microsoft", Microsoft.Extensions.Logging.LogLevel.Warning)
+                .AddFilter("System", Microsoft.Extensions.Logging.LogLevel.Warning)
+                .AddFilter("ChromeConnect", Microsoft.Extensions.Logging.LogLevel.Debug)
                 .AddConsole();
         });
 
@@ -160,9 +160,9 @@ public class LoginTests
             Username = username,
             Password = password,
             Domain = domain ?? string.Empty,
-            Incognito = false, 
-            Kiosk = false,     
-            IgnoreCertErrors = true
+            IncognitoString = "no",
+            KioskString = "no",
+            CertString = "ignore"
             // Headless removed - controlled by AppSettings.Browser.UseHeadless via BrowserManager
             // TimeoutSeconds removed - controlled by TimeoutManager settings
         };

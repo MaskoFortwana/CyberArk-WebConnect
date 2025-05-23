@@ -39,13 +39,58 @@ public class CommandLineOptions
     [Required(ErrorMessage = "Domain is required")]
     public string Domain { get; set; } = string.Empty;
 
+    // Private fields to store the actual boolean values
+    private bool _incognito = false;
+    private bool _kiosk = false;
+    private bool _ignoreCertErrors = false;
+
     /// <summary>
-    /// Gets or sets a value indicating whether to run the browser in incognito mode.
-    /// Uses --incognito Chrome flag when set to true.
+    /// Gets or sets the incognito mode string value. Accepts "yes" or "no".
     /// </summary>
     [Option("INCOGNITO", Required = true, 
         HelpText = "Adds --incognito when yes (valid values: yes, no)")]
-    public bool Incognito { get; set; } = false;
+    public string IncognitoString 
+    { 
+        get => _incognito ? "yes" : "no";
+        set => _incognito = YesNoParser(value);
+    }
+
+    /// <summary>
+    /// Gets the boolean value for incognito mode.
+    /// </summary>
+    public bool Incognito => _incognito;
+
+    /// <summary>
+    /// Gets or sets the kiosk mode string value. Accepts "yes" or "no".
+    /// </summary>
+    [Option("KIOSK", Required = true, 
+        HelpText = "Adds --kiosk when yes (valid values: yes, no)")]
+    public string KioskString 
+    { 
+        get => _kiosk ? "yes" : "no";
+        set => _kiosk = YesNoParser(value);
+    }
+
+    /// <summary>
+    /// Gets the boolean value for kiosk mode.
+    /// </summary>
+    public bool Kiosk => _kiosk;
+
+    /// <summary>
+    /// Gets or sets the certificate handling string value. Accepts "ignore" or "enforce".
+    /// </summary>
+    [Option("CERT", Required = true, 
+        HelpText = "Adds --ignore-certificate-errors when ignore (valid values: ignore, enforce)")]
+    public string CertString 
+    { 
+        get => _ignoreCertErrors ? "ignore" : "enforce";
+        set => _ignoreCertErrors = value?.ToLower() == "ignore";
+    }
+
+    /// <summary>
+    /// Gets the boolean value for ignoring certificate errors.
+    /// </summary>
+    public bool IgnoreCertErrors => _ignoreCertErrors;
 
     /// <summary>
     /// Parses yes/no values from command-line arguments.
@@ -58,35 +103,19 @@ public class CommandLineOptions
     /// Sets the Incognito property based on a string value.
     /// </summary>
     /// <param name="value">The string value to parse.</param>
-    public void SetIncognito(string value) => Incognito = YesNoParser(value);
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to run the browser in kiosk mode.
-    /// Uses --kiosk Chrome flag when set to true.
-    /// </summary>
-    [Option("KIOSK", Required = true, 
-        HelpText = "Adds --kiosk when yes (valid values: yes, no)")]
-    public bool Kiosk { get; set; } = false;
+    public void SetIncognito(string value) => _incognito = YesNoParser(value);
 
     /// <summary>
     /// Sets the Kiosk property based on a string value.
     /// </summary>
     /// <param name="value">The string value to parse.</param>
-    public void SetKiosk(string value) => Kiosk = YesNoParser(value);
-
-    /// <summary>
-    /// Gets or sets a value indicating whether to ignore certificate errors.
-    /// Uses --ignore-certificate-errors Chrome flag when set to true.
-    /// </summary>
-    [Option("CERT", Required = true, 
-        HelpText = "Adds --ignore-certificate-errors when ignore (valid values: ignore, enforce)")]
-    public bool IgnoreCertErrors { get; set; } = false;
+    public void SetKiosk(string value) => _kiosk = YesNoParser(value);
 
     /// <summary>
     /// Sets the IgnoreCertErrors property based on a string value.
     /// </summary>
     /// <param name="value">The string value to parse.</param>
-    public void SetCert(string value) => IgnoreCertErrors = value?.ToLower() == "ignore";
+    public void SetCert(string value) => _ignoreCertErrors = value?.ToLower() == "ignore";
 
     /// <summary>
     /// Gets or sets a value indicating whether to display version information.

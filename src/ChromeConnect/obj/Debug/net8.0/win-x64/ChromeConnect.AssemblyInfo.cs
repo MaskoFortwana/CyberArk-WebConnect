@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright © 2024 ChromeConnect")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e2eba3a74bd4daf528421558d18c38a3aead49bf")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b7cab15193e3d6548d767c714cfd747ecabf087c")]
 [assembly: System.Reflection.AssemblyProductAttribute("ChromeConnect")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ChromeConnect")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

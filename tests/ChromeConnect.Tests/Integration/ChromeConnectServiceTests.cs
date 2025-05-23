@@ -72,7 +72,7 @@ namespace ChromeConnect.Tests.Integration
         public async Task ExecuteAsync_SuccessfulLogin_ReturnsZero()
         {
             // Arrange
-            var options = new CommandLineOptions { Url = "http://test.com", Username = "user", Password = "pass", Domain = "dom", IgnoreCertErrors = true };
+            var options = new CommandLineOptions { Url = "http://test.com", Username = "user", Password = "pass", Domain = "dom", CertString = "ignore" };
             var mockDriver = new Mock<IWebDriver>();
 
             _mockBrowserManager.Setup(b => b.LaunchBrowser(options.Url, options.Incognito, options.Kiosk, options.IgnoreCertErrors)).Returns(mockDriver.Object);
@@ -122,7 +122,7 @@ namespace ChromeConnect.Tests.Integration
         public async Task ExecuteAsync_LoginFails_ThrowsInvalidCredentialsExceptionAndReturnsOne()
         {
             // Arrange
-            var options = new CommandLineOptions { Url = "http://test.com", Username = "user", Password = "wrong", Domain = "dom", IgnoreCertErrors = true };
+            var options = new CommandLineOptions { Url = "http://test.com", Username = "user", Password = "wrong", Domain = "dom", CertString = "ignore" };
             var mockDriver = new Mock<IWebDriver>();
 
             _mockBrowserManager.Setup(b => b.LaunchBrowser(options.Url, options.Incognito, options.Kiosk, options.IgnoreCertErrors)).Returns(mockDriver.Object);

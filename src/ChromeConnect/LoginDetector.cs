@@ -395,7 +395,11 @@ public class LoginDetector
             // Enhanced detection with scoring system for better element selection and Shadow DOM support
             loginForm.UsernameField = FindBestElementByScoreWithShadowDOM(driver, ElementType.Username);
             loginForm.PasswordField = FindBestElementByScoreWithShadowDOM(driver, ElementType.Password);
-            loginForm.DomainField = FindBestElementByScoreWithShadowDOM(driver, ElementType.Domain);
+            
+            // Pass already detected fields to prevent overlap
+            var alreadyDetectedFields = new List<IWebElement?> { loginForm.UsernameField, loginForm.PasswordField };
+            loginForm.DomainField = FindBestElementByScoreWithShadowDOM(driver, ElementType.Domain, alreadyDetectedFields);
+            
             loginForm.SubmitButton = FindBestElementByScoreWithShadowDOM(driver, ElementType.SubmitButton);
 
             return loginForm;
@@ -407,7 +411,7 @@ public class LoginDetector
         }
     }
 
-    private IWebElement? FindBestElementByScore(IWebDriver driver, ElementType elementType)
+    private IWebElement? FindBestElementByScore(IWebDriver driver, ElementType elementType, List<IWebElement?>? excludeElements = null)
     {
         var candidates = new Dictionary<IWebElement, int>();
         
@@ -428,16 +432,17 @@ public class LoginDetector
                     ScorePasswordElements(allInputs, candidates);
                     break;
                 case ElementType.Domain:
-                    ScoreDomainElements(allInputs.Concat(allSelects).ToList(), candidates);
+                    ScoreDomainElements(allInputs.Concat(allSelects).ToList(), candidates, excludeElements);
                     break;
                 case ElementType.SubmitButton:
                     ScoreSubmitElements(allButtons.Concat(allInputs).Concat(allLinks).ToList(), candidates);
                     break;
             }
 
-            // Return the highest scoring visible element
+            // Return the highest scoring visible element that's not in the exclusion list
             var bestCandidate = candidates
                 .Where(kvp => IsElementVisible(kvp.Key))
+                .Where(kvp => excludeElements?.Contains(kvp.Key) != true) // Exclude already detected elements
                 .OrderByDescending(kvp => kvp.Value)
                 .FirstOrDefault();
 
@@ -454,7 +459,7 @@ public class LoginDetector
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error in scoring system for {elementType}");
+            _logger.LogError(ex, $"Error in {elementType} detection using scoring system");
             return null;
         }
     }
@@ -671,12 +676,19 @@ public class LoginDetector
         }
     }
 
-    private void ScoreDomainElements(List<IWebElement> elements, Dictionary<IWebElement, int> candidates)
+    private void ScoreDomainElements(List<IWebElement> elements, Dictionary<IWebElement, int> candidates, List<IWebElement?>? excludeElements = null)
     {
         foreach (var element in elements)
         {
             try
             {
+                // Skip elements that are already detected as username or password fields
+                if (excludeElements?.Contains(element) == true)
+                {
+                    _logger.LogDebug($"Skipping element already detected as username/password field: ID={GetAttributeLower(element, "id")}, Name={GetAttributeLower(element, "name")}");
+                    continue;
+                }
+
                 int score = 0;
                 var tagName = element.TagName.ToLower();
                 var type = GetAttributeLower(element, "type");
@@ -746,9 +758,18 @@ public class LoginDetector
                 // Enterprise/realm patterns
                 if (Regex.IsMatch(allAttributes, @"\b(realm|authority|enterprise|workspace)\b")) score += 20;
 
-                // Penalty for non-domain patterns
-                if (Regex.IsMatch(allAttributes, @"\b(username|user|password|pass|email|login)\b")) score -= 30;
-                if (Regex.IsMatch(allAttributes, @"\b(search|query|filter|submit)\b")) score -= 20;
+                // STRONG penalty for non-domain patterns - prevent username/password field reuse
+                if (Regex.IsMatch(allAttributes, @"\b(username|user|password|pass|email|login)\b")) score -= 100; // Increased penalty
+                if (Regex.IsMatch(allAttributes, @"\b(search|query|filter|submit)\b")) score -= 50; // Increased penalty
+
+                // Additional validation: Require at least one domain-specific term to have a positive score
+                bool hasDomainSpecificTerm = Regex.IsMatch(allAttributes, @"\b(domain|tenant|organization|organisation|org|company|corp|corporation|realm|authority|enterprise|workspace)\b");
+                if (!hasDomainSpecificTerm)
+                {
+                    // If no domain-specific terms found, apply heavy penalty to prevent false positives
+                    score -= 80;
+                    _logger.LogDebug($"No domain-specific terms found in element: ID={id}, Name={name} - applying heavy penalty");
+                }
 
                 // Form position bonus (domain is often third field)
                 var formInputs = GetFormInputs(element);
@@ -781,11 +802,15 @@ public class LoginDetector
                     }
                 }
 
-                // Only consider elements with positive scores
-                if (score > 0)
+                // Only consider elements with positive scores AND domain-specific attributes
+                if (score > 0 && hasDomainSpecificTerm)
                 {
                     candidates[element] = score;
                     _logger.LogDebug($"Domain candidate scored {score}: ID={id}, Name={name}, TagName={tagName}");
+                }
+                else if (score <= 0)
+                {
+                    _logger.LogDebug($"Domain candidate rejected (score {score}): ID={id}, Name={name}, TagName={tagName}");
                 }
             }
             catch (Exception ex)
@@ -1400,51 +1425,55 @@ public class LoginDetector
     /// <summary>
     /// Finds elements within Shadow DOM trees using multiple detection strategies
     /// </summary>
-    private IWebElement? FindBestElementByScoreWithShadowDOM(IWebDriver driver, ElementType elementType)
+    private IWebElement? FindBestElementByScoreWithShadowDOM(IWebDriver driver, ElementType elementType, List<IWebElement?>? excludeElements = null)
     {
-        var candidates = new Dictionary<IWebElement, int>();
+        var allCandidates = new Dictionary<IWebElement, int>();
         
         try
         {
-            _logger.LogDebug($"Starting Shadow DOM-aware detection for {elementType}");
-            
-            // First, try regular DOM detection
-            var regularElement = FindBestElementByScore(driver, elementType);
-            if (regularElement != null)
+            // First, try regular DOM elements
+            var regularElements = FindBestElementByScore(driver, elementType, excludeElements);
+            if (regularElements != null)
             {
-                candidates[regularElement] = 1000; // High priority for regular DOM elements
+                return regularElements;
             }
 
-            // Then search within Shadow DOM trees
+            // If no regular DOM elements found, try Shadow DOM
             var shadowElements = FindElementsInShadowDOM(driver, elementType);
-            foreach (var shadowElement in shadowElements)
+            
+            foreach (var element in shadowElements)
             {
-                var score = ScoreElementForType(shadowElement, elementType);
+                // Skip elements that are in the exclusion list
+                if (excludeElements?.Contains(element) == true) continue;
+                
+                int score = ScoreElementForType(element, elementType);
+                
+                // Add shadow DOM bonus - these are harder to find so give slight preference
                 if (score > 0)
                 {
-                    // Shadow DOM elements get slightly lower priority to prefer regular DOM when available
-                    candidates[shadowElement] = score + 500; 
+                    score += 500; // Shadow DOM elements get bonus for being found
+                    allCandidates[element] = score;
                 }
             }
 
-            // Return the highest scoring element
-            var bestCandidate = candidates
+            // Return the highest scoring shadow DOM element
+            var bestShadowCandidate = allCandidates
                 .Where(kvp => IsElementVisible(kvp.Key))
                 .OrderByDescending(kvp => kvp.Value)
                 .FirstOrDefault();
 
-            if (bestCandidate.Key != null)
+            if (bestShadowCandidate.Key != null)
             {
-                _logger.LogDebug($"Found {elementType} element with score {bestCandidate.Value} " +
-                               $"(Shadow DOM: {IsElementInShadowDOM(bestCandidate.Key)})");
-                return bestCandidate.Key;
+                _logger.LogInformation($"Found {elementType} element in Shadow DOM with score {bestShadowCandidate.Value}");
+                return bestShadowCandidate.Key;
             }
 
+            _logger.LogDebug($"No suitable {elementType} element found in Shadow DOM");
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error in Shadow DOM-aware detection for {elementType}");
+            _logger.LogError(ex, $"Error in Shadow DOM-aware {elementType} detection");
             return null;
         }
     }
@@ -1886,7 +1915,11 @@ public class LoginDetector
             // Enhanced detection with Shadow DOM awareness
             loginForm.UsernameField = FindBestElementByScoreWithShadowDOM(driver, ElementType.Username);
             loginForm.PasswordField = FindBestElementByScoreWithShadowDOM(driver, ElementType.Password);
-            loginForm.DomainField = FindBestElementByScoreWithShadowDOM(driver, ElementType.Domain);
+            
+            // Pass already detected fields to prevent overlap
+            var alreadyDetectedFields = new List<IWebElement?> { loginForm.UsernameField, loginForm.PasswordField };
+            loginForm.DomainField = FindBestElementByScoreWithShadowDOM(driver, ElementType.Domain, alreadyDetectedFields);
+            
             loginForm.SubmitButton = FindBestElementByScoreWithShadowDOM(driver, ElementType.SubmitButton);
 
             if (loginForm.UsernameField != null || loginForm.PasswordField != null)
@@ -2369,7 +2402,10 @@ public class LoginDetector
             // Performance optimization: Use cached elements and optimized scoring
             loginForm.UsernameField = await FindBestElementByScoreOptimizedAsync(ElementType.Username);
             loginForm.PasswordField = await FindBestElementByScoreOptimizedAsync(ElementType.Password);
-            loginForm.DomainField = await FindBestElementByScoreOptimizedAsync(ElementType.Domain);
+            
+            // For domain field, we need to manually exclude already detected fields since the optimized method doesn't support exclusion
+            loginForm.DomainField = await FindBestElementByScoreOptimizedAsyncWithExclusion(ElementType.Domain, new List<IWebElement?> { loginForm.UsernameField, loginForm.PasswordField });
+            
             loginForm.SubmitButton = await FindBestElementByScoreOptimizedAsync(ElementType.SubmitButton);
 
             return loginForm;
@@ -2788,4 +2824,62 @@ public class LoginDetector
     }
 
     #endregion
+
+    /// <summary>
+    /// Performance-optimized element scoring using cached elements with exclusion support
+    /// </summary>
+    private async Task<IWebElement?> FindBestElementByScoreOptimizedAsyncWithExclusion(ElementType elementType, List<IWebElement?>? excludeElements = null)
+    {
+        var candidates = new Dictionary<IWebElement, int>();
+        
+        try
+        {
+            // Get relevant cached elements based on element type
+            var elements = GetRelevantElementsForType(elementType);
+            
+            // Performance optimization: Parallel scoring for better throughput
+            var scoringTasks = elements.Select(element => Task.Run(() => 
+            {
+                try
+                {
+                    // Skip elements that are in the exclusion list
+                    if (excludeElements?.Contains(element) == true) return;
+                    
+                    var score = ScoreElementForType(element, elementType);
+                    if (score > 0 && IsElementVisible(element))
+                    {
+                        lock (candidates)
+                        {
+                            candidates[element] = score;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug($"Error scoring element: {ex.Message}");
+                }
+            })).ToArray();
+
+            await Task.WhenAll(scoringTasks);
+
+            // Return the highest scoring element that's not in the exclusion list
+            var bestCandidate = candidates
+                .Where(kvp => excludeElements?.Contains(kvp.Key) != true) // Double-check exclusion
+                .OrderByDescending(kvp => kvp.Value)
+                .FirstOrDefault();
+
+            if (bestCandidate.Key != null)
+            {
+                _logger.LogDebug($"Found {elementType} element with optimized score {bestCandidate.Value} (with exclusion)");
+                return bestCandidate.Key;
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error in optimized element scoring with exclusion for {elementType}");
+            return null;
+        }
+    }
 }

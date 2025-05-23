@@ -32,8 +32,33 @@ namespace ChromeConnect.Services
             services.AddSingleton<LoginDetector>();
             services.AddSingleton<DetectionMetricsService>();
 
-            // Register credential handling and verification
+            // Register credential handling configuration and service with optimized performance
+            services.AddSingleton<CredentialEntryConfig>(provider =>
+            {
+                return new CredentialEntryConfig
+                {
+                    TypingMode = TypingMode.OptimizedHuman,
+                    MinDelayMs = 10,
+                    MaxDelayMs = 30,
+                    PostEntryDelayMs = 50,
+                    SubmissionDelayMs = 500,
+                    UseJavaScriptFallback = true,
+                    LogTimingMetrics = true
+                };
+            });
             services.AddSingleton<CredentialManager>();
+            
+            // Register login verification configuration and service with optimized timeouts
+            services.AddSingleton<LoginVerificationConfig>(provider =>
+            {
+                return new LoginVerificationConfig
+                {
+                    MaxVerificationTimeSeconds = 10,  // Reduced from default 30s to 10s
+                    InitialDelayMs = 500,             // Quick initial delay
+                    EnableTimingLogs = true,          // Enable performance monitoring
+                    CaptureScreenshotsOnFailure = true // Capture screenshots on failures
+                };
+            });
             services.AddSingleton<LoginVerifier>();
             services.AddSingleton<IScreenshotCapture>(provider => provider.GetRequiredService<LoginVerifier>());
 
