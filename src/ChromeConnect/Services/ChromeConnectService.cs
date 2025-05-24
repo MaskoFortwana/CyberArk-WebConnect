@@ -139,6 +139,10 @@ namespace ChromeConnect.Services
                     {
                         _logger.LogInformation("Login successful!");
                         _logger.LogInformation("Browser will remain open. Script exiting.");
+                        
+                        // CRITICAL FIX: Prevent browser cleanup after successful login
+                        _shouldCloseBrowserOnCleanup = false;
+                        
                         return 0; // Success
                     }
                     else
