@@ -165,7 +165,7 @@ namespace ChromeConnect.Services
                 }, cancellationToken);
 
                 returnValue = await _timeoutManager.ExecuteWithTimeoutAsync(
-                    () => executionTask,
+                    async (tokenFromManager) => await executionTask,
                     timeoutSeconds * 1000,
                     "ExecuteJavaScript",
                     cancellationToken);
@@ -232,9 +232,9 @@ namespace ChromeConnect.Services
             {
                 var waitScript = GetWaitScript(condition);
                 
-                var result = await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
+                var result = await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
                 {
-                    return await PollConditionAsync(driver, waitScript, condition, cancellationToken);
+                    return await PollConditionAsync(driver, waitScript, condition, tokenFromManager);
                 }, timeoutSeconds * 1000, $"WaitForCondition_{condition.Strategy}", cancellationToken);
 
                 var duration = DateTime.Now - startTime;

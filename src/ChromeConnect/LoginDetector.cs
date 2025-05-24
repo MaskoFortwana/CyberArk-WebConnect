@@ -77,7 +77,16 @@ public class LoginDetector
                 _elementCache.Clear();
                 _cachedUrl = currentUrl;
             }
-            
+
+            // **NEW: IMMEDIATE FAST-PATH DETECTION - Try to detect common login forms instantly**
+            var fastPathResult = await TryFastPathDetectionAsync(driver);
+            if (IsValidLoginForm(fastPathResult))
+            {
+                _logger.LogInformation("Login form detected using FAST-PATH detection in minimal time");
+                LogDetectedElements(fastPathResult);
+                return fastPathResult;
+            }
+
             // Get method recommendation from historical data if metrics service is available
             DetectionMethod recommendedMethod = DetectionMethod.UrlSpecific;
             string recommendationReasoning = "Default fallback strategy";
@@ -97,7 +106,7 @@ public class LoginDetector
                 _logger.LogInformation($"Using URL-specific configuration: {config.DisplayName}");
             }
 
-            // Performance optimization: Intelligent page ready detection instead of fixed delays
+            // **OPTIMIZED: Only wait for page ready if fast-path failed**
             await WaitForPageReadyAsync(driver, config);
 
             // Performance optimization: Batch DOM queries for all elements at once
@@ -188,39 +197,147 @@ public class LoginDetector
     }
 
     /// <summary>
+    /// **NEW: Ultra-fast detection for common login forms - completes in under 500ms**
+    /// This method tries the most common login form patterns immediately without waiting for full page load
+    /// </summary>
+    private async Task<LoginFormElements?> TryFastPathDetectionAsync(IWebDriver driver)
+    {
+        try
+        {
+            _logger.LogDebug("Attempting FAST-PATH login form detection");
+            var startTime = DateTime.Now;
+
+            var loginForm = new LoginFormElements();
+
+            // **STRATEGY 1: Look for the most common login patterns immediately**
+            // Password field is the most reliable indicator of a login form
+            var passwordFields = driver.FindElements(By.CssSelector("input[type='password']"));
+            if (passwordFields.Count == 0)
+            {
+                _logger.LogDebug("FAST-PATH: No password fields found immediately");
+                return null;
+            }
+
+            // Take the first visible password field
+            var passwordField = passwordFields.FirstOrDefault(p => IsElementVisible(p));
+            if (passwordField == null)
+            {
+                _logger.LogDebug("FAST-PATH: No visible password fields found");
+                return null;
+            }
+
+            loginForm.PasswordField = passwordField;
+
+            // **STRATEGY 2: Find username field near the password field**
+            // Look for text/email inputs that are close to the password field
+            var allInputs = driver.FindElements(By.TagName("input"));
+            var usernameField = allInputs
+                .Where(input => IsElementVisible(input))
+                .Where(input => {
+                    var inputType = input.GetAttribute("type")?.ToLower();
+                    return inputType == "text" || inputType == "email" || string.IsNullOrEmpty(inputType);
+                })
+                .FirstOrDefault();
+
+            loginForm.UsernameField = usernameField;
+
+            // **STRATEGY 3: Find submit button**
+            // Look for submit buttons, regular buttons with login text, or submit inputs
+            var submitButton = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"))
+                .Where(btn => IsElementVisible(btn))
+                .FirstOrDefault(btn => {
+                    var text = btn.Text?.ToLower() ?? "";
+                    var value = btn.GetAttribute("value")?.ToLower() ?? "";
+                    return text.Contains("login") || text.Contains("sign") || text.Contains("submit") ||
+                           value.Contains("login") || value.Contains("sign") || value.Contains("submit") ||
+                           btn.GetAttribute("type")?.ToLower() == "submit";
+                });
+
+            loginForm.SubmitButton = submitButton;
+
+            var detectionTime = DateTime.Now - startTime;
+            _logger.LogDebug($"FAST-PATH detection completed in {detectionTime.TotalMilliseconds}ms");
+
+            // Return result if we found the essential elements (password + at least one other)
+            if (loginForm.PasswordField != null && 
+                (loginForm.UsernameField != null || loginForm.SubmitButton != null))
+            {
+                _logger.LogInformation($"FAST-PATH detection successful in {detectionTime.TotalMilliseconds}ms");
+                return loginForm;
+            }
+
+            _logger.LogDebug("FAST-PATH: Essential elements not found, falling back to standard detection");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "FAST-PATH detection failed, falling back to standard detection");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Performance optimization: Intelligent page ready detection instead of fixed delays
     /// </summary>
     private async Task WaitForPageReadyAsync(IWebDriver driver, LoginPageConfiguration config)
     {
         try
         {
-            // Wait for document ready state
-            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-            wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
-
-            // Wait for minimum page elements to be present
-            wait.Until(d => 
+            _logger.LogDebug("Starting optimized page ready detection");
+            
+            // Quick check if basic elements are already available
+            var existingInputs = driver.FindElements(By.TagName("input"));
+            if (existingInputs.Count > 0)
             {
-                var inputs = d.FindElements(By.TagName("input"));
-                return inputs.Count > 0;
-            });
+                _logger.LogDebug($"Found {existingInputs.Count} input elements immediately, skipping extended wait");
+                return;
+            }
 
-            // Only add additional wait if explicitly configured (for complex AJAX pages)
+            // Reduced timeout for document ready state - most pages load quickly
+            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(3)); // Reduced from 10s
+            
+            try
+            {
+                wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
+            }
+            catch (WebDriverTimeoutException)
+            {
+                _logger.LogDebug("Document ready state timeout - continuing with detection");
+            }
+
+            // Quick check for minimum page elements - don't wait if they exist
+            try
+            {
+                var quickWait = new WebDriverWait(driver, TimeSpan.FromSeconds(1)); // Very short wait
+                quickWait.Until(d => 
+                {
+                    var inputs = d.FindElements(By.TagName("input"));
+                    return inputs.Count > 0;
+                });
+                _logger.LogDebug("Input elements detected quickly");
+            }
+            catch (WebDriverTimeoutException)
+            {
+                _logger.LogDebug("No input elements found in quick check - proceeding anyway");
+            }
+
+            // Only add minimal wait if explicitly configured for complex AJAX pages
             if (config?.AdditionalWaitMs > 0)
             {
-                _logger.LogDebug($"Adding configured wait time: {config.AdditionalWaitMs}ms");
-                await Task.Delay(config.AdditionalWaitMs);
+                var maxWait = Math.Min(config.AdditionalWaitMs, 2000); // Cap at 2 seconds max
+                _logger.LogDebug($"Adding configured wait time: {maxWait}ms (capped from {config.AdditionalWaitMs}ms)");
+                await Task.Delay(maxWait);
             }
             else
             {
-                // Short adaptive wait for dynamic content
-                await Task.Delay(300);
+                // Minimal adaptive wait - reduced from 300ms to 100ms
+                await Task.Delay(100);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error in intelligent page ready detection, using fallback");
-            await Task.Delay(1000); // Fallback to fixed delay
+            _logger.LogWarning(ex, "Error in optimized page ready detection, using minimal fallback");
+            await Task.Delay(200); // Reduced fallback delay from 1000ms to 200ms
         }
     }
 
@@ -464,505 +581,648 @@ public class LoginDetector
         }
     }
 
-    private void ScoreUsernameElements(List<IWebElement> inputs, Dictionary<IWebElement, int> candidates)
+    private void ScoreUsernameElements(List<IWebElement> inputs, Dictionary<IWebElement, int> candidates, List<IWebElement?>? excludeElements = null)
     {
+        var usernameTerms = GetVariationsForElementType(ElementType.Username).SelectMany(kv => kv.Value.Concat(new[] { kv.Key })).Distinct().ToArray();
+
         foreach (var input in inputs)
         {
-            try
+            try // Outer try for the 'input' element processing
             {
-                int score = 0;
-                var type = GetAttributeLower(input, "type");
-                var id = GetAttributeLower(input, "id");
-                var name = GetAttributeLower(input, "name");
-                var placeholder = GetAttributeLower(input, "placeholder");
-                var ariaLabel = GetAttributeLower(input, "aria-label");
-                var className = GetAttributeLower(input, "class");
-                var dataTestId = GetAttributeLower(input, "data-testid");
+                if (!IsElementVisible(input)) continue;
 
-                // Define target terms for username fields
-                var usernameTerms = new[] { "username", "user", "login", "email", "account", "userid" };
-
-                // Enhanced fuzzy matching for each attribute
-                int idScore = ScoreAttributeWithFuzzyMatching(id, usernameTerms, ElementType.Username);
-                int nameScore = ScoreAttributeWithFuzzyMatching(name, usernameTerms, ElementType.Username);
-                int placeholderScore = ScoreAttributeWithFuzzyMatching(placeholder, usernameTerms, ElementType.Username);
-                int ariaScore = ScoreAttributeWithFuzzyMatching(ariaLabel, usernameTerms, ElementType.Username);
-                int dataTestScore = ScoreAttributeWithFuzzyMatching(dataTestId, usernameTerms, ElementType.Username);
-                int classScore = ScoreAttributeWithFuzzyMatching(className, usernameTerms, ElementType.Username);
-
-                // Apply weighted scoring based on attribute reliability
-                score += (int)(idScore * 0.9);      // ID is most reliable
-                score += (int)(nameScore * 0.85);   // Name is very reliable
-                score += (int)(placeholderScore * 0.6); // Placeholder is moderately reliable
-                score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
-                score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
-                score += (int)(classScore * 0.4);   // Class names are least reliable
-
-                // Input type validation with fuzzy matching
-                if (type == "email") score += 45; // Email type is highly indicative
-                else if (type == "text") score += 10; // Text type is acceptable
-                else if (type == "password") score -= 50; // Strong penalty for password fields
-
-                // Additional contextual scoring
-                
-                // Multi-word fuzzy matching for complex placeholders/labels
-                if (!string.IsNullOrEmpty(placeholder))
+                bool isExcluded = false;
+                if (excludeElements != null)
                 {
-                    var placeholderWords = placeholder.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var word in placeholderWords)
+                    foreach (var excludedElement in excludeElements)
                     {
-                        int wordScore = ScoreAttributeWithFuzzyMatching(word, usernameTerms, ElementType.Username);
-                        if (wordScore > 50) score += (int)(wordScore * 0.3); // Bonus for fuzzy word matches
+                        if (AreSameElement(input, excludedElement))
+                        {
+                            isExcluded = true;
+                            break;
+                        }
                     }
                 }
-
-                if (!string.IsNullOrEmpty(ariaLabel))
+                if (isExcluded)
                 {
-                    var ariaWords = ariaLabel.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var word in ariaWords)
-                    {
-                        int wordScore = ScoreAttributeWithFuzzyMatching(word, usernameTerms, ElementType.Username);
-                        if (wordScore > 50) score += (int)(wordScore * 0.35); // Bonus for fuzzy word matches
-                    }
-                }
-
-                // Form position bonus (username is typically first input)
-                var formInputs = GetFormInputs(input);
-                if (formInputs.Count > 0 && formInputs[0] == input) score += 15;
-
-                // Visibility bonus
-                if (IsElementVisible(input)) score += 5;
-
-                // Advanced pattern matching for common username field patterns
-                var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
-                
-                // Email pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(email|e-?mail|mail)\b")) score += 25;
-                
-                // Login pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(login|log-?in|signin|sign-?in)\b")) score += 20;
-                
-                // User pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(user|username|userid|user-?id)\b")) score += 20;
-                
-                // Account pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(account|acct)\b")) score += 15;
-
-                // Penalty for common non-username patterns
-                if (Regex.IsMatch(allAttributes, @"\b(password|pass|pwd|confirm|repeat|verify)\b")) score -= 30;
-                if (Regex.IsMatch(allAttributes, @"\b(search|query|filter)\b")) score -= 20;
-
-                // Only consider elements with positive scores
-                if (score > 0)
-                {
-                    candidates[input] = score;
-                    _logger.LogDebug($"Username candidate scored {score}: ID={id}, Name={name}, Type={type}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug($"Error scoring username element: {ex.Message}");
-            }
-        }
-    }
-
-    private void ScorePasswordElements(List<IWebElement> inputs, Dictionary<IWebElement, int> candidates)
-    {
-        foreach (var input in inputs)
-        {
-            try
-            {
-                int score = 0;
-                var type = GetAttributeLower(input, "type");
-                var id = GetAttributeLower(input, "id");
-                var name = GetAttributeLower(input, "name");
-                var placeholder = GetAttributeLower(input, "placeholder");
-                var ariaLabel = GetAttributeLower(input, "aria-label");
-                var className = GetAttributeLower(input, "class");
-                var dataTestId = GetAttributeLower(input, "data-testid");
-
-                // Define target terms for password fields
-                var passwordTerms = new[] { "password", "pass", "pwd", "passwd", "passphrase", "pin", "secret" };
-
-                // Enhanced fuzzy matching for each attribute
-                int idScore = ScoreAttributeWithFuzzyMatching(id, passwordTerms, ElementType.Password);
-                int nameScore = ScoreAttributeWithFuzzyMatching(name, passwordTerms, ElementType.Password);
-                int placeholderScore = ScoreAttributeWithFuzzyMatching(placeholder, passwordTerms, ElementType.Password);
-                int ariaScore = ScoreAttributeWithFuzzyMatching(ariaLabel, passwordTerms, ElementType.Password);
-                int dataTestScore = ScoreAttributeWithFuzzyMatching(dataTestId, passwordTerms, ElementType.Password);
-                int classScore = ScoreAttributeWithFuzzyMatching(className, passwordTerms, ElementType.Password);
-
-                // Apply weighted scoring based on attribute reliability
-                score += (int)(idScore * 0.9);      // ID is most reliable
-                score += (int)(nameScore * 0.85);   // Name is very reliable
-                score += (int)(placeholderScore * 0.6); // Placeholder is moderately reliable
-                score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
-                score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
-                score += (int)(classScore * 0.4);   // Class names are least reliable
-
-                // Input type validation - password type is highly indicative
-                if (type == "password") score += 50; // Password type is the strongest indicator
-                else if (type == "text") score += 5; // Text type is possible but less likely
-                else if (type != "text" && type != "password") score -= 30; // Other types are unlikely
-
-                // Multi-word fuzzy matching for complex placeholders/labels
-                if (!string.IsNullOrEmpty(placeholder))
-                {
-                    var placeholderWords = placeholder.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var word in placeholderWords)
-                    {
-                        int wordScore = ScoreAttributeWithFuzzyMatching(word, passwordTerms, ElementType.Password);
-                        if (wordScore > 50) score += (int)(wordScore * 0.3); // Bonus for fuzzy word matches
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(ariaLabel))
-                {
-                    var ariaWords = ariaLabel.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var word in ariaWords)
-                    {
-                        int wordScore = ScoreAttributeWithFuzzyMatching(word, passwordTerms, ElementType.Password);
-                        if (wordScore > 50) score += (int)(wordScore * 0.35); // Bonus for fuzzy word matches
-                    }
-                }
-
-                // Advanced pattern matching for password field patterns
-                var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
-                
-                // Password pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(password|pass-?word)\b")) score += 30;
-                
-                // Common password abbreviations
-                if (Regex.IsMatch(allAttributes, @"\b(pass|pwd|passwd)\b")) score += 25;
-                
-                // Security-related terms
-                if (Regex.IsMatch(allAttributes, @"\b(secret|pin|passphrase|auth)\b")) score += 20;
-                
-                // Confirmation password patterns (should have lower score than main password)
-                if (Regex.IsMatch(allAttributes, @"\b(confirm|verify|repeat|again|2nd|second)\b")) 
-                {
-                    score += 15; // Still a password field, but likely confirmation
-                    _logger.LogDebug($"Detected potential confirmation password field: {id}/{name}");
-                }
-
-                // Penalty for non-password patterns
-                if (Regex.IsMatch(allAttributes, @"\b(username|user|email|login|account)\b")) score -= 40;
-                if (Regex.IsMatch(allAttributes, @"\b(search|query|filter|domain|tenant)\b")) score -= 25;
-
-                // Form position consideration (password is typically second input)
-                var formInputs = GetFormInputs(input);
-                if (formInputs.Count >= 2 && formInputs[1] == input) score += 10;
-
-                // Visibility bonus
-                if (IsElementVisible(input)) score += 5;
-
-                // Penalty for elements that don't have password-like attributes at all
-                if (type != "password" && idScore == 0 && nameScore == 0 && placeholderScore == 0 && ariaScore == 0)
-                {
-                    score -= 20; // Likely not a password field
-                }
-
-                // Only consider elements with positive scores
-                if (score > 0)
-                {
-                    candidates[input] = score;
-                    _logger.LogDebug($"Password candidate scored {score}: ID={id}, Name={name}, Type={type}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug($"Error scoring password element: {ex.Message}");
-            }
-        }
-    }
-
-    private void ScoreDomainElements(List<IWebElement> elements, Dictionary<IWebElement, int> candidates, List<IWebElement?>? excludeElements = null)
-    {
-        foreach (var element in elements)
-        {
-            try
-            {
-                // Skip elements that are already detected as username or password fields
-                if (excludeElements?.Contains(element) == true)
-                {
-                    _logger.LogDebug($"Skipping element already detected as username/password field: ID={GetAttributeLower(element, "id")}, Name={GetAttributeLower(element, "name")}");
+                    _logger.LogDebug($"Skipping element (ID={GetAttributeLower(input, "id")}, Name={GetAttributeLower(input, "name")}) for Username as it's in excludeElements.");
                     continue;
                 }
 
                 int score = 0;
-                var tagName = element.TagName.ToLower();
-                var type = GetAttributeLower(element, "type");
-                var id = GetAttributeLower(element, "id");
-                var name = GetAttributeLower(element, "name");
-                var placeholder = GetAttributeLower(element, "placeholder");
-                var ariaLabel = GetAttributeLower(element, "aria-label");
-                var className = GetAttributeLower(element, "class");
-                var dataTestId = GetAttributeLower(element, "data-testid");
-
-                // Define target terms for domain fields
-                var domainTerms = new[] { "domain", "tenant", "organization", "org", "company", "realm", "authority" };
-
-                // Enhanced fuzzy matching for each attribute
-                int idScore = ScoreAttributeWithFuzzyMatching(id, domainTerms, ElementType.Domain);
-                int nameScore = ScoreAttributeWithFuzzyMatching(name, domainTerms, ElementType.Domain);
-                int placeholderScore = ScoreAttributeWithFuzzyMatching(placeholder, domainTerms, ElementType.Domain);
-                int ariaScore = ScoreAttributeWithFuzzyMatching(ariaLabel, domainTerms, ElementType.Domain);
-                int dataTestScore = ScoreAttributeWithFuzzyMatching(dataTestId, domainTerms, ElementType.Domain);
-                int classScore = ScoreAttributeWithFuzzyMatching(className, domainTerms, ElementType.Domain);
-
-                // Apply weighted scoring based on attribute reliability
-                score += (int)(idScore * 0.9);      // ID is most reliable
-                score += (int)(nameScore * 0.85);   // Name is very reliable
-                score += (int)(placeholderScore * 0.6); // Placeholder is moderately reliable
-                score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
-                score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
-                score += (int)(classScore * 0.4);   // Class names are least reliable
-
-                // Element type bonuses
-                if (tagName == "select") score += 15; // Domain fields are often dropdowns
-                if (tagName == "input" && (type == "text" || type == "")) score += 5;
-
-                // Multi-word fuzzy matching for complex placeholders/labels
-                if (!string.IsNullOrEmpty(placeholder))
+                try // Inner try for the actual scoring attempt
                 {
-                    var placeholderWords = placeholder.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var word in placeholderWords)
+                    int idScore = 0;
+                    int nameScore = 0;
+                    int placeholderScore = 0;
+                    int ariaScore = 0;
+                    int dataTestScore = 0;
+                    int classScore = 0;
+
+                    var type = GetAttributeLower(input, "type");
+                    var id = GetAttributeLower(input, "id");
+                    var name = GetAttributeLower(input, "name");
+                    var placeholder = GetAttributeLower(input, "placeholder");
+                    var ariaLabel = GetAttributeLower(input, "aria-label");
+                    var className = GetAttributeLower(input, "class");
+                    var dataTestId = GetAttributeLower(input, "data-testid");
+
+                    // Define target terms for username fields
+                    var currentUsernameTerms = new[] { "username", "user", "login", "email", "account", "userid" }; // Renamed to avoid conflict if usernameTerms is class member
+
+                    // Enhanced fuzzy matching for each attribute
+                    idScore = ScoreAttributeWithFuzzyMatching(id, currentUsernameTerms, ElementType.Username);
+                    nameScore = ScoreAttributeWithFuzzyMatching(name, currentUsernameTerms, ElementType.Username);
+                    placeholderScore = ScoreAttributeWithFuzzyMatching(placeholder, currentUsernameTerms, ElementType.Username);
+                    ariaScore = ScoreAttributeWithFuzzyMatching(ariaLabel, currentUsernameTerms, ElementType.Username);
+                    dataTestScore = ScoreAttributeWithFuzzyMatching(dataTestId, currentUsernameTerms, ElementType.Username);
+                    classScore = ScoreAttributeWithFuzzyMatching(className, currentUsernameTerms, ElementType.Username);
+
+                    // Apply weighted scoring based on attribute reliability
+                    score += (int)(idScore * 0.9);      // ID is most reliable
+                    score += (int)(nameScore * 0.85);   // Name is very reliable
+                    score += (int)(placeholderScore * 0.6); // Placeholder is moderately reliable
+                    score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
+                    score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
+                    score += (int)(classScore * 0.4);   // Class names are least reliable
+
+                    // Input type validation with fuzzy matching
+                    if (type == "email") score += 45; // Email type is highly indicative
+                    else if (type == "text") score += 10; // Text type is acceptable
+                    else if (type == "password") score -= 50; // Strong penalty for password fields
+
+                    // Additional contextual scoring
+                    
+                    // Multi-word fuzzy matching for complex placeholders/labels
+                    if (!string.IsNullOrEmpty(placeholder))
                     {
-                        int wordScore = ScoreAttributeWithFuzzyMatching(word, domainTerms, ElementType.Domain);
-                        if (wordScore > 50) score += (int)(wordScore * 0.3); // Bonus for fuzzy word matches
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(ariaLabel))
-                {
-                    var ariaWords = ariaLabel.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var word in ariaWords)
-                    {
-                        int wordScore = ScoreAttributeWithFuzzyMatching(word, domainTerms, ElementType.Domain);
-                        if (wordScore > 50) score += (int)(wordScore * 0.35); // Bonus for fuzzy word matches
-                    }
-                }
-
-                // Advanced pattern matching for domain field patterns
-                var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
-                
-                // Domain pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(domain|tenant)\b")) score += 30;
-                
-                // Organization pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(organization|organisation|org)\b")) score += 25;
-                
-                // Company pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(company|corp|corporation)\b")) score += 20;
-                
-                // Enterprise/realm patterns
-                if (Regex.IsMatch(allAttributes, @"\b(realm|authority|enterprise|workspace)\b")) score += 20;
-
-                // STRONG penalty for non-domain patterns - prevent username/password field reuse
-                if (Regex.IsMatch(allAttributes, @"\b(username|user|password|pass|email|login)\b")) score -= 100; // Increased penalty
-                if (Regex.IsMatch(allAttributes, @"\b(search|query|filter|submit)\b")) score -= 50; // Increased penalty
-
-                // Additional validation: Require at least one domain-specific term to have a positive score
-                bool hasDomainSpecificTerm = Regex.IsMatch(allAttributes, @"\b(domain|tenant|organization|organisation|org|company|corp|corporation|realm|authority|enterprise|workspace)\b");
-                if (!hasDomainSpecificTerm)
-                {
-                    // If no domain-specific terms found, apply heavy penalty to prevent false positives
-                    score -= 80;
-                    _logger.LogDebug($"No domain-specific terms found in element: ID={id}, Name={name} - applying heavy penalty");
-                }
-
-                // Form position bonus (domain is often third field)
-                var formInputs = GetFormInputs(element);
-                if (formInputs.Count >= 3 && formInputs[2] == element) score += 10;
-
-                // Visibility bonus
-                if (IsElementVisible(element)) score += 5;
-
-                // Special handling for select elements with domain-like options
-                if (tagName == "select")
-                {
-                    try
-                    {
-                        var options = element.FindElements(By.TagName("option"));
-                        if (options.Count > 1) // Must have multiple options
+                        var placeholderWords = placeholder.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var word in placeholderWords)
                         {
-                            var optionTexts = options.Select(o => o.Text?.ToLower() ?? "").ToList();
-                            
-                            // Look for domain-like option values
-                            bool hasDomainOptions = optionTexts.Any(text => 
-                                Regex.IsMatch(text, @"\b(domain|tenant|org|company|corp)\b") ||
-                                text.Contains(".com") || text.Contains(".org") || text.Contains(".net"));
-                            
-                            if (hasDomainOptions) score += 25;
+                            int wordScore = ScoreAttributeWithFuzzyMatching(word, currentUsernameTerms, ElementType.Username);
+                            if (wordScore > 50) score += (int)(wordScore * 0.3); // Bonus for fuzzy word matches
                         }
                     }
-                    catch (Exception ex)
+
+                    if (!string.IsNullOrEmpty(ariaLabel))
                     {
-                        _logger.LogDebug($"Error analyzing select options for domain field: {ex.Message}");
+                        var ariaWords = ariaLabel.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var word in ariaWords)
+                        {
+                            int wordScore = ScoreAttributeWithFuzzyMatching(word, currentUsernameTerms, ElementType.Username);
+                            if (wordScore > 50) score += (int)(wordScore * 0.35); // Bonus for fuzzy word matches
+                        }
+                    }
+
+                    // Form position bonus (username is typically first input)
+                    var formInputs = GetFormInputs(input);
+                    if (formInputs.Count > 0 && AreSameElement(formInputs[0], input)) score += 15; // Used AreSameElement
+
+                    // Visibility bonus
+                    if (IsElementVisible(input)) score += 5;
+
+                    // Advanced pattern matching for common username field patterns
+                    var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
+                    
+                    // Email pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(email|e-?mail|mail)\\b")) score += 25;
+                    
+                    // Login pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(login|log-?in|signin|sign-?in)\\b")) score += 20;
+                    
+                    // User pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(user|username|userid|user-?id)\\b")) score += 20;
+                    
+                    // Account pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(account|acct)\\b")) score += 15;
+
+                    // Penalty for common non-username patterns
+                    if (Regex.IsMatch(allAttributes, @"\\b(password|pass|pwd|confirm|repeat|verify)\\b")) score -= 30;
+                    if (Regex.IsMatch(allAttributes, @"\\b(search|query|filter)\\b")) score -= 20;
+
+                    // Only consider elements with positive scores
+                    if (score > 0)
+                    {
+                        candidates[input] = score;
+                        _logger.LogDebug($"Username candidate scored {score}: ID={id}, Name={name}, Type={type}");
                     }
                 }
-
-                // Only consider elements with positive scores AND domain-specific attributes
-                if (score > 0 && hasDomainSpecificTerm)
+                catch (Exception ex_inner) // Inner catch for scoring logic
                 {
-                    candidates[element] = score;
-                    _logger.LogDebug($"Domain candidate scored {score}: ID={id}, Name={name}, TagName={tagName}");
+                    _logger.LogDebug($"Error scoring username element: {ex_inner.Message}");
                 }
-                else if (score <= 0)
-                {
-                    _logger.LogDebug($"Domain candidate rejected (score {score}): ID={id}, Name={name}, TagName={tagName}");
-                }
-            }
-            catch (Exception ex)
+                // Inner try-catch block ends here
+            } // Outer try for 'input' processing ends here.
+            catch (Exception ex_outer) // Catch for the outer try (processing the element 'input')
             {
-                _logger.LogDebug($"Error scoring domain element: {ex.Message}");
+                _logger.LogDebug(ex_outer, $"Error processing an element in ScoreUsernameElements loop for input: ID={GetAttributeLower(input, "id")}");
             }
-        }
+        } // End of foreach loop
     }
 
-    private void ScoreSubmitElements(List<IWebElement> elements, Dictionary<IWebElement, int> candidates)
+    private void ScorePasswordElements(List<IWebElement> inputs, Dictionary<IWebElement, int> candidates, List<IWebElement?>? excludeElements = null)
     {
+        var passwordTerms = GetVariationsForElementType(ElementType.Password).SelectMany(kv => kv.Value.Concat(new[] { kv.Key })).Distinct().ToArray();
+
+        foreach (var input in inputs)
+        {
+            try // Outer try for the 'input' element processing
+            {
+                if (!IsElementVisible(input)) continue;
+
+                bool isExcluded = false;
+                if (excludeElements != null)
+                {
+                    foreach (var excludedElement in excludeElements)
+                    {
+                        if (AreSameElement(input, excludedElement))
+                        {
+                            isExcluded = true;
+                            break;
+                        }
+                    }
+                }
+                if (isExcluded)
+                {
+                    _logger.LogDebug($"Skipping element (ID={GetAttributeLower(input, "id")}, Name={GetAttributeLower(input, "name")}) for Password as it's in excludeElements.");
+                    continue;
+                }
+                
+                int score = 0;
+                try // Inner try for the actual scoring attempt
+                {
+                    int idScore = 0;
+                    int nameScore = 0;
+                    int placeholderScore = 0;
+                    int ariaScore = 0;
+                    int dataTestScore = 0;
+                    int classScore = 0;
+
+                    var type = GetAttributeLower(input, "type");
+                    var id = GetAttributeLower(input, "id");
+                    var name = GetAttributeLower(input, "name");
+                    var placeholder = GetAttributeLower(input, "placeholder");
+                    var ariaLabel = GetAttributeLower(input, "aria-label");
+                    var className = GetAttributeLower(input, "class");
+                    var dataTestId = GetAttributeLower(input, "data-testid");
+
+                    // Define target terms for password fields
+                    var currentPasswordTerms = new[] { "password", "pass", "pwd", "passwd", "passphrase", "pin", "secret" }; // Renamed
+
+                    // Enhanced fuzzy matching for each attribute
+                    idScore = ScoreAttributeWithFuzzyMatching(id, currentPasswordTerms, ElementType.Password);
+                    nameScore = ScoreAttributeWithFuzzyMatching(name, currentPasswordTerms, ElementType.Password);
+                    placeholderScore = ScoreAttributeWithFuzzyMatching(placeholder, currentPasswordTerms, ElementType.Password);
+                    ariaScore = ScoreAttributeWithFuzzyMatching(ariaLabel, currentPasswordTerms, ElementType.Password);
+                    dataTestScore = ScoreAttributeWithFuzzyMatching(dataTestId, currentPasswordTerms, ElementType.Password);
+                    classScore = ScoreAttributeWithFuzzyMatching(className, currentPasswordTerms, ElementType.Password);
+
+                    // Apply weighted scoring based on attribute reliability
+                    score += (int)(idScore * 0.9);      // ID is most reliable
+                    score += (int)(nameScore * 0.85);   // Name is very reliable
+                    score += (int)(placeholderScore * 0.6); // Placeholder is moderately reliable
+                    score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
+                    score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
+                    score += (int)(classScore * 0.4);   // Class names are least reliable
+
+                    // Input type validation - password type is highly indicative
+                    if (type == "password") score += 50; // Password type is the strongest indicator
+                    else if (type == "text") score += 5; // Text type is possible but less likely
+                    else if (type != "text" && type != "password") score -= 30; // Other types are unlikely
+
+                    // Multi-word fuzzy matching for complex placeholders/labels
+                    if (!string.IsNullOrEmpty(placeholder))
+                    {
+                        var placeholderWords = placeholder.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var word in placeholderWords)
+                        {
+                            int wordScore = ScoreAttributeWithFuzzyMatching(word, currentPasswordTerms, ElementType.Password);
+                            if (wordScore > 50) score += (int)(wordScore * 0.3); // Bonus for fuzzy word matches
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(ariaLabel))
+                    {
+                        var ariaWords = ariaLabel.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var word in ariaWords)
+                        {
+                            int wordScore = ScoreAttributeWithFuzzyMatching(word, currentPasswordTerms, ElementType.Password);
+                            if (wordScore > 50) score += (int)(wordScore * 0.35); // Bonus for fuzzy word matches
+                        }
+                    }
+
+                    // Advanced pattern matching for password field patterns
+                    var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
+                    
+                    // Password pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(password|pass-?word)\\b")) score += 30;
+                    
+                    // Common password abbreviations
+                    if (Regex.IsMatch(allAttributes, @"\\b(pass|pwd|passwd)\\b")) score += 25;
+                    
+                    // Security-related terms
+                    if (Regex.IsMatch(allAttributes, @"\\b(secret|pin|passphrase|auth)\\b")) score += 20;
+                    
+                    // Confirmation password patterns (should have lower score than main password)
+                    if (Regex.IsMatch(allAttributes, @"\\b(confirm|verify|repeat|again|2nd|second)\\b")) 
+                    {
+                        score += 15; // Still a password field, but likely confirmation
+                        _logger.LogDebug($"Detected potential confirmation password field: {id}/{name}");
+                    }
+
+                    // Penalty for non-password patterns
+                    if (Regex.IsMatch(allAttributes, @"\\b(username|user|email|login|account)\\b")) score -= 40;
+                    if (Regex.IsMatch(allAttributes, @"\\b(search|query|filter|domain|tenant)\\b")) score -= 25;
+
+                    // Form position consideration (password is typically second input)
+                    var formInputs = GetFormInputs(input);
+                    if (formInputs.Count >= 2 && AreSameElement(formInputs[1], input)) score += 10; // Used AreSameElement
+
+                    // Visibility bonus
+                    if (IsElementVisible(input)) score += 5;
+
+                    // Penalty for elements that don't have password-like attributes at all
+                    if (type != "password" && idScore == 0 && nameScore == 0 && placeholderScore == 0 && ariaScore == 0)
+                    {
+                        score -= 20; // Likely not a password field
+                    }
+
+                    // Only consider elements with positive scores
+                    if (score > 0)
+                    {
+                        candidates[input] = score;
+                        _logger.LogDebug($"Password candidate scored {score}: ID={id}, Name={name}, Type={type}");
+                    }
+                }
+                catch (Exception ex_inner) // Inner catch for scoring logic
+                {
+                    _logger.LogDebug($"Error scoring password element: {ex_inner.Message}");
+                }
+                // Inner try-catch block ends here
+            } // Outer try for 'input' processing ends here.
+            catch (Exception ex_outer) // Catch for the outer try (processing the element 'input')
+            {
+                _logger.LogDebug(ex_outer, $"Error processing an element in ScorePasswordElements loop for input: ID={GetAttributeLower(input, "id")}");
+            }
+        } // End of foreach loop
+    }
+
+    private void ScoreDomainElements(List<IWebElement> elements, Dictionary<IWebElement, int> candidates, List<IWebElement?>? excludeElements = null)
+    {
+        var domainTerms = GetVariationsForElementType(ElementType.Domain).SelectMany(kv => kv.Value.Concat(new[] { kv.Key })).Distinct().ToArray();
+
         foreach (var element in elements)
         {
-            try
+            try // Outer try for the 'element' processing
             {
+                if (!IsElementVisible(element)) continue;
+            
+                bool isExcluded = false;
+                if (excludeElements != null)
+                {
+                    foreach (var excludedElement in excludeElements)
+                    {
+                        if (AreSameElement(element, excludedElement))
+                        {
+                            isExcluded = true;
+                            break;
+                        }
+                    }
+                }
+                if (isExcluded)
+                {
+                    _logger.LogDebug($"Skipping element (ID={GetAttributeLower(element, "id")}, Name={GetAttributeLower(element, "name")}) for Domain as it's in excludeElements.");
+                    continue;
+                }
+
                 int score = 0;
-                var tagName = element.TagName.ToLower();
-                var type = GetAttributeLower(element, "type");
-                var id = GetAttributeLower(element, "id");
-                var name = GetAttributeLower(element, "name");
-                var value = GetAttributeLower(element, "value");
-                var text = element.Text?.ToLower() ?? "";
-                var ariaLabel = GetAttributeLower(element, "aria-label");
-                var className = GetAttributeLower(element, "class");
-                var dataTestId = GetAttributeLower(element, "data-testid");
-
-                // Define target terms for submit buttons
-                var submitTerms = new[] { "login", "submit", "signin", "sign-in", "enter", "go", "connect", "continue" };
-
-                // Enhanced fuzzy matching for each attribute
-                int idScore = ScoreAttributeWithFuzzyMatching(id, submitTerms, ElementType.SubmitButton);
-                int nameScore = ScoreAttributeWithFuzzyMatching(name, submitTerms, ElementType.SubmitButton);
-                int valueScore = ScoreAttributeWithFuzzyMatching(value, submitTerms, ElementType.SubmitButton);
-                int textScore = ScoreAttributeWithFuzzyMatching(text, submitTerms, ElementType.SubmitButton);
-                int ariaScore = ScoreAttributeWithFuzzyMatching(ariaLabel, submitTerms, ElementType.SubmitButton);
-                int dataTestScore = ScoreAttributeWithFuzzyMatching(dataTestId, submitTerms, ElementType.SubmitButton);
-                int classScore = ScoreAttributeWithFuzzyMatching(className, submitTerms, ElementType.SubmitButton);
-
-                // Apply weighted scoring based on attribute reliability for submit buttons
-                score += (int)(idScore * 0.8);      // ID is reliable
-                score += (int)(nameScore * 0.8);    // Name is reliable
-                score += (int)(valueScore * 0.9);   // Value is very reliable for buttons
-                score += (int)(textScore * 0.95);   // Visible text is most reliable
-                score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
-                score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
-                score += (int)(classScore * 0.4);   // Class names are least reliable
-
-                // Element type validation
-                if (type == "submit") score += 50; // Submit type is the strongest indicator
-                else if (tagName == "button") score += 20; // Button elements are likely
-                else if (tagName == "input" && type == "button") score += 15; // Input buttons are possible
-                else if (tagName == "a") score += 5; // Links can be submit mechanisms
-
-                // Multi-word fuzzy matching for complex text/labels
-                if (!string.IsNullOrEmpty(text))
+                try // Inner try for the actual scoring attempt
                 {
-                    var textWords = text.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var word in textWords)
+                    int idScore = 0;
+                    int nameScore = 0;
+                    int placeholderScore = 0;
+                    int ariaScore = 0;
+                    int dataTestScore = 0;
+                    int classScore = 0;
+
+                    var tagName = element.TagName.ToLower();
+                    var type = GetAttributeLower(element, "type");
+                    var id = GetAttributeLower(element, "id");
+                    var name = GetAttributeLower(element, "name");
+                    var placeholder = GetAttributeLower(element, "placeholder");
+                    var ariaLabel = GetAttributeLower(element, "aria-label");
+                    var className = GetAttributeLower(element, "class");
+                    var dataTestId = GetAttributeLower(element, "data-testid");
+
+                    // Define target terms for domain fields
+                    var currentDomainTerms = new[] { "domain", "tenant", "organization", "org", "company", "realm", "authority" }; // Renamed
+
+                    // Enhanced fuzzy matching for each attribute
+                    idScore = ScoreAttributeWithFuzzyMatching(id, currentDomainTerms, ElementType.Domain);
+                    nameScore = ScoreAttributeWithFuzzyMatching(name, currentDomainTerms, ElementType.Domain);
+                    placeholderScore = ScoreAttributeWithFuzzyMatching(placeholder, currentDomainTerms, ElementType.Domain);
+                    ariaScore = ScoreAttributeWithFuzzyMatching(ariaLabel, currentDomainTerms, ElementType.Domain);
+                    dataTestScore = ScoreAttributeWithFuzzyMatching(dataTestId, currentDomainTerms, ElementType.Domain);
+                    classScore = ScoreAttributeWithFuzzyMatching(className, currentDomainTerms, ElementType.Domain);
+
+                    // Apply weighted scoring based on attribute reliability
+                    score += (int)(idScore * 0.9);      // ID is most reliable
+                    score += (int)(nameScore * 0.85);   // Name is very reliable
+                    score += (int)(placeholderScore * 0.6); // Placeholder is moderately reliable
+                    score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
+                    score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
+                    score += (int)(classScore * 0.4);   // Class names are least reliable
+
+                    // Element type bonuses
+                    if (tagName == "select") score += 15; // Domain fields are often dropdowns
+                    if (tagName == "input" && (type == "text" || type == "")) score += 5;
+
+                    // Multi-word fuzzy matching for complex placeholders/labels
+                    if (!string.IsNullOrEmpty(placeholder))
                     {
-                        int wordScore = ScoreAttributeWithFuzzyMatching(word, submitTerms, ElementType.SubmitButton);
-                        if (wordScore > 50) score += (int)(wordScore * 0.4); // Bonus for fuzzy word matches in text
+                        var placeholderWords = placeholder.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var word in placeholderWords)
+                        {
+                            int wordScore = ScoreAttributeWithFuzzyMatching(word, currentDomainTerms, ElementType.Domain);
+                            if (wordScore > 50) score += (int)(wordScore * 0.3); // Bonus for fuzzy word matches
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(ariaLabel))
+                    {
+                        var ariaWords = ariaLabel.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var word in ariaWords)
+                        {
+                            int wordScore = ScoreAttributeWithFuzzyMatching(word, currentDomainTerms, ElementType.Domain);
+                            if (wordScore > 50) score += (int)(wordScore * 0.35); // Bonus for fuzzy word matches
+                        }
+                    }
+
+                    // Advanced pattern matching for domain field patterns
+                    var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
+                    
+                    // Domain pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(domain|tenant)\\b")) score += 30;
+                    
+                    // Organization pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(organization|organisation|org)\\b")) score += 25;
+                    
+                    // Company pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(company|corp|corporation)\\b")) score += 20;
+                    
+                    // Enterprise/realm patterns
+                    if (Regex.IsMatch(allAttributes, @"\\b(realm|authority|enterprise|workspace)\\b")) score += 20;
+
+                    // STRONG penalty for non-domain patterns - prevent username/password field reuse
+                    if (Regex.IsMatch(allAttributes, @"\\b(username|user|password|pass|email|login)\\b")) score -= 100; // Increased penalty
+                    if (Regex.IsMatch(allAttributes, @"\\b(search|query|filter|submit)\\b")) score -= 50; // Increased penalty
+
+                    // Additional validation: Require at least one domain-specific term to have a positive score
+                    bool hasDomainSpecificTerm = Regex.IsMatch(allAttributes, @"\\b(domain|tenant|organization|organisation|org|company|corp|corporation|realm|authority|enterprise|workspace)\\b");
+                    if (!hasDomainSpecificTerm)
+                    {
+                        // If no domain-specific terms found, apply heavy penalty to prevent false positives
+                        score -= 80;
+                        _logger.LogDebug($"No domain-specific terms found in element: ID={id}, Name={name} - applying heavy penalty");
+                    }
+
+                    // Form position bonus (domain is often third field)
+                    var formInputs = GetFormInputs(element);
+                    if (formInputs.Count >= 3 && AreSameElement(formInputs[2], element)) score += 10; // Used AreSameElement
+
+                    // Visibility bonus
+                    if (IsElementVisible(element)) score += 5;
+
+                    // Special handling for select elements with domain-like options
+                    if (tagName == "select")
+                    {
+                        try
+                        {
+                            var options = element.FindElements(By.TagName("option"));
+                            if (options.Count > 1) // Must have multiple options
+                            {
+                                var optionTexts = options.Select(o => o.Text?.ToLower() ?? "").ToList();
+                                
+                                // Look for domain-like option values
+                                bool hasDomainOptions = optionTexts.Any(text => 
+                                    Regex.IsMatch(text, @"\\b(domain|tenant|org|company|corp)\\b") ||
+                                    text.Contains(".com") || text.Contains(".org") || text.Contains(".net"));
+                                
+                                if (hasDomainOptions) score += 25;
+                            }
+                        }
+                        catch (Exception ex_select)
+                        {
+                            _logger.LogDebug($"Error analyzing select options for domain field: {ex_select.Message}");
+                        }
+                    }
+
+                    // Only consider elements with positive scores AND domain-specific attributes
+                    if (score > 0 && hasDomainSpecificTerm)
+                    {
+                        candidates[element] = score;
+                        _logger.LogDebug($"Domain candidate scored {score}: ID={id}, Name={name}, TagName={tagName}");
+                    }
+                    else if (score <= 0)
+                    {
+                        _logger.LogDebug($"Domain candidate rejected (score {score}): ID={id}, Name={name}, TagName={tagName}");
                     }
                 }
-
-                if (!string.IsNullOrEmpty(value))
+                catch (Exception ex_inner) // Inner catch for scoring logic
                 {
-                    var valueWords = value.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var word in valueWords)
-                    {
-                        int wordScore = ScoreAttributeWithFuzzyMatching(word, submitTerms, ElementType.SubmitButton);
-                        if (wordScore > 50) score += (int)(wordScore * 0.35); // Bonus for fuzzy word matches in value
-                    }
+                    _logger.LogDebug($"Error scoring domain element: {ex_inner.Message}");
                 }
-
-                // Advanced pattern matching for submit button patterns
-                var allAttributes = $"{id} {name} {value} {text} {ariaLabel} {className} {dataTestId}".ToLower();
-                
-                // Login pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(login|log-?in|signin|sign-?in)\b")) score += 30;
-                
-                // Submit pattern detection
-                if (Regex.IsMatch(allAttributes, @"\b(submit|send)\b")) score += 25;
-                
-                // Action patterns
-                if (Regex.IsMatch(allAttributes, @"\b(enter|go|continue|proceed|connect)\b")) score += 20;
-                
-                // Authentication patterns
-                if (Regex.IsMatch(allAttributes, @"\b(authenticate|auth|access)\b")) score += 15;
-
-                // Penalty for non-submit patterns
-                if (Regex.IsMatch(allAttributes, @"\b(cancel|reset|clear|back|previous)\b")) score -= 30;
-                if (Regex.IsMatch(allAttributes, @"\b(register|signup|sign-?up|create|forgot)\b")) score -= 25;
-                if (Regex.IsMatch(allAttributes, @"\b(search|filter|sort|edit|delete)\b")) score -= 20;
-
-                // Form position bonus (submit is often last element)
-                var formButtons = GetFormButtons(element);
-                if (formButtons.Count > 0 && formButtons.Last() == element) score += 15;
-
-                // Primary button detection (common CSS patterns)
-                if (Regex.IsMatch(className, @"\b(primary|btn-primary|main|default)\b")) score += 10;
-
-                // Visibility requirement - submit buttons must be visible
-                if (IsElementVisible(element)) 
-                {
-                    score += 10; // Higher bonus for visibility
-                }
-                else 
-                {
-                    score -= 40; // Heavy penalty for hidden submit buttons
-                }
-
-                // Special handling for links that might be submit mechanisms
-                if (tagName == "a")
-                {
-                    var href = element.GetAttribute("href")?.ToLower() ?? "";
-                    if (href.Contains("javascript") || href == "#" || string.IsNullOrEmpty(href))
-                    {
-                        score += 10; // Likely a JavaScript-based submit link
-                    }
-                    else
-                    {
-                        score -= 10; // Regular navigation links are less likely to be submit buttons
-                    }
-                }
-
-                // Role attribute consideration
-                var role = GetAttributeLower(element, "role");
-                if (role == "button") score += 10;
-
-                // Only consider elements with positive scores
-                if (score > 0)
-                {
-                    candidates[element] = score;
-                    _logger.LogDebug($"Submit candidate scored {score}: ID={id}, Name={name}, TagName={tagName}, Type={type}, Text='{text}'");
-                }
-            }
-            catch (Exception ex)
+                // Inner try-catch block ends here
+            } // Outer try for 'element' processing ends here.
+            catch (Exception ex_outer) // Catch for the outer try (processing the element 'element')
             {
-                _logger.LogDebug($"Error scoring submit element: {ex.Message}");
+                _logger.LogDebug(ex_outer, $"Error processing an element in ScoreDomainElements loop for element: ID={GetAttributeLower(element, "id")}");
             }
-        }
+        } // End of foreach loop
+    }
+
+    private void ScoreSubmitElements(List<IWebElement> elements, Dictionary<IWebElement, int> candidates, List<IWebElement?>? excludeElements = null)
+    {
+        var submitTerms = GetVariationsForElementType(ElementType.SubmitButton).SelectMany(kv => kv.Value.Concat(new[] { kv.Key })).Distinct().ToArray();
+
+        foreach (var element in elements)
+        {
+            try // Outer try for the 'element' processing
+            {
+                if (!IsElementVisible(element)) continue;
+
+                bool isExcluded = false;
+                if (excludeElements != null)
+                {
+                    foreach (var excludedElement in excludeElements)
+                    {
+                        if (AreSameElement(element, excludedElement))
+                        {
+                            isExcluded = true;
+                            break;
+                        }
+                    }
+                }
+                if (isExcluded)
+                {
+                    _logger.LogDebug($"Skipping element (ID={GetAttributeLower(element, "id")}, Name={GetAttributeLower(element, "name")}) for SubmitButton as it's in excludeElements.");
+                    continue;
+                }
+
+                int score = 0;
+                try // Inner try for the actual scoring attempt
+                {
+                    int idScore = 0;
+                    int nameScore = 0;
+                    int valueScore = 0;
+                    int textScore = 0;
+                    int ariaScore = 0;
+                    int dataTestScore = 0;
+                    int classScore = 0;
+
+                    var tagName = element.TagName.ToLower();
+                    var type = GetAttributeLower(element, "type");
+                    var id = GetAttributeLower(element, "id");
+                    var name = GetAttributeLower(element, "name");
+                    var value = GetAttributeLower(element, "value");
+                    var text = element.Text?.ToLower() ?? "";
+                    var ariaLabel = GetAttributeLower(element, "aria-label");
+                    var className = GetAttributeLower(element, "class");
+                    var dataTestId = GetAttributeLower(element, "data-testid");
+
+                    // Define target terms for submit buttons
+                    var currentSubmitTerms = new[] { "login", "submit", "signin", "sign-in", "enter", "go", "connect", "continue" }; // Renamed
+
+                    // Enhanced fuzzy matching for each attribute
+                    idScore = ScoreAttributeWithFuzzyMatching(id, currentSubmitTerms, ElementType.SubmitButton);
+                    nameScore = ScoreAttributeWithFuzzyMatching(name, currentSubmitTerms, ElementType.SubmitButton);
+                    valueScore = ScoreAttributeWithFuzzyMatching(value, currentSubmitTerms, ElementType.SubmitButton);
+                    textScore = ScoreAttributeWithFuzzyMatching(text, currentSubmitTerms, ElementType.SubmitButton);
+                    ariaScore = ScoreAttributeWithFuzzyMatching(ariaLabel, currentSubmitTerms, ElementType.SubmitButton);
+                    dataTestScore = ScoreAttributeWithFuzzyMatching(dataTestId, currentSubmitTerms, ElementType.SubmitButton);
+                    classScore = ScoreAttributeWithFuzzyMatching(className, currentSubmitTerms, ElementType.SubmitButton);
+
+                    // Apply weighted scoring based on attribute reliability for submit buttons
+                    score += (int)(idScore * 0.8);      // ID is reliable
+                    score += (int)(nameScore * 0.8);    // Name is reliable
+                    score += (int)(valueScore * 0.9);   // Value is very reliable for buttons
+                    score += (int)(textScore * 0.95);   // Visible text is most reliable
+                    score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
+                    score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
+                    score += (int)(classScore * 0.4);   // Class names are least reliable
+
+                    // Element type validation
+                    if (type == "submit") score += 50; // Submit type is the strongest indicator
+                    else if (tagName == "button") score += 20; // Button elements are likely
+                    else if (tagName == "input" && type == "button") score += 15; // Input buttons are possible
+                    else if (tagName == "a") score += 5; // Links can be submit mechanisms
+
+                    // Multi-word fuzzy matching for complex text/labels
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        var textWords = text.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var word in textWords)
+                        {
+                            int wordScore = ScoreAttributeWithFuzzyMatching(word, currentSubmitTerms, ElementType.SubmitButton);
+                            if (wordScore > 50) score += (int)(wordScore * 0.4); // Bonus for fuzzy word matches in text
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        var valueWords = value.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var word in valueWords)
+                        {
+                            int wordScore = ScoreAttributeWithFuzzyMatching(word, currentSubmitTerms, ElementType.SubmitButton);
+                            if (wordScore > 50) score += (int)(wordScore * 0.35); // Bonus for fuzzy word matches in value
+                        }
+                    }
+
+                    // Advanced pattern matching for submit button patterns
+                    var allAttributes = $"{id} {name} {value} {text} {ariaLabel} {className} {dataTestId}".ToLower();
+                    
+                    // Login pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(login|log-?in|signin|sign-?in)\\b")) score += 30;
+                    
+                    // Submit pattern detection
+                    if (Regex.IsMatch(allAttributes, @"\\b(submit|send)\\b")) score += 25;
+                    
+                    // Action patterns
+                    if (Regex.IsMatch(allAttributes, @"\\b(enter|go|continue|proceed|connect)\\b")) score += 20;
+                    
+                    // Authentication patterns
+                    if (Regex.IsMatch(allAttributes, @"\\b(authenticate|auth|access)\\b")) score += 15;
+
+                    // Penalty for non-submit patterns
+                    if (Regex.IsMatch(allAttributes, @"\\b(cancel|reset|clear|back|previous)\\b")) score -= 30;
+                    if (Regex.IsMatch(allAttributes, @"\\b(register|signup|sign-?up|create|forgot)\\b")) score -= 25;
+                    if (Regex.IsMatch(allAttributes, @"\\b(search|filter|sort|edit|delete)\\b")) score -= 20;
+
+                    // Form position bonus (submit is often last element)
+                    var formButtons = GetFormButtons(element);
+                    if (formButtons.Count > 0 && AreSameElement(formButtons.Last(), element)) score += 15; // Used AreSameElement
+
+                    // Primary button detection (common CSS patterns)
+                    if (Regex.IsMatch(className, @"\\b(primary|btn-primary|main|default)\\b")) score += 10;
+
+                    // Visibility requirement - submit buttons must be visible
+                    if (IsElementVisible(element)) 
+                    {
+                        score += 10; // Higher bonus for visibility
+                    }
+                    else 
+                    {
+                        score -= 40; // Heavy penalty for hidden submit buttons
+                    }
+
+                    // Special handling for links that might be submit mechanisms
+                    if (tagName == "a")
+                    {
+                        var href = element.GetAttribute("href")?.ToLower() ?? "";
+                        if (href.Contains("javascript") || href == "#" || string.IsNullOrEmpty(href))
+                        {
+                            score += 10; // Likely a JavaScript-based submit link
+                        }
+                        else
+                        {
+                            score -= 10; // Regular navigation links are less likely to be submit buttons
+                        }
+                    }
+
+                    // Role attribute consideration
+                    var role = GetAttributeLower(element, "role");
+                    if (role == "button") score += 10;
+
+                    // Only consider elements with positive scores
+                    if (score > 0)
+                    {
+                        candidates[element] = score;
+                        _logger.LogDebug($"Submit candidate scored {score}: ID={id}, Name={name}, TagName={tagName}, Type={type}, Text='{text}'");
+                    }
+                }
+                catch (Exception ex_inner) // Inner catch for scoring logic
+                {
+                    _logger.LogDebug($"Error scoring submit element: {ex_inner.Message}");
+                }
+                // Inner try-catch block ends here
+            } // Outer try for 'element' processing ends here.
+            catch (Exception ex_outer) // Catch for the outer try (processing the element 'element')
+            {
+                _logger.LogDebug(ex_outer, $"Error processing an element in ScoreSubmitElements loop for element: ID={GetAttributeLower(element, "id")}");
+            }
+        } // End of foreach loop
     }
 
     private string GetAttributeLower(IWebElement element, string attributeName)
     {
         try
         {
-            return element.GetAttribute(attributeName)?.ToLower() ?? "";
+            return element?.GetAttribute(attributeName)?.ToLower() ?? string.Empty;
         }
-        catch
+        catch (Exception ex) // Catch StaleElementReferenceException or others
         {
-            return "";
+            _logger.LogDebug(ex, $"Error getting attribute '{attributeName}' for element. Element might be stale.");
+            return string.Empty;
         }
     }
 
@@ -2880,6 +3140,39 @@ public class LoginDetector
         {
             _logger.LogError(ex, $"Error in optimized element scoring with exclusion for {elementType}");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Checks if two WebElements are the same element by comparing their properties.
+    /// </summary>
+    private bool AreSameElement(IWebElement? element1, IWebElement? element2)
+    {
+        if (element1 == null || element2 == null) return false;
+        if (ReferenceEquals(element1, element2)) return true;
+
+        try
+        {
+            string id1 = GetAttributeLower(element1, "id");
+            string id2 = GetAttributeLower(element2, "id");
+            string name1 = GetAttributeLower(element1, "name");
+            string name2 = GetAttributeLower(element2, "name");
+            string tag1 = element1.TagName?.ToLower() ?? string.Empty;
+            string tag2 = element2.TagName?.ToLower() ?? string.Empty;
+
+            if (!string.IsNullOrEmpty(id1) && id1 == id2 && tag1 == tag2) return true;
+            if (!string.IsNullOrEmpty(name1) && name1 == name2 && tag1 == tag2)
+            {
+                // If IDs are present but different, they are not the same, even if names/tags match.
+                if (!string.IsNullOrEmpty(id1) && !string.IsNullOrEmpty(id2) && id1 != id2) return false;
+                return true;
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Exception during AreSameElement comparison.");
+            return false;
         }
     }
 }

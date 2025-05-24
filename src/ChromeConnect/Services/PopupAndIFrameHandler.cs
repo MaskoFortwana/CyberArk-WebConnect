@@ -105,9 +105,9 @@ namespace ChromeConnect.Services
                 var initialHandles = driver.WindowHandles.ToHashSet();
                 _logger.LogDebug("Initial window handles: {Handles}", string.Join(", ", initialHandles));
 
-                var result = await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
+                var result = await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
                 {
-                    return await PollForPopupAsync(driver, request, initialHandles, cancellationToken);
+                    return await PollForPopupAsync(driver, request, initialHandles, tokenFromManager);
                 }, timeoutSeconds * 1000, "DetectPopup", cancellationToken);
 
                 var duration = DateTime.Now - startTime;
@@ -179,9 +179,9 @@ namespace ChromeConnect.Services
 
             try
             {
-                var result = await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
+                var result = await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
                 {
-                    return await PollForIFrameAsync(driver, request, cancellationToken);
+                    return await PollForIFrameAsync(driver, request, tokenFromManager);
                 }, timeoutSeconds * 1000, "DetectIFrame", cancellationToken);
 
                 var duration = DateTime.Now - startTime;

@@ -243,8 +243,11 @@ public class CredentialManager
     private async Task EnterTextInChunksAsync(IWebElement element, string text)
     {
         // Type in chunks of 2-4 characters for better performance while maintaining some human-likeness
-        int chunkSize = Math.Min(3, Math.Max(1, text.Length / 4));
+        int chunkSize = Math.Min(5, Math.Max(1, (int)Math.Ceiling(text.Length / 2.0)));
         
+        if (chunkSize == 0 && text.Length > 0) chunkSize = 1;
+        else if (text.Length == 0) return;
+
         for (int i = 0; i < text.Length; i += chunkSize)
         {
             int remaining = text.Length - i;

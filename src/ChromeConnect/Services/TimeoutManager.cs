@@ -88,7 +88,7 @@ namespace ChromeConnect.Services
         /// <returns>The result of the function.</returns>
         /// <exception cref="BrowserTimeoutException">Thrown when the operation times out.</exception>
         public async Task<T> ExecuteWithTimeoutAsync<T>(
-            Func<Task<T>> func,
+            Func<CancellationToken, Task<T>> funcWithToken,
             int? timeoutMs = null,
             string operationName = "Operation",
             CancellationToken cancellationToken = default)
@@ -102,7 +102,7 @@ namespace ChromeConnect.Services
             try
             {
                 _logger.LogDebug("Starting {Operation} with timeout of {Timeout}ms", operationName, timeout);
-                T result = await func.Invoke();
+                T result = await funcWithToken.Invoke(linkedCts.Token);
                 _logger.LogDebug("{Operation} completed successfully", operationName);
                 return result;
             }

@@ -278,61 +278,52 @@ namespace ChromeConnect.Services
             switch (step.StepType)
             {
                 case LoginStepType.EnterCredentials:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await EnterCredentialsStepAsync(driver, step, credentials);
-                    }, timeoutMs, $"EnterCredentials_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await EnterCredentialsStepAsync(driver, step, credentials),
+                        timeoutMs, $"Step_{step.Name}_EnterCredentials", cancellationToken);
 
                 case LoginStepType.ClickElement:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await ClickElementStepAsync(driver, step);
-                    }, timeoutMs, $"ClickElement_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await ClickElementStepAsync(driver, step),
+                        timeoutMs, $"Step_{step.Name}_ClickElement", cancellationToken);
 
                 case LoginStepType.WaitForNavigation:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await WaitForNavigationStepAsync(driver, step);
-                    }, timeoutMs, $"WaitForNavigation_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await WaitForNavigationStepAsync(driver, step),
+                        timeoutMs, $"Step_{step.Name}_WaitForNavigation", cancellationToken);
 
                 case LoginStepType.WaitForElement:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await WaitForElementStepAsync(driver, step);
-                    }, timeoutMs, $"WaitForElement_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await WaitForElementStepAsync(driver, step),
+                        timeoutMs, $"Step_{step.Name}_WaitForElement", cancellationToken);
 
                 case LoginStepType.ValidateElements:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await ValidateElementsStepAsync(driver, step);
-                    }, timeoutMs, $"ValidateElements_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await ValidateElementsStepAsync(driver, step),
+                        timeoutMs, $"Step_{step.Name}_ValidateElements", cancellationToken);
 
                 case LoginStepType.ExecuteScript:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await ExecuteScriptStepAsync(driver, step);
-                    }, timeoutMs, $"ExecuteScript_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await ExecuteScriptStepAsync(driver, step),
+                        timeoutMs, $"Step_{step.Name}_ExecuteScript", cancellationToken);
 
                 case LoginStepType.EnterText:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await EnterTextStepAsync(driver, step);
-                    }, timeoutMs, $"EnterText_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await EnterTextStepAsync(driver, step),
+                        timeoutMs, $"Step_{step.Name}_EnterText", cancellationToken);
 
                 case LoginStepType.SelectOption:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await SelectOptionStepAsync(driver, step);
-                    }, timeoutMs, $"SelectOption_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await SelectOptionStepAsync(driver, step),
+                        timeoutMs, $"Step_{step.Name}_SelectOption", cancellationToken);
 
                 case LoginStepType.CustomValidation:
-                    return await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        return await CustomValidationStepAsync(driver, step);
-                    }, timeoutMs, $"CustomValidation_{step.Id}", cancellationToken);
+                    return await _timeoutManager.ExecuteWithTimeoutAsync(async (tokenFromManager) =>
+                        await CustomValidationStepAsync(driver, step),
+                        timeoutMs, $"Step_{step.Name}_CustomValidation", cancellationToken);
 
                 default:
-                    _logger.LogWarning("Unknown step type: {StepType} for step: {StepName}", step.StepType, step.Name);
+                    _logger.LogWarning("Unsupported step type: {StepType}", step.StepType);
                     return false;
             }
         }

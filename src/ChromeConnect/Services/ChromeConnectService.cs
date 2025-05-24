@@ -6,6 +6,8 @@ using ChromeConnect.Core;
 using ChromeConnect.Models;
 using ChromeConnect.Exceptions;
 using System.Collections.Generic;
+using System.Threading;
+using System.Linq;
 
 namespace ChromeConnect.Services
 {
@@ -23,6 +25,9 @@ namespace ChromeConnect.Services
         private readonly ErrorHandler _errorHandler;
         private readonly TimeoutManager _timeoutManager;
         private readonly ErrorMonitor _errorMonitor;
+        
+        // NEW: Flag to control browser cleanup behavior
+        private bool _shouldCloseBrowserOnCleanup = true;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromeConnectService"/> class.
@@ -94,7 +99,7 @@ namespace ChromeConnect.Services
                 return await _errorHandler.ExecuteWithRetryAsync(async () =>
                 {
                     // Detect login form with timeout handling
-                    var loginForm = await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
+                    var loginForm = await _timeoutManager.ExecuteWithTimeoutAsync<LoginFormElements>(async (CancellationToken tokenFromManager) =>
                     {
                         _logger.LogInformation("Detecting login form");
                         return await _loginDetector.DetectLoginFormAsync(driver);
@@ -106,12 +111,15 @@ namespace ChromeConnect.Services
                     }
 
                     // Enter credentials with timeout handling
-                    bool credentialsEntered = await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        _logger.LogInformation("Entering credentials");
-                        return await _credentialManager.EnterCredentialsAsync(
-                            driver, loginForm, options.Username, options.Password, options.Domain);
-                    }, operationName: "EnterCredentials");
+                    bool credentialsEntered = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
+                        async (CancellationToken tokenFromManager) =>
+                        {
+                            _logger.LogInformation("Entering credentials");
+                            bool result = await _credentialManager.EnterCredentialsAsync(
+                                driver, loginForm, options.Username, options.Password, options.Domain);
+                            return result;
+                        }, 
+                        operationName: "EnterCredentials");
 
                     if (!credentialsEntered)
                     {
@@ -120,11 +128,12 @@ namespace ChromeConnect.Services
                     }
 
                     // Verify login success with timeout handling
-                    bool loginSuccess = await _timeoutManager.ExecuteWithTimeoutAsync(async () =>
-                    {
-                        _logger.LogInformation("Verifying login success");
-                        return await _loginVerifier.VerifyLoginSuccessAsync(driver);
-                    }, operationName: "VerifyLogin");
+                    bool loginSuccess = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
+                        async (CancellationToken tokenFromManager) =>
+                        {
+                            _logger.LogInformation("Verifying login success");
+                            return await _loginVerifier.VerifyLoginSuccessAsync(driver, tokenFromManager);
+                        }, operationName: "VerifyLogin");
 
                     if (loginSuccess)
                     {
@@ -134,9 +143,31 @@ namespace ChromeConnect.Services
                     }
                     else
                     {
-                        _screenshotCapture.CaptureScreenshot(driver, "LoginFailed");
-                        _logger.LogError("Login failed");
-                        throw new InvalidCredentialsException("Login verification failed - invalid credentials or access denied");
+                        // ENHANCED: Instead of immediately failing, assess the verification context
+                        _screenshotCapture.CaptureScreenshot(driver, "LoginVerificationUncertain");
+                        
+                        // Check if this was a timeout/uncertainty vs definitive failure
+                        // If the page looks like it might be successfully logged in, preserve browser
+                        var assessmentResult = await AssessLoginUncertaintyAsync(driver);
+                        
+                        if (assessmentResult.ShouldPreserveBrowser)
+                        {
+                            _logger.LogWarning("Login verification failed but indicators suggest possible success. " +
+                                              "Preserving browser session and exiting with uncertainty code. " +
+                                              "Reason: {Reason}", assessmentResult.Reason);
+                            
+                            // Preserve browser session by preventing cleanup
+                            _shouldCloseBrowserOnCleanup = false;
+                            
+                            // Return special exit code for uncertain cases (preserves browser)
+                            return 3; // Uncertain result - browser preserved
+                        }
+                        else
+                        {
+                            _logger.LogError("Login verification failed with high confidence of failure. " +
+                                           "Reason: {Reason}", assessmentResult.Reason);
+                            throw new InvalidCredentialsException($"Login verification failed with high confidence: {assessmentResult.Reason}");
+                        }
                     }
                 }, driver, shouldRetryFunc: ex => ex is ConnectionFailedException || ex is RequestTimeoutException);
             }
@@ -184,7 +215,8 @@ namespace ChromeConnect.Services
             // 0 - Success
             // 1 - Login failure (invalid credentials, login form not found, etc.)
             // 2 - System error (browser not launching, network error, etc.)
-            // 3 - Configuration error (invalid settings, missing files, etc.)
+            // 3 - Uncertain verification result (browser preserved for manual inspection)
+            // 4 - Configuration error (invalid settings, missing files, etc.)
 
             if (ex is LoginException)
             {
@@ -192,7 +224,7 @@ namespace ChromeConnect.Services
             }
             else if (ex is AppSystemException || ex is ConfigurationException)
             {
-                return 3; // Configuration error
+                return 4; // Configuration error (updated from 3)
             }
             else
             {
@@ -205,7 +237,7 @@ namespace ChromeConnect.Services
         /// </summary>
         private void CleanupResources(IWebDriver driver)
         {
-            if (driver != null)
+            if (driver != null && _shouldCloseBrowserOnCleanup)
             {
                 try
                 {
@@ -218,5 +250,335 @@ namespace ChromeConnect.Services
                 }
             }
         }
+
+        /// <summary>
+        /// Assesses whether login verification failure is due to uncertainty vs definitive failure
+        /// </summary>
+        private async Task<LoginAssessmentResult> AssessLoginUncertaintyAsync(IWebDriver driver)
+        {
+            try
+            {
+                _logger.LogDebug("Assessing login uncertainty to determine browser preservation strategy");
+                
+                var currentUrl = driver.Url;
+                var pageTitle = driver.Title;
+                
+                // Check for definitive error indicators first
+                var definitiveErrors = await CheckForDefinitiveErrorsAsync(driver);
+                if (definitiveErrors.HasDefinitiveErrors)
+                {
+                    return new LoginAssessmentResult
+                    {
+                        ShouldPreserveBrowser = false,
+                        Reason = $"Definitive error indicators found: {string.Join(", ", definitiveErrors.ErrorIndicators)}"
+                    };
+                }
+                
+                // Check for positive success indicators
+                var positiveIndicators = await CheckForPositiveIndicatorsAsync(driver);
+                if (positiveIndicators.HasPositiveIndicators)
+                {
+                    return new LoginAssessmentResult
+                    {
+                        ShouldPreserveBrowser = true,
+                        Reason = $"Positive success indicators found: {string.Join(", ", positiveIndicators.SuccessIndicators)}"
+                    };
+                }
+                
+                // Check URL for navigation away from login page
+                var urlIndicators = CheckUrlForSuccessIndicators(currentUrl);
+                if (urlIndicators.IndicatesSuccess)
+                {
+                    return new LoginAssessmentResult
+                    {
+                        ShouldPreserveBrowser = true,
+                        Reason = urlIndicators.Reason
+                    };
+                }
+                
+                // Check for page structure changes
+                var structureIndicators = await CheckPageStructureAsync(driver);
+                if (structureIndicators.IndicatesSuccess)
+                {
+                    return new LoginAssessmentResult
+                    {
+                        ShouldPreserveBrowser = true,
+                        Reason = structureIndicators.Reason
+                    };
+                }
+                
+                // If no definitive indicators either way, preserve browser on uncertainty
+                return new LoginAssessmentResult
+                {
+                    ShouldPreserveBrowser = true,
+                    Reason = "No definitive failure indicators found - preserving browser session due to uncertainty"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error during login uncertainty assessment - defaulting to preserve browser");
+                return new LoginAssessmentResult
+                {
+                    ShouldPreserveBrowser = true,
+                    Reason = $"Assessment error occurred: {ex.Message} - preserving browser as safety measure"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Checks for definitive error indicators that confirm login failure
+        /// </summary>
+        private async Task<(bool HasDefinitiveErrors, List<string> ErrorIndicators)> CheckForDefinitiveErrorsAsync(IWebDriver driver)
+        {
+            var errorIndicators = new List<string>();
+            
+            try
+            {
+                // Check for explicit error messages
+                var errorElements = driver.FindElements(By.CssSelector(
+                    "div.error:not(:empty), span.error:not(:empty), p.error:not(:empty), " +
+                    "div.alert-danger:not(:empty), div.alert-error:not(:empty), " +
+                    "[role='alert']:not(:empty)[class*='error'], [role='alert']:not(:empty)[class*='danger'], " +
+                    ".login-error:not(:empty), .authentication-error:not(:empty), " +
+                    ".signin-error:not(:empty), .auth-error:not(:empty)"));
+                
+                foreach (var element in errorElements)
+                {
+                    try
+                    {
+                        if (element.Displayed && !string.IsNullOrWhiteSpace(element.Text))
+                        {
+                            var errorText = element.Text.ToLower();
+                            
+                            // Check for high-confidence error patterns
+                            var definitiveErrorPatterns = new[]
+                            {
+                                "invalid credentials", "invalid username", "invalid password",
+                                "incorrect password", "incorrect username", "login failed",
+                                "authentication failed", "access denied", "account locked",
+                                "account disabled", "account suspended"
+                            };
+                            
+                            if (definitiveErrorPatterns.Any(pattern => errorText.Contains(pattern)))
+                            {
+                                errorIndicators.Add($"Error message: '{element.Text.Trim()}'");
+                            }
+                        }
+                    }
+                    catch (StaleElementReferenceException)
+                    {
+                        continue; // Element became stale, skip
+                    }
+                }
+                
+                // Check page source for error patterns
+                var pageSource = driver.PageSource;
+                if (pageSource.Length > 10000) 
+                {
+                    pageSource = pageSource.Substring(0, 10000); // Analyze first 10k chars for performance
+                }
+                
+                var sourceErrorPatterns = new[]
+                {
+                    "invalid credentials", "login failed", "authentication failed",
+                    "access denied", "incorrect password", "account locked"
+                };
+                
+                foreach (var pattern in sourceErrorPatterns)
+                {
+                    if (pageSource.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                    {
+                        errorIndicators.Add($"Page source pattern: '{pattern}'");
+                    }
+                }
+                
+                return (errorIndicators.Any(), errorIndicators);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error checking for definitive error indicators");
+                return (false, errorIndicators);
+            }
+        }
+
+        /// <summary>
+        /// Checks for positive indicators that suggest login success
+        /// </summary>
+        private async Task<(bool HasPositiveIndicators, List<string> SuccessIndicators)> CheckForPositiveIndicatorsAsync(IWebDriver driver)
+        {
+            var successIndicators = new List<string>();
+            
+            try
+            {
+                // Check for logout/signout elements (strong success indicators)
+                var logoutElements = driver.FindElements(By.CssSelector(
+                    "a[href*='logout'], a[href*='signout'], a[href*='sign-out'], " +
+                    "button[onclick*='logout'], button[onclick*='signout'], " +
+                    "*[data-action*='logout'], *[data-action*='signout']"));
+                
+                foreach (var element in logoutElements)
+                {
+                    try
+                    {
+                        if (element.Displayed)
+                        {
+                            successIndicators.Add($"Logout element found: {element.TagName}");
+                            break; // One is enough
+                        }
+                    }
+                    catch (StaleElementReferenceException)
+                    {
+                        continue;
+                    }
+                }
+                
+                // Check for user profile/menu elements
+                var profileElements = driver.FindElements(By.CssSelector(
+                    ".user-profile, .profile-menu, #user-menu, .user-dropdown, " +
+                    ".account-menu, .user-header, .username, .user-name"));
+                
+                foreach (var element in profileElements)
+                {
+                    try
+                    {
+                        if (element.Displayed && !string.IsNullOrWhiteSpace(element.Text))
+                        {
+                            successIndicators.Add($"User element found: {element.TagName} with text '{element.Text.Trim()}'");
+                            break; // One is enough
+                        }
+                    }
+                    catch (StaleElementReferenceException)
+                    {
+                        continue;
+                    }
+                }
+                
+                // Check for dashboard/main content areas
+                var contentElements = driver.FindElements(By.CssSelector(
+                    ".dashboard, .main-content, .app-content, #main-content, " +
+                    ".workspace, .workarea, .member-area"));
+                
+                foreach (var element in contentElements)
+                {
+                    try
+                    {
+                        if (element.Displayed)
+                        {
+                            successIndicators.Add($"Main content area found: {element.TagName}");
+                            break; // One is enough
+                        }
+                    }
+                    catch (StaleElementReferenceException)
+                    {
+                        continue;
+                    }
+                }
+                
+                return (successIndicators.Any(), successIndicators);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error checking for positive indicators");
+                return (false, successIndicators);
+            }
+        }
+
+        /// <summary>
+        /// Checks URL for success indicators
+        /// </summary>
+        private (bool IndicatesSuccess, string Reason) CheckUrlForSuccessIndicators(string currentUrl)
+        {
+            try
+            {
+                var lowerUrl = currentUrl.ToLower();
+                
+                // Check for positive URL patterns
+                var successPatterns = new[]
+                {
+                    "dashboard", "welcome", "home", "main", "portal", "app",
+                    "logged", "authenticated", "success"
+                };
+                
+                foreach (var pattern in successPatterns)
+                {
+                    if (lowerUrl.Contains(pattern))
+                    {
+                        return (true, $"URL contains success indicator: '{pattern}'");
+                    }
+                }
+                
+                // Check for movement away from login-specific URLs
+                var loginPatterns = new[] { "login", "signin", "sign-in", "auth", "logon" };
+                var hasLoginPattern = loginPatterns.Any(pattern => lowerUrl.Contains(pattern));
+                
+                if (!hasLoginPattern)
+                {
+                    return (true, "URL no longer contains login-specific patterns");
+                }
+                
+                return (false, "URL analysis inconclusive");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error analyzing URL for success indicators");
+                return (false, $"URL analysis error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Checks page structure for changes that indicate successful login
+        /// </summary>
+        private async Task<(bool IndicatesSuccess, string Reason)> CheckPageStructureAsync(IWebDriver driver)
+        {
+            try
+            {
+                // Check if login forms are no longer visible
+                var loginElements = driver.FindElements(By.CssSelector(
+                    "input[type='password'], form[action*='login'], form[action*='signin'], " +
+                    ".login-form, .signin-form, #login-form, #signin-form"));
+                
+                var visibleLoginElements = loginElements.Where(e => {
+                    try { return e.Displayed; } catch { return false; }
+                }).ToList();
+                
+                if (!visibleLoginElements.Any())
+                {
+                    return (true, "No visible login form elements found - suggests successful navigation");
+                }
+                
+                // Check for navigation/menu structures (common post-login)
+                var navElements = driver.FindElements(By.CssSelector(
+                    "nav, .navbar, .navigation, .sidebar, .menu, header nav"));
+                
+                var significantNavElements = navElements.Where(e => {
+                    try 
+                    { 
+                        return e.Displayed && e.FindElements(By.TagName("a")).Count >= 3; // Has multiple links
+                    } 
+                    catch { return false; }
+                }).ToList();
+                
+                if (significantNavElements.Any())
+                {
+                    return (true, $"Found {significantNavElements.Count} navigation structure(s) suggesting logged-in state");
+                }
+                
+                return (false, "Page structure analysis inconclusive");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error analyzing page structure");
+                return (false, $"Page structure analysis error: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Result of assessing login uncertainty
+    /// </summary>
+    internal class LoginAssessmentResult
+    {
+        public bool ShouldPreserveBrowser { get; set; }
+        public string Reason { get; set; } = string.Empty;
     }
 } 
