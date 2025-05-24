@@ -105,74 +105,144 @@ namespace ChromeConnect.Services
                         return await _loginDetector.DetectLoginFormAsync(driver);
                     }, operationName: "DetectLoginForm");
 
-                    if (loginForm == null)
+                    // If standard detection failed or resulted in incomplete form, try progressive detection
+                    if (loginForm == null || IsIncompleteForm(loginForm))
                     {
-                        throw new LoginFormNotFoundException("Could not detect login form", driver.Url);
-                    }
-
-                    // Enter credentials with timeout handling
-                    bool credentialsEntered = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
-                        async (CancellationToken tokenFromManager) =>
+                        _logger.LogInformation("Standard form detection failed or incomplete, trying progressive detection");
+                        
+                        try
                         {
-                            _logger.LogInformation("Entering credentials");
-                            bool result = await _credentialManager.EnterCredentialsAsync(
-                                driver, loginForm, options.Username, options.Password, options.Domain);
-                            return result;
-                        }, 
-                        operationName: "EnterCredentials");
-
-                    if (!credentialsEntered)
-                    {
-                        throw new CredentialEntryException("Failed to enter credentials", 
-                            loginForm.UsernameField != null ? "username" : "password");
-                    }
-
-                    // Verify login success with timeout handling
-                    bool loginSuccess = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
-                        async (CancellationToken tokenFromManager) =>
-                        {
-                            _logger.LogInformation("Verifying login success");
-                            return await _loginVerifier.VerifyLoginSuccessAsync(driver, tokenFromManager);
-                        }, operationName: "VerifyLogin");
-
-                    if (loginSuccess)
-                    {
-                        _logger.LogInformation("Login successful!");
-                        _logger.LogInformation("Browser will remain open. Script exiting.");
-                        
-                        // CRITICAL FIX: Prevent browser cleanup after successful login
-                        _shouldCloseBrowserOnCleanup = false;
-                        
-                        return 0; // Success
-                    }
-                    else
-                    {
-                        // ENHANCED: Instead of immediately failing, assess the verification context
-                        _screenshotCapture.CaptureScreenshot(driver, "LoginVerificationUncertain");
-                        
-                        // Check if this was a timeout/uncertainty vs definitive failure
-                        // If the page looks like it might be successfully logged in, preserve browser
-                        var assessmentResult = await AssessLoginUncertaintyAsync(driver);
-                        
-                        if (assessmentResult.ShouldPreserveBrowser)
-                        {
-                            _logger.LogWarning("Login verification failed but indicators suggest possible success. " +
-                                              "Preserving browser session and exiting with uncertainty code. " +
-                                              "Reason: {Reason}", assessmentResult.Reason);
+                            loginForm = await _timeoutManager.ExecuteWithTimeoutAsync<LoginFormElements>(async (CancellationToken tokenFromManager) =>
+                            {
+                                return await _loginDetector.DetectProgressiveFormAsync(driver, options.Username, options.Password, options.Domain);
+                            }, operationName: "DetectProgressiveForm");
                             
-                            // Preserve browser session by preventing cleanup
+                            if (loginForm != null)
+                            {
+                                _logger.LogInformation("Progressive form detection successful");
+                                
+                                // For progressive forms, credentials are already entered during detection
+                                // We just need to verify login success
+                                bool loginSuccess = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
+                                    async (CancellationToken tokenFromManager) =>
+                                    {
+                                        _logger.LogInformation("Verifying login success after progressive form handling");
+                                        return await _loginVerifier.VerifyLoginSuccessAsync(driver, tokenFromManager);
+                                    }, operationName: "VerifyLogin");
+
+                                if (loginSuccess)
+                                {
+                                    _logger.LogInformation("Progressive login successful!");
+                                    _logger.LogInformation("Browser will remain open. Script exiting.");
+                                    
+                                    // CRITICAL FIX: Prevent browser cleanup after successful login
+                                    _shouldCloseBrowserOnCleanup = false;
+                                    
+                                    return 0; // Success
+                                }
+                                else
+                                {
+                                    // Handle progressive login failure
+                                    _screenshotCapture.CaptureScreenshot(driver, "ProgressiveLoginVerificationFailed");
+                                    var assessmentResult = await AssessLoginUncertaintyAsync(driver);
+                                    
+                                    if (assessmentResult.ShouldPreserveBrowser)
+                                    {
+                                        _logger.LogWarning("Progressive login verification failed but indicators suggest possible success. " +
+                                                          "Preserving browser session. Reason: {Reason}", assessmentResult.Reason);
+                                        _shouldCloseBrowserOnCleanup = false;
+                                        return 3; // Uncertain result - browser preserved
+                                    }
+                                    else
+                                    {
+                                        throw new InvalidCredentialsException($"Progressive login verification failed: {assessmentResult.Reason}");
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception progressiveEx)
+                        {
+                            _logger.LogWarning(progressiveEx, "Progressive form detection also failed");
+                        }
+                        
+                        // If both standard and progressive detection failed
+                        if (loginForm == null)
+                        {
+                            throw new LoginFormNotFoundException("Could not detect login form using standard or progressive methods", driver.Url);
+                        }
+                    }
+
+                    // Standard form processing (if we have a complete form from standard detection)
+                    if (loginForm != null && !IsIncompleteForm(loginForm))
+                    {
+                        // Enter credentials with timeout handling
+                        bool credentialsEntered = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
+                            async (CancellationToken tokenFromManager) =>
+                            {
+                                _logger.LogInformation("Entering credentials");
+                                bool result = await _credentialManager.EnterCredentialsAsync(
+                                    driver, loginForm, options.Username, options.Password, options.Domain);
+                                return result;
+                            }, 
+                            operationName: "EnterCredentials");
+
+                        if (!credentialsEntered)
+                        {
+                            throw new CredentialEntryException("Failed to enter credentials", 
+                                loginForm.UsernameField != null ? "username" : "password");
+                        }
+
+                        // Verify login success with timeout handling
+                        bool loginSuccess = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
+                            async (CancellationToken tokenFromManager) =>
+                            {
+                                _logger.LogInformation("Verifying login success");
+                                return await _loginVerifier.VerifyLoginSuccessAsync(driver, tokenFromManager);
+                            }, operationName: "VerifyLogin");
+
+                        if (loginSuccess)
+                        {
+                            _logger.LogInformation("Login successful!");
+                            _logger.LogInformation("Browser will remain open. Script exiting.");
+                            
+                            // CRITICAL FIX: Prevent browser cleanup after successful login
                             _shouldCloseBrowserOnCleanup = false;
                             
-                            // Return special exit code for uncertain cases (preserves browser)
-                            return 3; // Uncertain result - browser preserved
+                            return 0; // Success
                         }
                         else
                         {
-                            _logger.LogError("Login verification failed with high confidence of failure. " +
-                                           "Reason: {Reason}", assessmentResult.Reason);
-                            throw new InvalidCredentialsException($"Login verification failed with high confidence: {assessmentResult.Reason}");
+                            // ENHANCED: Instead of immediately failing, assess the verification context
+                            _screenshotCapture.CaptureScreenshot(driver, "LoginVerificationUncertain");
+                            
+                            // Check if this was a timeout/uncertainty vs definitive failure
+                            // If the page looks like it might be successfully logged in, preserve browser
+                            var assessmentResult = await AssessLoginUncertaintyAsync(driver);
+                            
+                            if (assessmentResult.ShouldPreserveBrowser)
+                            {
+                                _logger.LogWarning("Login verification failed but indicators suggest possible success. " +
+                                                  "Preserving browser session and exiting with uncertainty code. " +
+                                                  "Reason: {Reason}", assessmentResult.Reason);
+                                
+                                // Preserve browser session by preventing cleanup
+                                _shouldCloseBrowserOnCleanup = false;
+                                
+                                // Return special exit code for uncertain cases (preserves browser)
+                                return 3; // Uncertain result - browser preserved
+                            }
+                            else
+                            {
+                                _logger.LogError("Login verification failed with high confidence of failure. " +
+                                               "Reason: {Reason}", assessmentResult.Reason);
+                                throw new InvalidCredentialsException($"Login verification failed with high confidence: {assessmentResult.Reason}");
+                            }
                         }
                     }
+                    
+                    // This shouldn't be reached, but just in case
+                    throw new LoginFormNotFoundException("Unexpected state in login form processing", driver.Url);
+                    
                 }, driver, shouldRetryFunc: ex => ex is ConnectionFailedException || ex is RequestTimeoutException);
             }
             catch (ChromeConnectException ex)
@@ -574,6 +644,43 @@ namespace ChromeConnect.Services
                 _logger.LogDebug(ex, "Error analyzing page structure");
                 return (false, $"Page structure analysis error: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Determines if a login form is incomplete (missing essential fields that might appear progressively)
+        /// </summary>
+        private bool IsIncompleteForm(LoginFormElements loginForm)
+        {
+            if (loginForm == null) return true;
+            
+            // A form is considered incomplete if:
+            // 1. Missing username field (essential)
+            if (loginForm.UsernameField == null)
+            {
+                _logger.LogDebug("Form is incomplete: missing username field");
+                return true;
+            }
+            
+            // 2. Missing password field (essential for most forms)
+            if (loginForm.PasswordField == null)
+            {
+                _logger.LogDebug("Form is incomplete: missing password field");
+                return true;
+            }
+            
+            // 3. Missing submit button (though some forms might submit on Enter)
+            if (loginForm.SubmitButton == null)
+            {
+                _logger.LogDebug("Form potentially incomplete: missing submit button (might appear progressively)");
+                // Don't consider this as definitive incomplete since some forms auto-submit
+                // But it's a hint that progressive detection might be needed
+            }
+            
+            // For now, we consider a form complete if it has username and password fields
+            // Domain field is optional and its absence doesn't make a form incomplete
+            // Submit button absence is noted but not considered incomplete
+            
+            return false;
         }
     }
 

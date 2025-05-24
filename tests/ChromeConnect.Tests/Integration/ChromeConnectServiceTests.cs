@@ -83,12 +83,11 @@ namespace ChromeConnect.Tests.Integration
             // Setup ErrorHandler to pass through the action
             _mockErrorHandler.Setup(eh => eh.ExecuteWithRetryAsync(
                 It.IsAny<Func<Task<int>>>(), 
-                mockDriver.Object, 
-                It.IsAny<int?>(), // retryCount
-                It.IsAny<int?>(), // retryDelayMs
-                It.IsAny<Func<Exception, bool>?>(), // shouldRetryFunc
-                It.IsAny<CancellationToken>() // cancellationToken
-            ))
+                It.IsAny<IWebDriver>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<Func<Exception, bool>?>(), 
+                It.IsAny<CancellationToken>()))
                .Returns<Func<Task<int>>, IWebDriver, int?, int?, Func<Exception, bool>?, CancellationToken>((action, driver, rc, rdm, srf, ct) => action());
             
             _mockErrorHandler.Setup(eh => eh.ExecuteWithErrorHandlingAsync(
@@ -97,11 +96,20 @@ namespace ChromeConnect.Tests.Integration
             ))
                 .Returns<Func<Task<IWebDriver>>, IWebDriver?>((action, drv) => action());
 
-            // Setup TimeoutManager to pass through actions, now including CancellationToken
-            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<LoginFormElements>>>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .Returns<Func<Task<LoginFormElements>>, int?, string, CancellationToken>((action, timeout, opName, ct) => action());
-            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<bool>>>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .Returns<Func<Task<bool>>, int?, string, CancellationToken>((action, timeout, opName, ct) => action());
+            // Setup TimeoutManager to pass through actions with correct signatures
+            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(
+                It.IsAny<Func<CancellationToken, Task<LoginFormElements>>>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<string>(), 
+                It.IsAny<CancellationToken>()))
+                .Returns<Func<CancellationToken, Task<LoginFormElements>>, int?, string, CancellationToken>((func, timeout, opName, ct) => func(ct));
+            
+            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(
+                It.IsAny<Func<CancellationToken, Task<bool>>>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<string>(), 
+                It.IsAny<CancellationToken>()))
+                .Returns<Func<CancellationToken, Task<bool>>, int?, string, CancellationToken>((func, timeout, opName, ct) => func(ct));
 
             // Act
             var result = await _service.ExecuteAsync(options);
@@ -133,18 +141,17 @@ namespace ChromeConnect.Tests.Integration
             // Setup ErrorHandler for the retry block
             _mockErrorHandler.Setup(eh => eh.ExecuteWithRetryAsync(
                 It.IsAny<Func<Task<int>>>(), 
-                mockDriver.Object, 
-                It.IsAny<int?>(), // retryCount
-                It.IsAny<int?>(), // retryDelayMs
-                It.IsAny<Func<Exception, bool>?>(), // shouldRetryFunc
-                It.IsAny<CancellationToken>() // cancellationToken
-            ))
+                It.IsAny<IWebDriver>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<Func<Exception, bool>?>(), 
+                It.IsAny<CancellationToken>()))
                 .Callback<Func<Task<int>>, IWebDriver, int?, int?, Func<Exception, bool>?, CancellationToken>(async (action, driver, rc, rdm, srf, ct) => 
                 {
                     try { await action(); } 
                     catch (InvalidCredentialsException) { /* Expected from service logic */ throw; } 
                 })
-                .ThrowsAsync(new InvalidCredentialsException("Simulated from test setup")); 
+                .ThrowsAsync(new InvalidCredentialsException("Simulated from test setup"));
             
             _mockErrorHandler.Setup(eh => eh.ExecuteWithErrorHandlingAsync(
                 It.IsAny<Func<Task<IWebDriver>>>(), 
@@ -153,10 +160,19 @@ namespace ChromeConnect.Tests.Integration
                 .Returns<Func<Task<IWebDriver>>, IWebDriver?>((action, drv) => action());
 
             // Setup TimeoutManager, now including CancellationToken
-            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<LoginFormElements>>>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .Returns<Func<Task<LoginFormElements>>, int?, string, CancellationToken>((action, timeout, opName, ct) => action());
-            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(It.IsAny<Func<Task<bool>>>(), It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .Returns<Func<Task<bool>>, int?, string, CancellationToken>((action, timeout, opName, ct) => action());
+            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(
+                It.IsAny<Func<CancellationToken, Task<LoginFormElements>>>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<string>(), 
+                It.IsAny<CancellationToken>()))
+                .Returns<Func<CancellationToken, Task<LoginFormElements>>, int?, string, CancellationToken>((func, timeout, opName, ct) => func(ct));
+            
+            _mockTimeoutManager.Setup(tm => tm.ExecuteWithTimeoutAsync(
+                It.IsAny<Func<CancellationToken, Task<bool>>>(), 
+                It.IsAny<int?>(), 
+                It.IsAny<string>(), 
+                It.IsAny<CancellationToken>()))
+                .Returns<Func<CancellationToken, Task<bool>>, int?, string, CancellationToken>((func, timeout, opName, ct) => func(ct));
 
             // Act
             var result = await _service.ExecuteAsync(options);
