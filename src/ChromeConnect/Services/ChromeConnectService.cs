@@ -110,6 +110,86 @@ namespace ChromeConnect.Services
                         throw new LoginFormNotFoundException("Could not detect login form", driver.Url);
                     }
 
+                    // Capture initial state for fast verification (before login attempt)
+                    string initialUrl = driver.Url;
+                    string initialTitle = driver.Title;
+                    
+                    // Convert LoginFormElements to By[] array for fast verification (BEFORE credential entry to avoid stale elements)
+                    var loginFormSelectors = new List<By>();
+                    
+                    // Build selectors safely with error handling for stale elements
+                    try
+                    {
+                        if (loginForm.UsernameField != null)
+                        {
+                            try
+                            {
+                                var usernameId = loginForm.UsernameField.GetAttribute("id");
+                                var usernameName = loginForm.UsernameField.GetAttribute("name");
+                                if (!string.IsNullOrEmpty(usernameId))
+                                    loginFormSelectors.Add(By.Id(usernameId));
+                                else if (!string.IsNullOrEmpty(usernameName))
+                                    loginFormSelectors.Add(By.Name(usernameName));
+                                else
+                                    loginFormSelectors.Add(By.CssSelector("input[type='text'], input[type='email']"));
+                            }
+                            catch (StaleElementReferenceException)
+                            {
+                                _logger.LogWarning("Username field became stale, using fallback selector");
+                                loginFormSelectors.Add(By.CssSelector("input[type='text'], input[type='email']"));
+                            }
+                        }
+                        
+                        if (loginForm.PasswordField != null)
+                        {
+                            try
+                            {
+                                var passwordId = loginForm.PasswordField.GetAttribute("id");
+                                var passwordName = loginForm.PasswordField.GetAttribute("name");
+                                if (!string.IsNullOrEmpty(passwordId))
+                                    loginFormSelectors.Add(By.Id(passwordId));
+                                else if (!string.IsNullOrEmpty(passwordName))
+                                    loginFormSelectors.Add(By.Name(passwordName));
+                                else
+                                    loginFormSelectors.Add(By.CssSelector("input[type='password']"));
+                            }
+                            catch (StaleElementReferenceException)
+                            {
+                                _logger.LogWarning("Password field became stale, using fallback selector");
+                                loginFormSelectors.Add(By.CssSelector("input[type='password']"));
+                            }
+                        }
+                        
+                        if (loginForm.SubmitButton != null)
+                        {
+                            try
+                            {
+                                var submitId = loginForm.SubmitButton.GetAttribute("id");
+                                var submitName = loginForm.SubmitButton.GetAttribute("name");
+                                if (!string.IsNullOrEmpty(submitId))
+                                    loginFormSelectors.Add(By.Id(submitId));
+                                else if (!string.IsNullOrEmpty(submitName))
+                                    loginFormSelectors.Add(By.Name(submitName));
+                                else
+                                    loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit']"));
+                            }
+                            catch (StaleElementReferenceException)
+                            {
+                                _logger.LogWarning("Submit button became stale, using fallback selector");
+                                loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit']"));
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error building form selectors, using fallback selectors");
+                        // Use generic fallback selectors if all else fails
+                        loginFormSelectors.Clear();
+                        loginFormSelectors.Add(By.CssSelector("input[type='text'], input[type='email']"));
+                        loginFormSelectors.Add(By.CssSelector("input[type='password']"));
+                        loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit']"));
+                    }
+
                     // Enter credentials with timeout handling
                     bool credentialsEntered = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
                         async (CancellationToken tokenFromManager) =>
@@ -127,18 +207,20 @@ namespace ChromeConnect.Services
                             loginForm.UsernameField != null ? "username" : "password");
                     }
 
-                    // Verify login success with timeout handling
-                    bool loginSuccess = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
-                        async (CancellationToken tokenFromManager) =>
-                        {
-                            _logger.LogInformation("Verifying login success");
-                            return await _loginVerifier.VerifyLoginSuccessAsync(driver, tokenFromManager);
-                        }, operationName: "VerifyLogin");
+                    // Use fast verification instead of old timeout-heavy method
+                    _logger.LogInformation("Verifying login success using fast detection");
+                    var sessionId = Guid.NewGuid().ToString("N")[..8];
+                    bool loginSuccess = await _loginVerifier.FastVerifyLoginSuccess(
+                        driver, initialUrl, initialTitle, loginFormSelectors.ToArray(), sessionId);
 
                     if (loginSuccess)
                     {
                         _logger.LogInformation("Login successful!");
                         _logger.LogInformation("Browser will remain open. Script exiting.");
+                        
+                        // Preserve browser session by preventing cleanup
+                        _shouldCloseBrowserOnCleanup = false;
+                        
                         return 0; // Success
                     }
                     else

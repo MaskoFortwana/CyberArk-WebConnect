@@ -41,7 +41,23 @@ public class BrowserManager
                 "--disable-infobars",
                 "--disable-gpu",
                 "--no-sandbox", // Required for some environments
-                "--disable-dev-shm-usage" // Required for some environments
+                "--disable-dev-shm-usage", // Required for some environments
+                
+                // PERFORMANCE FIX: Disable TensorFlow/ML features that cause 30-second delays
+                "--disable-features=VizDisplayCompositor,TranslateUI,OptimizationHints,AutofillServerCommunication",
+                "--disable-machine-learning-model-service",
+                "--disable-ml-model-service", 
+                "--disable-optimization-guide-model-downloading",
+                "--disable-component-extensions-with-background-pages",
+                "--disable-background-networking",
+                "--disable-background-timer-throttling",
+                "--disable-renderer-backgrounding",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-ipc-flooding-protection",
+                "--disable-client-side-phishing-detection",
+                "--disable-sync",
+                "--disable-features=MediaRouter",
+                "--disable-features=Translate"
             });
 
             // Configure the browser to stay open after the script exits

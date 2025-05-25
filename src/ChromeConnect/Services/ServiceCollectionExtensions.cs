@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using ChromeConnect.Core;
 using ChromeConnect.Services;
 using ChromeConnect.Models;
+using ChromeConnect.Configuration;
 using Serilog;
 
 namespace ChromeConnect.Services
@@ -48,13 +49,40 @@ namespace ChromeConnect.Services
             });
             services.AddSingleton<CredentialManager>();
             
+            // Register timeout configuration from appsettings
+            services.AddSingleton<TimeoutConfig>(provider =>
+            {
+                var configuration = provider.GetRequiredService<IConfiguration>();
+                var timeoutConfig = new TimeoutConfig();
+                
+                // Bind from configuration with fallback to defaults
+                var timeoutSection = configuration.GetSection("ChromeConnect:Timeout");
+                if (timeoutSection.Exists())
+                {
+                    timeoutConfig.InternalTimeout = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("InternalTimeoutSeconds", 15));
+                    timeoutConfig.ExternalTimeout = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("ExternalTimeoutSeconds", 20));
+                    timeoutConfig.InitialDelay = TimeSpan.FromMilliseconds(timeoutSection.GetValue<int>("InitialDelayMs", 100));
+                    timeoutConfig.QuickErrorTimeout = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("QuickErrorTimeoutSeconds", 2));
+                    timeoutConfig.PollingInterval = TimeSpan.FromMilliseconds(timeoutSection.GetValue<int>("PollingIntervalMs", 100));
+                    timeoutConfig.MaxTimePerMethod = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("MaxTimePerMethodSeconds", 3));
+                    timeoutConfig.MinTimePerMethod = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("MinTimePerMethodSeconds", 1));
+                }
+                
+                timeoutConfig.Validate(); // Ensure configuration is valid
+                return timeoutConfig;
+            });
+
+            // Register PolicyFactory for Polly policies
+            services.AddSingleton<PolicyFactory>();
+
             // Register login verification configuration and service with optimized timeouts
             services.AddSingleton<LoginVerificationConfig>(provider =>
             {
+                var timeoutConfig = provider.GetRequiredService<TimeoutConfig>();
                 return new LoginVerificationConfig
                 {
-                    MaxVerificationTimeSeconds = 10,  // Reduced from default 30s to 10s
-                    InitialDelayMs = 500,             // Quick initial delay
+                    MaxVerificationTimeSeconds = (int)timeoutConfig.InternalTimeout.TotalSeconds,
+                    InitialDelayMs = (int)timeoutConfig.InitialDelay.TotalMilliseconds,
                     EnableTimingLogs = true,          // Enable performance monitoring
                     CaptureScreenshotsOnFailure = true // Capture screenshots on failures
                 };

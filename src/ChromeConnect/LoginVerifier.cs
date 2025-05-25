@@ -6,8 +6,10 @@ using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using ChromeConnect.Services;
+using ChromeConnect.Configuration;
 using System.Threading;
 using System.Linq;
+using Polly;
 
 namespace ChromeConnect.Core;
 
@@ -15,12 +17,138 @@ public class LoginVerifier : IScreenshotCapture
 {
     private readonly ILogger<LoginVerifier> _logger;
     private readonly LoginVerificationConfig _config;
+    private readonly TimeoutConfig _timeoutConfig;
+    private readonly PolicyFactory _policyFactory;
     private string _initialLoginUrl = string.Empty; // NEW: Store initial URL for comparison
 
-    public LoginVerifier(ILogger<LoginVerifier> logger, LoginVerificationConfig? config = null)
+    public LoginVerifier(ILogger<LoginVerifier> logger, LoginVerificationConfig config, TimeoutConfig timeoutConfig, PolicyFactory policyFactory)
     {
         _logger = logger;
-        _config = config ?? new LoginVerificationConfig();
+        _config = config;
+        _timeoutConfig = timeoutConfig;
+        _policyFactory = policyFactory;
+    }
+
+    /// <summary>
+    /// Fast URL-based success detection for immediate redirects (optimized for your use case)
+    /// </summary>
+    public virtual async Task<bool> WaitForSuccessUrlAsync(IWebDriver driver, CancellationToken cancellationToken = default)
+    {
+        var startTime = DateTime.Now;
+        var sessionId = Guid.NewGuid().ToString("N")[..8];
+        
+        _logger.LogInformation("=== FAST URL SUCCESS DETECTION {SessionId} STARTED ===", sessionId);
+        _logger.LogInformation("[{SessionId}] Waiting for URL change with {Timeout}s timeout. Initial URL: {InitialUrl}", 
+                              sessionId, _timeoutConfig.InternalTimeout.TotalSeconds, driver.Url);
+
+        _initialLoginUrl = driver.Url;
+        
+        try
+        {
+            // Use URL polling policy for fast detection
+            var urlPolicy = _policyFactory.CreateUrlPollingPolicy();
+            
+            var result = await urlPolicy.ExecuteAsync(async () =>
+            {
+                var endTime = DateTime.Now.Add(_timeoutConfig.InternalTimeout);
+                
+                // Minimal initial delay for immediate redirects
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+                
+                while (DateTime.Now < endTime && !cancellationToken.IsCancellationRequested)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    
+                    string currentUrl = driver.Url;
+                    
+                    // Check for URL change
+                    if (!currentUrl.Equals(_initialLoginUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var duration = DateTime.Now - startTime;
+                        _logger.LogInformation("[{SessionId}] ✅ URL CHANGE DETECTED in {Duration}ms! From: {InitialUrl} To: {CurrentUrl}", 
+                                              sessionId, duration.TotalMilliseconds, _initialLoginUrl, currentUrl);
+                        
+                        // Check for success indicators in URL
+                        var successIndicators = new[] { "success", "welcome", "dashboard", "home", "main", "portal", "app", "logged", "authenticated" };
+                        var hasSuccessIndicator = successIndicators.Any(indicator => 
+                            currentUrl.Contains(indicator, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (hasSuccessIndicator)
+                        {
+                            _logger.LogInformation("[{SessionId}] ✅ SUCCESS INDICATOR found in URL: {CurrentUrl}", sessionId, currentUrl);
+                            return true;
+                        }
+                        
+                        // Check for path change (different from login page)
+                        try
+                        {
+                            var initialUri = new Uri(_initialLoginUrl);
+                            var currentUri = new Uri(currentUrl);
+                            
+                            if (!initialUri.AbsolutePath.Equals(currentUri.AbsolutePath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                _logger.LogInformation("[{SessionId}] ✅ PATH CHANGE detected: '{InitialPath}' → '{CurrentPath}'", 
+                                                      sessionId, initialUri.AbsolutePath, currentUri.AbsolutePath);
+                                return true;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "[{SessionId}] Error parsing URLs, assuming success due to URL change", sessionId);
+                            return true;
+                        }
+                        
+                        // Any URL change is likely success unless it contains error indicators
+                        var errorIndicators = new[] { "error", "invalid", "incorrect", "failed", "denied", "wrong" };
+                        var hasErrorIndicator = errorIndicators.Any(indicator => 
+                            currentUrl.Contains(indicator, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (!hasErrorIndicator)
+                        {
+                            _logger.LogInformation("[{SessionId}] ✅ URL CHANGED without error indicators, assuming success: {CurrentUrl}", 
+                                                  sessionId, currentUrl);
+                            return true;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("[{SessionId}] ❌ URL changed but contains error indicators: {CurrentUrl}", 
+                                              sessionId, currentUrl);
+                            return false;
+                        }
+                    }
+                    
+                    // Use fast polling for immediate redirects
+                    await Task.Delay(_timeoutConfig.PollingInterval, cancellationToken);
+                }
+                
+                var timeoutDuration = DateTime.Now - startTime;
+                _logger.LogWarning("[{SessionId}] ⏰ TIMEOUT after {Duration}ms - no URL change detected", 
+                                  sessionId, timeoutDuration.TotalMilliseconds);
+                return false;
+            });
+            
+            var totalDuration = DateTime.Now - startTime;
+            var resultSymbol = result ? "✅" : "❌";
+            _logger.LogInformation("=== FAST URL SUCCESS DETECTION {SessionId} ENDED: {Result} in {Duration}ms ===", 
+                                  sessionId, result ? "SUCCESS" : "TIMEOUT", totalDuration.TotalMilliseconds);
+            
+            return result;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogWarning("[{SessionId}] ⏰ CANCELLED after {Duration}ms", sessionId, duration.TotalMilliseconds);
+            _logger.LogInformation("=== FAST URL SUCCESS DETECTION {SessionId} ENDED: CANCELLED ===", sessionId);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogError(ex, "[{SessionId}] 💥 ERROR after {Duration}ms: {ErrorMessage}", 
+                           sessionId, duration.TotalMilliseconds, ex.Message);
+            _logger.LogInformation("=== FAST URL SUCCESS DETECTION {SessionId} ENDED: ERROR ===", sessionId);
+            return false;
+        }
     }
 
     public virtual async Task<bool> VerifyLoginSuccessAsync(IWebDriver driver, CancellationToken externalToken = default)
@@ -29,15 +157,18 @@ public class LoginVerifier : IScreenshotCapture
         var sessionId = Guid.NewGuid().ToString("N")[..8]; // Short session ID for tracking
         
         _logger.LogInformation("=== LOGIN VERIFICATION SESSION {SessionId} STARTED ===", sessionId);
-        _logger.LogInformation("[{SessionId}] Starting login verification with {MaxVerificationTimeSeconds}s internal timeout " +
-                              "(plus external timeout linkage). Initial page URL: {InitialUrl}", 
-                              sessionId, _config.MaxVerificationTimeSeconds, driver.Url);
+        _logger.LogInformation("[{SessionId}] Starting login verification with {InternalTimeout}s internal timeout " +
+                              "and {ExternalTimeout}s external timeout. Initial page URL: {InitialUrl}", 
+                              sessionId, _timeoutConfig.InternalTimeout.TotalSeconds, 
+                              _timeoutConfig.ExternalTimeout.TotalSeconds, driver.Url);
 
         // NEW: Store initial URL for comparison and enhanced session tracking
         _initialLoginUrl = driver.Url;
-        _logger.LogInformation("[{SessionId}] Session configuration - MaxTimeout: {MaxTimeout}s, InitialDelay: {InitialDelay}ms, " +
+        _logger.LogInformation("[{SessionId}] Session configuration - InternalTimeout: {InternalTimeout}s, " +
+                              "ExternalTimeout: {ExternalTimeout}s, InitialDelay: {InitialDelay}ms, " +
                               "TimingLogs: {TimingLogs}, Screenshots: {Screenshots}", 
-                              sessionId, _config.MaxVerificationTimeSeconds, _config.InitialDelayMs,
+                              sessionId, _timeoutConfig.InternalTimeout.TotalSeconds, 
+                              _timeoutConfig.ExternalTimeout.TotalSeconds, _timeoutConfig.InitialDelay.TotalMilliseconds,
                               _config.EnableTimingLogs, _config.CaptureScreenshotsOnFailure);
 
         // ENHANCED: Capture initial page state for diagnostics
@@ -62,8 +193,8 @@ public class LoginVerifier : IScreenshotCapture
             _logger.LogDebug("[{SessionId}] Could not capture initial page state: {Error}", sessionId, ex.Message);
         }
 
-        // Create a CancellationTokenSource for the internal verification timeout (10s)
-        using var internalTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_config.MaxVerificationTimeSeconds));
+        // Create a CancellationTokenSource for the internal verification timeout
+        using var internalTimeoutCts = new CancellationTokenSource(_timeoutConfig.InternalTimeout);
         
         // Link the internal CTS with the external token from TimeoutManager
         using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(internalTimeoutCts.Token, externalToken);
@@ -71,53 +202,64 @@ public class LoginVerifier : IScreenshotCapture
 
         try
         {
-            _logger.LogInformation("[{SessionId}] Starting login verification process with {MaxDuration}s internal timeout " +
-                                  "(plus external timeout linkage)", sessionId, _config.MaxVerificationTimeSeconds);
+            _logger.LogInformation("[{SessionId}] Starting login verification process with {InternalTimeout}s internal timeout " +
+                                  "and {ExternalTimeout}s external timeout", sessionId, 
+                                  _timeoutConfig.InternalTimeout.TotalSeconds, _timeoutConfig.ExternalTimeout.TotalSeconds);
             
-            // Pass the combinedToken to QuickErrorDetectionAsync
-            var quickCheckStart = DateTime.Now;
-            if (await QuickErrorDetectionAsync(driver, combinedToken, sessionId))
+            // Create the combined policy for resilient verification
+            var combinedPolicy = _policyFactory.CreateCombinedPolicy();
+            
+            // Execute verification with Polly policy
+            var result = await combinedPolicy.ExecuteAsync(async () =>
             {
-                var quickCheckDuration = DateTime.Now - quickCheckStart;
-                _logger.LogError("[{SessionId}] ❌ LOGIN FAILED - immediate error detected in {Duration}ms during quick check", 
-                               sessionId, quickCheckDuration.TotalMilliseconds);
-                CaptureScreenshot(driver, $"LoginFailed_QuickDetection_{sessionId}");
-                _logger.LogInformation("=== LOGIN VERIFICATION SESSION {SessionId} ENDED: QUICK FAILURE ===", sessionId);
-                return false;
-            }
-            var quickCheckDuration2 = DateTime.Now - quickCheckStart;
-            _logger.LogDebug("[{SessionId}] ✅ Quick error detection passed in {Duration}ms", 
-                           sessionId, quickCheckDuration2.TotalMilliseconds);
+                // Pass the combinedToken to QuickErrorDetectionAsync
+                var quickCheckStart = DateTime.Now;
+                if (await QuickErrorDetectionAsync(driver, combinedToken, sessionId))
+                {
+                    var quickCheckDuration = DateTime.Now - quickCheckStart;
+                    _logger.LogError("[{SessionId}] ❌ LOGIN FAILED - immediate error detected in {Duration}ms during quick check", 
+                                   sessionId, quickCheckDuration.TotalMilliseconds);
+                    CaptureScreenshot(driver, $"LoginFailed_QuickDetection_{sessionId}");
+                    _logger.LogInformation("=== LOGIN VERIFICATION SESSION {SessionId} ENDED: QUICK FAILURE ===", sessionId);
+                    return false;
+                }
+                var quickCheckDuration2 = DateTime.Now - quickCheckStart;
+                _logger.LogDebug("[{SessionId}] ✅ Quick error detection passed in {Duration}ms", 
+                               sessionId, quickCheckDuration2.TotalMilliseconds);
 
-            combinedToken.ThrowIfCancellationRequested(); // Check if timeout already exceeded
+                combinedToken.ThrowIfCancellationRequested(); // Check if timeout already exceeded
 
-            // Pass the combinedToken to ProgressiveVerificationAsync
-            var progressiveStart = DateTime.Now;
-            _logger.LogInformation("[{SessionId}] Starting progressive verification phase", sessionId);
-            var progressiveResult = await ProgressiveVerificationAsync(driver, startTime, combinedToken, sessionId);
-            var progressiveDuration = DateTime.Now - progressiveStart;
-            
-            var totalDuration = DateTime.Now - startTime;
-            var resultSymbol = progressiveResult ? "✅" : "❌";
-            _logger.LogInformation("[{SessionId}] {Symbol} LOGIN VERIFICATION COMPLETED in {TotalDuration}ms " +
-                                  "(quick: {QuickDuration}ms, progressive: {ProgressiveDuration}ms) " +
-                                  "with result: {Result}", 
-                                  sessionId, resultSymbol, totalDuration.TotalMilliseconds, 
-                                  quickCheckDuration2.TotalMilliseconds, progressiveDuration.TotalMilliseconds,
-                                  progressiveResult ? "SUCCESS" : "FAILURE");
+                // Pass the combinedToken to ProgressiveVerificationAsync
+                var progressiveStart = DateTime.Now;
+                _logger.LogInformation("[{SessionId}] Starting progressive verification phase", sessionId);
+                var progressiveResult = await ProgressiveVerificationAsync(driver, startTime, combinedToken, sessionId);
+                var progressiveDuration = DateTime.Now - progressiveStart;
+                
+                var totalDuration = DateTime.Now - startTime;
+                var resultSymbol = progressiveResult ? "✅" : "❌";
+                _logger.LogInformation("[{SessionId}] {Symbol} LOGIN VERIFICATION COMPLETED in {TotalDuration}ms " +
+                                      "(quick: {QuickDuration}ms, progressive: {ProgressiveDuration}ms) " +
+                                      "with result: {Result}", 
+                                      sessionId, resultSymbol, totalDuration.TotalMilliseconds, 
+                                      quickCheckDuration2.TotalMilliseconds, progressiveDuration.TotalMilliseconds,
+                                      progressiveResult ? "SUCCESS" : "FAILURE");
+                
+                return progressiveResult;
+            });
             
             _logger.LogInformation("=== LOGIN VERIFICATION SESSION {SessionId} ENDED: {Result} ===", 
-                                  sessionId, progressiveResult ? "SUCCESS" : "FAILURE");
+                                  sessionId, result ? "SUCCESS" : "FAILURE");
                 
-            return progressiveResult;
+            return result;
         }
         catch (OperationCanceledException) when (combinedToken.IsCancellationRequested) // Catch cancellation from either source
         {
             var duration = DateTime.Now - startTime;
             string reason = externalToken.IsCancellationRequested ? "external timeout" : "internal 10s timeout";
             _logger.LogWarning("[{SessionId}] ⏰ LOGIN VERIFICATION TIMED OUT by {Reason} after {Duration}ms " +
-                              "(max internal {MaxVerificationTimeSeconds}s). Final URL: {FinalUrl}", 
-                              sessionId, reason, duration.TotalMilliseconds, _config.MaxVerificationTimeSeconds, driver.Url);
+                              "(internal: {InternalTimeout}s, external: {ExternalTimeout}s). Final URL: {FinalUrl}", 
+                              sessionId, reason, duration.TotalMilliseconds, 
+                              _timeoutConfig.InternalTimeout.TotalSeconds, _timeoutConfig.ExternalTimeout.TotalSeconds, driver.Url);
             CaptureScreenshot(driver, $"LoginVerification_Timeout_{sessionId}");
             _logger.LogInformation("=== LOGIN VERIFICATION SESSION {SessionId} ENDED: TIMEOUT ===", sessionId);
             return false;
@@ -141,12 +283,12 @@ public class LoginVerifier : IScreenshotCapture
     {
         try
         {
-            // Quick check for immediate error indicators (100ms timeout)
+            // Quick check for immediate error indicators using configured timeout
             // Link the external token with a short internal timeout for this specific check.
             using var quickCheckCts = CancellationTokenSource.CreateLinkedTokenSource(combinedToken);
-            quickCheckCts.CancelAfter(100); // Ensure this check is very fast
+            quickCheckCts.CancelAfter(_timeoutConfig.QuickErrorTimeout); // Use configured timeout
             
-            var quickWait = new WebDriverWait(driver, TimeSpan.FromMilliseconds(100)); // WebDriverWait internal timeout
+            var quickWait = new WebDriverWait(driver, _timeoutConfig.QuickErrorTimeout); // WebDriverWait internal timeout
             // WebDriverWait doesn't directly take a CancellationToken in all its .Until forms easily without custom setup.
             // Relying on quickCheckCts.Token.IsCancellationRequested within loops or after potentially blocking calls.
             // Or, better, make WebDriverWait itself aware of the token if possible (see ProgressiveVerificationAsync methods).
@@ -211,9 +353,9 @@ public class LoginVerifier : IScreenshotCapture
     /// </summary>
     private async Task<bool> ProgressiveVerificationAsync(IWebDriver driver, DateTime startTime, CancellationToken combinedToken, string sessionId)
     {
-        var maxDuration = TimeSpan.FromSeconds(_config.MaxVerificationTimeSeconds);
+        var maxDuration = _timeoutConfig.InternalTimeout;
         
-        await Task.Delay(_config.InitialDelayMs, combinedToken); 
+        await Task.Delay(_timeoutConfig.InitialDelay, combinedToken); 
         
         // Check if we've already exceeded the overall timeout before starting verification
         if (DateTime.Now - startTime > maxDuration || combinedToken.IsCancellationRequested) 
@@ -222,9 +364,11 @@ public class LoginVerifier : IScreenshotCapture
             return false;
         }
         
-        // IMPROVED: Use fixed time allocation per method to ensure all methods get a chance to run
+        // IMPROVED: Use configurable time allocation per method to ensure all methods get a chance to run
         var remainingTime = maxDuration - (DateTime.Now - startTime);
-        var timePerMethod = Math.Max(1.0, Math.Min(3.0, remainingTime.TotalSeconds / 4.0)); // 1-3 seconds per method
+        var timePerMethod = Math.Max(_timeoutConfig.MinTimePerMethod.TotalSeconds, 
+                                   Math.Min(_timeoutConfig.MaxTimePerMethod.TotalSeconds, 
+                                          remainingTime.TotalSeconds / 4.0)); // Configurable min-max seconds per method
         
         _logger.LogDebug("[{SessionId}] Allocating {TimePerMethod}s per verification method, {RemainingTime}s total remaining", 
                         sessionId, timePerMethod, remainingTime.TotalSeconds);
@@ -523,29 +667,27 @@ public class LoginVerifier : IScreenshotCapture
                 return false;
             }
 
-            // **FIX 5: Wait for positive changes instead of assuming failure**
-            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(timeoutSeconds));
+            // **FIX 5: Efficient polling for positive changes instead of WebDriverWait**
+            var endTime = DateTime.Now.AddSeconds(timeoutSeconds);
             
             try
             {
-                combinedToken.ThrowIfCancellationRequested();
-                
-                // Wait for either URL change OR positive page content changes
-                bool conditionMet = wait.Until(d => {
+                while (DateTime.Now < endTime && !combinedToken.IsCancellationRequested)
+                {
                     combinedToken.ThrowIfCancellationRequested();
                     
                     // Check if URL changed
-                    string newUrl = d.Url;
+                    string newUrl = driver.Url;
                     if (!newUrl.Equals(_initialLoginUrl, StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogDebug("URL change detected during wait: {NewUrl}", newUrl);
+                        _logger.LogDebug("URL change detected during polling: {NewUrl}", newUrl);
                         return true;
                     }
                     
                     // Check page source for success indicators
                     try
                     {
-                        string pageSource = d.PageSource;
+                        string pageSource = driver.PageSource;
                         var pageSuccessIndicators = new[] { "welcome", "dashboard", "logout", "sign out", "signed in", "authenticated", "logged in" };
                         bool hasSuccessContent = pageSuccessIndicators.Any(indicator => 
                             pageSource.Contains(indicator, StringComparison.OrdinalIgnoreCase));
@@ -558,16 +700,13 @@ public class LoginVerifier : IScreenshotCapture
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogDebug(ex, "Error checking page source during URL wait");
+                        _logger.LogDebug(ex, "Error checking page source during URL polling");
                     }
                     
-                    return false;
-                });
+                    // Use configurable polling interval for efficient checking
+                    await Task.Delay(_timeoutConfig.PollingInterval, combinedToken);
+                }
                 
-                return conditionMet;
-            }
-            catch (WebDriverTimeoutException)
-            {
                 _logger.LogDebug("Timeout waiting for URL change or success indicators");
                 return false;
             }
@@ -1157,6 +1296,524 @@ public class LoginVerifier : IScreenshotCapture
         }
         
         return false;
+    }
+
+    /// <summary>
+    /// Fast title change detection method for login success verification.
+    /// Compares the current page title with the initial title to detect navigation.
+    /// </summary>
+    /// <param name="driver">The WebDriver instance to check the title from.</param>
+    /// <param name="initialTitle">The initial page title before login attempt.</param>
+    /// <param name="sessionId">Session ID for logging purposes (optional).</param>
+    /// <returns>True if the title has changed (indicating successful navigation), false otherwise.</returns>
+    private bool DetectTitleChange(IWebDriver driver, string initialTitle, string sessionId = "")
+    {
+        var startTime = DateTime.Now;
+        
+        try
+        {
+            // Get current page title
+            string currentTitle = driver.Title ?? string.Empty;
+            string safeInitialTitle = initialTitle ?? string.Empty;
+            
+            _logger.LogDebug("[{SessionId}] Title detection - Initial: '{InitialTitle}' | Current: '{CurrentTitle}'", 
+                           sessionId, safeInitialTitle, currentTitle);
+            
+            // Handle edge cases
+            if (string.IsNullOrWhiteSpace(safeInitialTitle) && string.IsNullOrWhiteSpace(currentTitle))
+            {
+                _logger.LogDebug("[{SessionId}] Both titles are empty/null - no change detected", sessionId);
+                return false;
+            }
+            
+            if (string.IsNullOrWhiteSpace(safeInitialTitle))
+            {
+                _logger.LogDebug("[{SessionId}] Initial title was empty but current title exists - change detected", sessionId);
+                return !string.IsNullOrWhiteSpace(currentTitle);
+            }
+            
+            if (string.IsNullOrWhiteSpace(currentTitle))
+            {
+                _logger.LogDebug("[{SessionId}] Current title is empty but initial title existed - change detected", sessionId);
+                return true;
+            }
+            
+            // Compare titles (case-insensitive for robustness)
+            bool titleChanged = !string.Equals(safeInitialTitle.Trim(), currentTitle.Trim(), StringComparison.OrdinalIgnoreCase);
+            
+            var duration = DateTime.Now - startTime;
+            
+            if (titleChanged)
+            {
+                _logger.LogInformation("[{SessionId}] ✅ TITLE CHANGE DETECTED in {Duration}ms: '{InitialTitle}' → '{CurrentTitle}'", 
+                                     sessionId, duration.TotalMilliseconds, safeInitialTitle, currentTitle);
+            }
+            else
+            {
+                _logger.LogDebug("[{SessionId}] No title change detected in {Duration}ms: '{Title}'", 
+                               sessionId, duration.TotalMilliseconds, currentTitle);
+            }
+            
+            return titleChanged;
+        }
+        catch (WebDriverException ex)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogWarning(ex, "[{SessionId}] WebDriver error during title detection after {Duration}ms: {ErrorMessage}", 
+                             sessionId, duration.TotalMilliseconds, ex.Message);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogError(ex, "[{SessionId}] Unexpected error during title detection after {Duration}ms: {ErrorMessage}", 
+                           sessionId, duration.TotalMilliseconds, ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Fast URL change detection method for login success verification.
+    /// Compares the current page URL with the initial URL to detect navigation.
+    /// </summary>
+    /// <param name="driver">The WebDriver instance to check the URL from.</param>
+    /// <param name="initialUrl">The initial page URL before login attempt.</param>
+    /// <param name="sessionId">Session ID for logging purposes (optional).</param>
+    /// <returns>True if the URL has changed meaningfully (indicating successful navigation), false otherwise.</returns>
+    private bool DetectUrlChange(IWebDriver driver, string initialUrl, string sessionId = "")
+    {
+        var startTime = DateTime.Now;
+        
+        try
+        {
+            // Get current page URL
+            string currentUrl = driver.Url ?? string.Empty;
+            string safeInitialUrl = initialUrl ?? string.Empty;
+            
+            _logger.LogDebug("[{SessionId}] URL detection - Initial: '{InitialUrl}' | Current: '{CurrentUrl}'", 
+                           sessionId, safeInitialUrl, currentUrl);
+            
+            // Handle edge cases
+            if (string.IsNullOrWhiteSpace(safeInitialUrl) && string.IsNullOrWhiteSpace(currentUrl))
+            {
+                _logger.LogDebug("[{SessionId}] Both URLs are empty/null - no change detected", sessionId);
+                return false;
+            }
+            
+            if (string.IsNullOrWhiteSpace(safeInitialUrl))
+            {
+                _logger.LogDebug("[{SessionId}] Initial URL was empty but current URL exists - change detected", sessionId);
+                return !string.IsNullOrWhiteSpace(currentUrl);
+            }
+            
+            if (string.IsNullOrWhiteSpace(currentUrl))
+            {
+                _logger.LogDebug("[{SessionId}] Current URL is empty but initial URL existed - change detected", sessionId);
+                return true;
+            }
+            
+            // Fast path: direct string comparison (case-insensitive)
+            if (string.Equals(safeInitialUrl.Trim(), currentUrl.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                var duration = DateTime.Now - startTime;
+                _logger.LogDebug("[{SessionId}] No URL change detected in {Duration}ms: '{Url}'", 
+                               sessionId, duration.TotalMilliseconds, currentUrl);
+                return false;
+            }
+            
+            // URLs are different - determine if it's a meaningful change
+            bool isMeaningfulChange = false;
+            string changeReason = "unknown";
+            
+            try
+            {
+                // Parse URLs for detailed comparison
+                if (Uri.TryCreate(safeInitialUrl, UriKind.Absolute, out Uri? initialUri) && 
+                    Uri.TryCreate(currentUrl, UriKind.Absolute, out Uri? currentUri))
+                {
+                    // Check different components
+                    bool sameHost = string.Equals(initialUri.Host, currentUri.Host, StringComparison.OrdinalIgnoreCase);
+                    bool samePath = string.Equals(initialUri.AbsolutePath, currentUri.AbsolutePath, StringComparison.OrdinalIgnoreCase);
+                    bool sameQuery = string.Equals(initialUri.Query, currentUri.Query, StringComparison.OrdinalIgnoreCase);
+                    bool sameFragment = string.Equals(initialUri.Fragment, currentUri.Fragment, StringComparison.OrdinalIgnoreCase);
+                    
+                    if (!sameHost)
+                    {
+                        isMeaningfulChange = true;
+                        changeReason = $"host change: '{initialUri.Host}' → '{currentUri.Host}'";
+                    }
+                    else if (!samePath)
+                    {
+                        isMeaningfulChange = true;
+                        changeReason = $"path change: '{initialUri.AbsolutePath}' → '{currentUri.AbsolutePath}'";
+                    }
+                    else if (!sameQuery)
+                    {
+                        // Query parameter changes can be meaningful (e.g., login success tokens)
+                        // but also can be just tracking parameters
+                        isMeaningfulChange = true;
+                        changeReason = $"query change: '{initialUri.Query}' → '{currentUri.Query}'";
+                    }
+                    else if (!sameFragment)
+                    {
+                        // Fragment changes are usually less significant but still indicate navigation
+                        isMeaningfulChange = true;
+                        changeReason = $"fragment change: '{initialUri.Fragment}' → '{currentUri.Fragment}'";
+                    }
+                }
+                else
+                {
+                    // Fallback: if URI parsing fails, any string difference is considered meaningful
+                    isMeaningfulChange = true;
+                    changeReason = "URI parsing failed, using string comparison";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "[{SessionId}] Error parsing URLs, falling back to string comparison", sessionId);
+                isMeaningfulChange = true;
+                changeReason = "URL parsing error, assuming meaningful change";
+            }
+            
+            var totalDuration = DateTime.Now - startTime;
+            
+            if (isMeaningfulChange)
+            {
+                _logger.LogInformation("[{SessionId}] ✅ URL CHANGE DETECTED in {Duration}ms ({Reason}): '{InitialUrl}' → '{CurrentUrl}'", 
+                                     sessionId, totalDuration.TotalMilliseconds, changeReason, safeInitialUrl, currentUrl);
+            }
+            else
+            {
+                _logger.LogDebug("[{SessionId}] URL changed but not meaningfully in {Duration}ms: '{InitialUrl}' → '{CurrentUrl}'", 
+                               sessionId, totalDuration.TotalMilliseconds, safeInitialUrl, currentUrl);
+            }
+            
+            return isMeaningfulChange;
+        }
+        catch (WebDriverException ex)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogWarning(ex, "[{SessionId}] WebDriver error during URL detection after {Duration}ms: {ErrorMessage}", 
+                             sessionId, duration.TotalMilliseconds, ex.Message);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogError(ex, "[{SessionId}] Unexpected error during URL detection after {Duration}ms: {ErrorMessage}", 
+                           sessionId, duration.TotalMilliseconds, ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Fast page layout change detection method for login success verification.
+    /// Checks if login form elements have disappeared, indicating successful navigation away from login page.
+    /// </summary>
+    /// <param name="driver">The WebDriver instance to check elements from.</param>
+    /// <param name="loginFormElements">Array of By selectors for login form elements (username, password, submit button).</param>
+    /// <param name="sessionId">Session ID for logging purposes (optional).</param>
+    /// <returns>True if login form elements are no longer visible (indicating successful login), false otherwise.</returns>
+    private bool DetectLayoutChange(IWebDriver driver, By[] loginFormElements, string sessionId = "")
+    {
+        var startTime = DateTime.Now;
+        
+        try
+        {
+            // Handle edge cases
+            if (loginFormElements == null || loginFormElements.Length == 0)
+            {
+                _logger.LogDebug("[{SessionId}] No login form elements provided for layout detection", sessionId);
+                return false; // Can't detect layout change without elements to check
+            }
+            
+            if (driver == null)
+            {
+                _logger.LogDebug("[{SessionId}] WebDriver is null for layout detection", sessionId);
+                return false;
+            }
+            
+            _logger.LogDebug("[{SessionId}] Layout detection - checking {ElementCount} login form elements", 
+                           sessionId, loginFormElements.Length);
+            
+            int visibleElementsCount = 0;
+            int totalElementsChecked = 0;
+            var elementResults = new List<string>();
+            
+            // Check each login form element
+            foreach (var elementSelector in loginFormElements)
+            {
+                try
+                {
+                    totalElementsChecked++;
+                    
+                    // Use FindElements to avoid exceptions and get count
+                    var elements = driver.FindElements(elementSelector);
+                    
+                    if (elements.Count > 0)
+                    {
+                        // Check if any of the found elements are actually visible
+                        bool hasVisibleElement = false;
+                        foreach (var element in elements)
+                        {
+                            try
+                            {
+                                if (element.Displayed && element.Enabled)
+                                {
+                                    hasVisibleElement = true;
+                                    break;
+                                }
+                            }
+                            catch (StaleElementReferenceException)
+                            {
+                                // Element became stale, consider it as not visible
+                                continue;
+                            }
+                            catch (WebDriverException)
+                            {
+                                // Other WebDriver issues, skip this element
+                                continue;
+                            }
+                        }
+                        
+                        if (hasVisibleElement)
+                        {
+                            visibleElementsCount++;
+                            elementResults.Add($"{elementSelector}: VISIBLE ({elements.Count} found)");
+                        }
+                        else
+                        {
+                            elementResults.Add($"{elementSelector}: HIDDEN ({elements.Count} found but not displayed)");
+                        }
+                    }
+                    else
+                    {
+                        elementResults.Add($"{elementSelector}: NOT FOUND");
+                    }
+                }
+                catch (WebDriverException ex)
+                {
+                    _logger.LogDebug(ex, "[{SessionId}] WebDriver error checking element {ElementSelector}: {ErrorMessage}", 
+                                   sessionId, elementSelector, ex.Message);
+                    elementResults.Add($"{elementSelector}: ERROR ({ex.Message})");
+                    // Continue checking other elements
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "[{SessionId}] Unexpected error checking element {ElementSelector}: {ErrorMessage}", 
+                                   sessionId, elementSelector, ex.Message);
+                    elementResults.Add($"{elementSelector}: UNEXPECTED ERROR ({ex.Message})");
+                    // Continue checking other elements
+                }
+            }
+            
+            var totalDuration = DateTime.Now - startTime;
+            
+            // Determine if layout has changed (login form disappeared)
+            bool layoutChanged = visibleElementsCount == 0 && totalElementsChecked > 0;
+            
+            if (layoutChanged)
+            {
+                _logger.LogInformation("[{SessionId}] ✅ LAYOUT CHANGE DETECTED in {Duration}ms: All {ElementCount} login form elements are gone", 
+                                     sessionId, totalDuration.TotalMilliseconds, totalElementsChecked);
+                _logger.LogDebug("[{SessionId}] Element check results: {ElementResults}", 
+                               sessionId, string.Join("; ", elementResults));
+            }
+            else
+            {
+                _logger.LogDebug("[{SessionId}] No layout change detected in {Duration}ms: {VisibleCount}/{TotalCount} login form elements still visible", 
+                               sessionId, totalDuration.TotalMilliseconds, visibleElementsCount, totalElementsChecked);
+                _logger.LogDebug("[{SessionId}] Element check results: {ElementResults}", 
+                               sessionId, string.Join("; ", elementResults));
+            }
+            
+            return layoutChanged;
+        }
+        catch (WebDriverException ex)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogWarning(ex, "[{SessionId}] WebDriver error during layout detection after {Duration}ms: {ErrorMessage}", 
+                             sessionId, duration.TotalMilliseconds, ex.Message);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogError(ex, "[{SessionId}] Unexpected error during layout detection after {Duration}ms: {ErrorMessage}", 
+                           sessionId, duration.TotalMilliseconds, ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Fast login verification method that orchestrates all three detection methods.
+    /// Runs title change, URL change, and layout change detection in parallel for maximum speed.
+    /// Returns true if ANY detection method indicates successful login.
+    /// </summary>
+    /// <param name="driver">The WebDriver instance to check.</param>
+    /// <param name="initialUrl">The initial page URL before login attempt.</param>
+    /// <param name="initialTitle">The initial page title before login attempt.</param>
+    /// <param name="loginFormElements">Array of By selectors for login form elements to check for disappearance.</param>
+    /// <param name="sessionId">Session ID for logging purposes (optional).</param>
+    /// <returns>True if any detection method indicates successful login, false otherwise.</returns>
+    public async Task<bool> FastVerifyLoginSuccess(IWebDriver driver, string initialUrl, string initialTitle, By[] loginFormElements, string sessionId = "")
+    {
+        var startTime = DateTime.Now;
+        
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            sessionId = Guid.NewGuid().ToString("N")[..8];
+        }
+        
+        _logger.LogInformation("[{SessionId}] === FAST LOGIN VERIFICATION STARTED ===", sessionId);
+        _logger.LogDebug("[{SessionId}] Parameters - InitialUrl: '{InitialUrl}', InitialTitle: '{InitialTitle}', FormElements: {ElementCount}", 
+                        sessionId, initialUrl, initialTitle, loginFormElements?.Length ?? 0);
+        
+        try
+        {
+            // Validate input parameters
+            if (driver == null)
+            {
+                _logger.LogError("[{SessionId}] WebDriver is null - cannot perform verification", sessionId);
+                return false;
+            }
+            
+            // Use fast timeout (1 second max, configurable)
+            var fastTimeout = TimeSpan.FromSeconds(Math.Min(1.0, _timeoutConfig.InternalTimeout.TotalSeconds));
+            using var cts = new CancellationTokenSource(fastTimeout);
+            
+            _logger.LogDebug("[{SessionId}] Starting parallel execution of 3 detection methods with {Timeout}ms timeout", 
+                           sessionId, fastTimeout.TotalMilliseconds);
+            
+            // Start all three detection methods in parallel for maximum speed
+            var titleTask = Task.Run(() => 
+            {
+                try
+                {
+                    return DetectTitleChange(driver, initialTitle, sessionId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "[{SessionId}] Title detection method failed: {ErrorMessage}", sessionId, ex.Message);
+                    return false;
+                }
+            }, cts.Token);
+            
+            var urlTask = Task.Run(() => 
+            {
+                try
+                {
+                    return DetectUrlChange(driver, initialUrl, sessionId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "[{SessionId}] URL detection method failed: {ErrorMessage}", sessionId, ex.Message);
+                    return false;
+                }
+            }, cts.Token);
+            
+            var layoutTask = Task.Run(() => 
+            {
+                try
+                {
+                    return DetectLayoutChange(driver, loginFormElements ?? Array.Empty<By>(), sessionId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "[{SessionId}] Layout detection method failed: {ErrorMessage}", sessionId, ex.Message);
+                    return false;
+                }
+            }, cts.Token);
+            
+            // PERFORMANCE FIX: Check for early success instead of waiting for all tasks
+            // Poll task results every 50ms and return immediately when ANY task succeeds
+            var pollInterval = TimeSpan.FromMilliseconds(50);
+            bool overallSuccess = false;
+            bool titleSuccess = false, urlSuccess = false, layoutSuccess = false;
+            
+            try
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    // Check if any task has completed successfully with a positive result
+                    titleSuccess = titleTask.IsCompletedSuccessfully && titleTask.Result;
+                    urlSuccess = urlTask.IsCompletedSuccessfully && urlTask.Result;
+                    layoutSuccess = layoutTask.IsCompletedSuccessfully && layoutTask.Result;
+                    
+                    // Early exit: If ANY method indicates success, we're done!
+                    if (titleSuccess || urlSuccess || layoutSuccess)
+                    {
+                        overallSuccess = true;
+                        _logger.LogDebug("[{SessionId}] Early success detected - cancelling remaining tasks", sessionId);
+                        cts.Cancel(); // Cancel remaining tasks
+                        break;
+                    }
+                    
+                    // Check if all tasks completed (even with negative results)
+                    if (titleTask.IsCompleted && urlTask.IsCompleted && layoutTask.IsCompleted)
+                    {
+                        _logger.LogDebug("[{SessionId}] All tasks completed - no success detected", sessionId);
+                        break;
+                    }
+                    
+                    // Wait a bit before checking again
+                    await Task.Delay(pollInterval, CancellationToken.None);
+                }
+            }
+            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+            {
+                _logger.LogWarning("[{SessionId}] Fast verification timed out after {Timeout}ms", sessionId, fastTimeout.TotalMilliseconds);
+                
+                // Still collect results from any completed tasks
+                titleSuccess = titleTask.IsCompletedSuccessfully && titleTask.Result;
+                urlSuccess = urlTask.IsCompletedSuccessfully && urlTask.Result;
+                layoutSuccess = layoutTask.IsCompletedSuccessfully && layoutTask.Result;
+                overallSuccess = titleSuccess || urlSuccess || layoutSuccess;
+            }
+            
+            var totalDuration = DateTime.Now - startTime;
+            
+            // Log detailed results
+            _logger.LogInformation("[{SessionId}] 📊 FAST VERIFICATION RESULTS in {Duration}ms:", sessionId, totalDuration.TotalMilliseconds);
+            _logger.LogInformation("[{SessionId}]   • Title change: {TitleResult} (task: {TitleStatus})", 
+                                 sessionId, titleSuccess ? "✅ SUCCESS" : "❌ NO CHANGE", 
+                                 titleTask.IsCompletedSuccessfully ? "completed" : titleTask.Status.ToString().ToLower());
+            _logger.LogInformation("[{SessionId}]   • URL change: {UrlResult} (task: {UrlStatus})", 
+                                 sessionId, urlSuccess ? "✅ SUCCESS" : "❌ NO CHANGE", 
+                                 urlTask.IsCompletedSuccessfully ? "completed" : urlTask.Status.ToString().ToLower());
+            _logger.LogInformation("[{SessionId}]   • Layout change: {LayoutResult} (task: {LayoutStatus})", 
+                                 sessionId, layoutSuccess ? "✅ SUCCESS" : "❌ NO CHANGE", 
+                                 layoutTask.IsCompletedSuccessfully ? "completed" : layoutTask.Status.ToString().ToLower());
+            
+            var resultSymbol = overallSuccess ? "✅" : "❌";
+            _logger.LogInformation("[{SessionId}] {Symbol} OVERALL RESULT: {Result} (any method success = login success)", 
+                                 sessionId, resultSymbol, overallSuccess ? "LOGIN SUCCESS" : "LOGIN FAILURE");
+            
+            // Performance validation
+            if (totalDuration.TotalMilliseconds > 1000)
+            {
+                _logger.LogWarning("[{SessionId}] ⚠️ Performance warning: Fast verification took {Duration}ms (target: <1000ms)", 
+                                 sessionId, totalDuration.TotalMilliseconds);
+            }
+            else if (totalDuration.TotalMilliseconds < 100)
+            {
+                _logger.LogInformation("[{SessionId}] ⚡ Excellent performance: Fast verification completed in {Duration}ms", 
+                                     sessionId, totalDuration.TotalMilliseconds);
+            }
+            
+            _logger.LogInformation("[{SessionId}] === FAST LOGIN VERIFICATION ENDED: {Result} ===", 
+                                 sessionId, overallSuccess ? "SUCCESS" : "FAILURE");
+            
+            return overallSuccess;
+        }
+        catch (Exception ex)
+        {
+            var duration = DateTime.Now - startTime;
+            _logger.LogError(ex, "[{SessionId}] 💥 UNEXPECTED ERROR in fast verification after {Duration}ms: {ErrorMessage}", 
+                           sessionId, duration.TotalMilliseconds, ex.Message);
+            _logger.LogInformation("[{SessionId}] === FAST LOGIN VERIFICATION ENDED: ERROR ===", sessionId);
+            return false;
+        }
     }
 
     /// <summary>
