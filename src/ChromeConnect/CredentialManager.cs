@@ -104,20 +104,12 @@ public class CredentialManager
                         // Check if it's a dropdown (select) or a text field
                         if (loginForm.DomainField.TagName.ToLower() == "select")
                         {
-                            try
-                            {
-                                var selectElement = new SelectElement(loginForm.DomainField);
-                                selectElement.SelectByText(domain);
-                                _logger.LogDebug("Successfully selected domain from dropdown");
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(ex, "Couldn't select domain value from dropdown, trying direct text entry");
-                                await EnterTextOptimizedAsync(loginForm.DomainField, domain);
-                            }
+                            _logger.LogInformation("Domain field is a dropdown, using enhanced dropdown interaction");
+                            await HandleDomainDropdownAsync(loginForm.DomainField, domain);
                         }
                         else
                         {
+                            _logger.LogInformation("Domain field is an input, using standard text entry");
                             await EnterTextOptimizedAsync(loginForm.DomainField, domain);
                         }
                     });
@@ -478,6 +470,174 @@ public class CredentialManager
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error handling username dropdown for value: {username}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Handles domain entry for dropdown (select) elements with multiple selection strategies
+    /// Enhanced version specifically designed for domain dropdowns like "masko.local", "picovina"
+    /// </summary>
+    private async Task HandleDomainDropdownAsync(IWebElement selectElement, string domain)
+    {
+        try
+        {
+            var selectWrapper = new SelectElement(selectElement);
+            var options = selectWrapper.Options;
+            
+            _logger.LogDebug($"Domain dropdown has {options.Count} options");
+            
+            // Strategy 1: Try exact value match
+            try
+            {
+                selectWrapper.SelectByValue(domain);
+                _logger.LogDebug($"Successfully selected domain by exact value: {domain}");
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Exact value selection failed: {ex.Message}");
+            }
+            
+            // Strategy 2: Try exact text match
+            try
+            {
+                selectWrapper.SelectByText(domain);
+                _logger.LogDebug($"Successfully selected domain by exact text: {domain}");
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Exact text selection failed: {ex.Message}");
+            }
+            
+            // Strategy 3: Try case-insensitive text match
+            try
+            {
+                var matchingOption = options.FirstOrDefault(opt => 
+                    string.Equals(opt.Text, domain, StringComparison.OrdinalIgnoreCase));
+                
+                if (matchingOption != null)
+                {
+                    matchingOption.Click();
+                    _logger.LogDebug($"Successfully selected domain by case-insensitive text match: {matchingOption.Text}");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Case-insensitive text selection failed: {ex.Message}");
+            }
+            
+            // Strategy 4: Try case-insensitive value match
+            try
+            {
+                var matchingOption = options.FirstOrDefault(opt => 
+                    string.Equals(opt.GetAttribute("value"), domain, StringComparison.OrdinalIgnoreCase));
+                
+                if (matchingOption != null)
+                {
+                    matchingOption.Click();
+                    _logger.LogDebug($"Successfully selected domain by case-insensitive value match: {matchingOption.GetAttribute("value")}");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Case-insensitive value selection failed: {ex.Message}");
+            }
+            
+            // Strategy 5: Try partial matching (contains) - useful for domains like "masko.local"
+            try
+            {
+                var partialMatch = options.FirstOrDefault(opt => 
+                    opt.Text.Contains(domain, StringComparison.OrdinalIgnoreCase) ||
+                    opt.GetAttribute("value")?.Contains(domain, StringComparison.OrdinalIgnoreCase) == true);
+                
+                if (partialMatch != null)
+                {
+                    partialMatch.Click();
+                    _logger.LogDebug($"Successfully selected domain by partial match: {partialMatch.Text} (value: {partialMatch.GetAttribute("value")})");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Partial matching selection failed: {ex.Message}");
+            }
+            
+            // Strategy 6: Try domain-specific matching (for cases where domain might be part of a larger string)
+            try
+            {
+                var domainMatch = options.FirstOrDefault(opt => 
+                {
+                    var text = opt.Text?.ToLower() ?? "";
+                    var value = opt.GetAttribute("value")?.ToLower() ?? "";
+                    var searchDomain = domain.ToLower();
+                    
+                    // Check if the domain appears as a word boundary in the option
+                    return Regex.IsMatch(text, $@"\b{Regex.Escape(searchDomain)}\b") ||
+                           Regex.IsMatch(value, $@"\b{Regex.Escape(searchDomain)}\b");
+                });
+                
+                if (domainMatch != null)
+                {
+                    domainMatch.Click();
+                    _logger.LogDebug($"Successfully selected domain by domain-specific match: {domainMatch.Text} (value: {domainMatch.GetAttribute("value")})");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Domain-specific matching selection failed: {ex.Message}");
+            }
+            
+            // Strategy 7: If domain is empty or null, try to select the first non-empty option (skip placeholder)
+            if (string.IsNullOrEmpty(domain))
+            {
+                try
+                {
+                    var firstValidOption = options.FirstOrDefault(opt => 
+                        !string.IsNullOrEmpty(opt.GetAttribute("value")) && 
+                        !opt.Text.Contains("Select") && 
+                        !opt.Text.Contains("Choose") &&
+                        !opt.Text.StartsWith("--"));
+                    
+                    if (firstValidOption != null)
+                    {
+                        firstValidOption.Click();
+                        _logger.LogDebug($"No domain specified, selected first valid option: {firstValidOption.Text}");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug($"First valid option selection failed: {ex.Message}");
+                }
+            }
+            
+            // Strategy 8: Log available options and provide helpful error
+            _logger.LogWarning("Failed to find matching domain option in dropdown");
+            _logger.LogWarning($"Requested domain: '{domain}'");
+            _logger.LogWarning($"Available options: {string.Join(", ", options.Select(opt => $"'{opt.Text}' (value: '{opt.GetAttribute("value")}')"))}");
+            
+            // Final fallback: try to enter the domain as text (some dropdowns allow typing)
+            try
+            {
+                _logger.LogInformation("Attempting fallback: entering domain as text in dropdown");
+                await EnterTextOptimizedAsync(selectElement, domain);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Text entry fallback failed: {ex.Message}");
+            }
+            
+            throw new InvalidOperationException($"Could not find domain '{domain}' in dropdown options. Available options: {string.Join(", ", options.Select(opt => opt.Text))}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error handling domain dropdown for value: {domain}");
             throw;
         }
     }

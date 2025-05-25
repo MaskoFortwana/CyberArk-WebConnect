@@ -274,6 +274,24 @@ public class LoginDetector
                 _logger.LogDebug("FAST-PATH: No suitable username field found");
             }
 
+            // **STRATEGY 2.5: Find domain field (optional but important for some login forms)**
+            // Look for select elements that could be domain fields
+            var domainSelectField = allSelects
+                .Where(select => IsElementVisible(select))
+                .Where(select => !AreSameElement(select, loginForm.UsernameField)) // Exclude already detected username field
+                .Where(select => IsLikelyDomainDropdown(select))
+                .FirstOrDefault();
+            
+            if (domainSelectField != null)
+            {
+                _logger.LogDebug($"FAST-PATH: Found domain field - ID: {GetAttributeLower(domainSelectField, "id")}, Name: {GetAttributeLower(domainSelectField, "name")}");
+                loginForm.DomainField = domainSelectField;
+            }
+            else
+            {
+                _logger.LogDebug("FAST-PATH: No domain field found");
+            }
+
             // **STRATEGY 3: Find submit button**
             // Look for submit buttons, regular buttons with login text, or submit inputs
             var submitButton = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"))
@@ -300,7 +318,7 @@ public class LoginDetector
             // We need both password and username fields for a valid login form
             if (loginForm.PasswordField != null && loginForm.UsernameField != null)
             {
-                _logger.LogInformation($"FAST-PATH detection successful in {detectionTime.TotalMilliseconds}ms");
+                _logger.LogInformation($"FAST-PATH detection successful in {detectionTime.TotalMilliseconds}ms - Found username, password{(loginForm.DomainField != null ? ", and domain" : "")} fields");
                 return loginForm;
             }
 
@@ -1015,7 +1033,14 @@ public class LoginDetector
                     score += (int)(classScore * 0.4);   // Class names are least reliable
 
                     // Element type bonuses
-                    if (tagName == "select") score += 15; // Domain fields are often dropdowns
+                    if (tagName == "select") 
+                    {
+                        score += 15; // Domain fields are often dropdowns
+                        
+                        // Additional bonus for required domain dropdowns (common pattern)
+                        var required = element.GetAttribute("required");
+                        if (!string.IsNullOrEmpty(required)) score += 10;
+                    }
                     if (tagName == "input" && (type == "text" || type == "")) score += 5;
 
                     // Multi-word fuzzy matching for complex placeholders/labels
@@ -1041,6 +1066,9 @@ public class LoginDetector
 
                     // Advanced pattern matching for domain field patterns
                     var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
+                    
+                    // Exact match bonus for "domain" (highest priority for our target case)
+                    if (id == "domain" || name == "domain") score += 50;
                     
                     // Domain pattern detection
                     if (Regex.IsMatch(allAttributes, @"\\b(domain|tenant)\\b")) score += 30;
@@ -1074,7 +1102,7 @@ public class LoginDetector
                     // Visibility bonus
                     if (IsElementVisible(element)) score += 5;
 
-                    // Special handling for select elements with domain-like options
+                    // Enhanced handling for select elements with domain-like options
                     if (tagName == "select")
                     {
                         try
@@ -1082,14 +1110,43 @@ public class LoginDetector
                             var options = element.FindElements(By.TagName("option"));
                             if (options.Count > 1) // Must have multiple options
                             {
+                                var optionValues = options.Select(o => o.GetAttribute("value")?.ToLower() ?? "").ToList();
                                 var optionTexts = options.Select(o => o.Text?.ToLower() ?? "").ToList();
+                                var allOptionContent = optionValues.Concat(optionTexts).ToList();
                                 
-                                // Look for domain-like option values
-                                bool hasDomainOptions = optionTexts.Any(text => 
-                                    Regex.IsMatch(text, @"\\b(domain|tenant|org|company|corp)\\b") ||
-                                    text.Contains(".com") || text.Contains(".org") || text.Contains(".net"));
+                                // Enhanced domain option detection
+                                bool hasDomainOptions = false;
+                                int domainOptionBonus = 0;
                                 
-                                if (hasDomainOptions) score += 25;
+                                foreach (var content in allOptionContent)
+                                {
+                                    if (string.IsNullOrEmpty(content)) continue;
+                                    
+                                    // High-value domain patterns
+                                    if (content.Contains(".local")) { hasDomainOptions = true; domainOptionBonus += 40; }
+                                    else if (content.Contains(".com") || content.Contains(".org") || content.Contains(".net")) { hasDomainOptions = true; domainOptionBonus += 35; }
+                                    else if (Regex.IsMatch(content, @"\\b(domain|tenant|org|company|corp)\\b")) { hasDomainOptions = true; domainOptionBonus += 30; }
+                                    // Medium-value patterns (like "masko.local", "picovina")
+                                    else if (content.Length > 3 && content.Length < 50 && 
+                                            !content.Contains("select") && !content.Contains("choose") && 
+                                            !content.Contains("--") && !content.Contains("option"))
+                                    {
+                                        hasDomainOptions = true; 
+                                        domainOptionBonus += 20;
+                                    }
+                                }
+                                
+                                if (hasDomainOptions) 
+                                {
+                                    score += Math.Min(domainOptionBonus, 60); // Cap the bonus to prevent over-scoring
+                                    _logger.LogDebug($"Domain select element scored {domainOptionBonus} bonus points for domain-like options");
+                                }
+                                
+                                // Additional bonus for reasonable option count (typical domain dropdowns)
+                                if (options.Count >= 2 && options.Count <= 20)
+                                {
+                                    score += 10;
+                                }
                             }
                         }
                         catch (Exception ex_select)
@@ -1374,6 +1431,78 @@ public class LoginDetector
         catch (Exception ex)
         {
             _logger.LogDebug($"FAST-PATH: Error analyzing select element: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Fast heuristic to determine if a select element is likely a domain dropdown
+    /// Used in fast path detection for performance
+    /// </summary>
+    private bool IsLikelyDomainDropdown(IWebElement selectElement)
+    {
+        try
+        {
+            var id = GetAttributeLower(selectElement, "id");
+            var name = GetAttributeLower(selectElement, "name");
+            var className = GetAttributeLower(selectElement, "class");
+            
+            // Check for domain-like attributes
+            var domainTerms = new[] { "domain", "tenant", "organization", "org", "company", "realm", "authority" };
+            var allAttributes = $"{id} {name} {className}";
+            
+            foreach (var term in domainTerms)
+            {
+                if (allAttributes.Contains(term))
+                {
+                    _logger.LogDebug($"FAST-PATH: Found likely domain dropdown with {term} in attributes: ID={id}, Name={name}");
+                    return true;
+                }
+            }
+            
+            // Quick check of option values for domain-like content
+            try
+            {
+                var options = selectElement.FindElements(By.TagName("option"));
+                if (options.Count > 1 && options.Count <= 50) // Reasonable range for domain dropdowns (can be more than usernames)
+                {
+                    var optionValues = options.Take(10).Select(o => o.GetAttribute("value")?.ToLower() ?? "").ToList();
+                    var optionTexts = options.Take(10).Select(o => o.Text?.ToLower() ?? "").ToList();
+                    var allOptionContent = optionValues.Concat(optionTexts).ToList();
+                    
+                    // Look for domain-like option values
+                    bool hasDomainLikeOptions = allOptionContent.Any(content => 
+                        !string.IsNullOrEmpty(content) && (
+                            content.Contains(".local") || 
+                            content.Contains(".com") || 
+                            content.Contains(".org") || 
+                            content.Contains(".net") ||
+                            content.Contains("domain") ||
+                            content.Contains("tenant") ||
+                            // Check for patterns like "masko.local" or "picovina"
+                            (content.Length > 3 && content.Length < 50 && 
+                             !content.Contains("select") && 
+                             !content.Contains("choose") &&
+                             !content.Contains("--"))
+                        ));
+                    
+                    if (hasDomainLikeOptions)
+                    {
+                        _logger.LogDebug($"FAST-PATH: Found likely domain dropdown with domain-like options");
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"FAST-PATH: Error checking domain dropdown options: {ex.Message}");
+            }
+            
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"FAST-PATH: Error analyzing domain select element: {ex.Message}");
             return false;
         }
     }
