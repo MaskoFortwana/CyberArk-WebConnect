@@ -227,19 +227,52 @@ public class LoginDetector
             }
 
             loginForm.PasswordField = passwordField;
+            _logger.LogDebug($"FAST-PATH: Found password field - ID: {GetAttributeLower(passwordField, "id")}, Name: {GetAttributeLower(passwordField, "name")}");
 
             // **STRATEGY 2: Find username field near the password field**
-            // Look for text/email inputs that are close to the password field
+            // Look for text/email inputs AND select elements that could be username fields
             var allInputs = driver.FindElements(By.TagName("input"));
-            var usernameField = allInputs
+            var allSelects = driver.FindElements(By.TagName("select"));
+            
+            _logger.LogDebug($"FAST-PATH: Found {allInputs.Count} input elements and {allSelects.Count} select elements");
+            
+            // First try to find input-based username fields
+            var usernameInputField = allInputs
                 .Where(input => IsElementVisible(input))
                 .Where(input => {
                     var inputType = input.GetAttribute("type")?.ToLower();
                     return inputType == "text" || inputType == "email" || string.IsNullOrEmpty(inputType);
                 })
+                .Where(input => !AreSameElement(input, passwordField)) // Exclude the password field
                 .FirstOrDefault();
-
-            loginForm.UsernameField = usernameField;
+            
+            if (usernameInputField != null)
+            {
+                _logger.LogDebug($"FAST-PATH: Found input username field - ID: {GetAttributeLower(usernameInputField, "id")}, Name: {GetAttributeLower(usernameInputField, "name")}");
+            }
+            
+            // Then try to find select-based username fields
+            var usernameSelectField = allSelects
+                .Where(select => IsElementVisible(select))
+                .Where(select => IsLikelyUsernameDropdown(select))
+                .FirstOrDefault();
+            
+            if (usernameSelectField != null)
+            {
+                _logger.LogDebug($"FAST-PATH: Found select username field - ID: {GetAttributeLower(usernameSelectField, "id")}, Name: {GetAttributeLower(usernameSelectField, "name")}");
+            }
+            
+            // Prefer input fields over select fields for fast path (more common), but accept either
+            loginForm.UsernameField = usernameInputField ?? usernameSelectField;
+            
+            if (loginForm.UsernameField != null)
+            {
+                _logger.LogDebug($"FAST-PATH: Selected username field - Tag: {loginForm.UsernameField.TagName}, ID: {GetAttributeLower(loginForm.UsernameField, "id")}, Name: {GetAttributeLower(loginForm.UsernameField, "name")}");
+            }
+            else
+            {
+                _logger.LogDebug("FAST-PATH: No suitable username field found");
+            }
 
             // **STRATEGY 3: Find submit button**
             // Look for submit buttons, regular buttons with login text, or submit inputs
@@ -254,19 +287,24 @@ public class LoginDetector
                 });
 
             loginForm.SubmitButton = submitButton;
+            
+            if (submitButton != null)
+            {
+                _logger.LogDebug($"FAST-PATH: Found submit button - ID: {GetAttributeLower(submitButton, "id")}, Text: {submitButton.Text}");
+            }
 
             var detectionTime = DateTime.Now - startTime;
             _logger.LogDebug($"FAST-PATH detection completed in {detectionTime.TotalMilliseconds}ms");
 
-            // Return result if we found the essential elements (password + at least one other)
-            if (loginForm.PasswordField != null && 
-                (loginForm.UsernameField != null || loginForm.SubmitButton != null))
+            // Return result if we found the essential elements (password + username)
+            // We need both password and username fields for a valid login form
+            if (loginForm.PasswordField != null && loginForm.UsernameField != null)
             {
                 _logger.LogInformation($"FAST-PATH detection successful in {detectionTime.TotalMilliseconds}ms");
                 return loginForm;
             }
 
-            _logger.LogDebug("FAST-PATH: Essential elements not found, falling back to standard detection");
+            _logger.LogDebug("FAST-PATH: Essential elements not found (need both password and username), falling back to standard detection");
             return null;
         }
         catch (Exception ex)
@@ -543,7 +581,7 @@ public class LoginDetector
             switch (elementType)
             {
                 case ElementType.Username:
-                    ScoreUsernameElements(allInputs, candidates);
+                    ScoreUsernameElements(allInputs.Concat(allSelects).ToList(), candidates);
                     break;
                 case ElementType.Password:
                     ScorePasswordElements(allInputs, candidates);
@@ -581,22 +619,22 @@ public class LoginDetector
         }
     }
 
-    private void ScoreUsernameElements(List<IWebElement> inputs, Dictionary<IWebElement, int> candidates, List<IWebElement?>? excludeElements = null)
+    private void ScoreUsernameElements(List<IWebElement> elements, Dictionary<IWebElement, int> candidates, List<IWebElement?>? excludeElements = null)
     {
         var usernameTerms = GetVariationsForElementType(ElementType.Username).SelectMany(kv => kv.Value.Concat(new[] { kv.Key })).Distinct().ToArray();
 
-        foreach (var input in inputs)
+        foreach (var element in elements)
         {
-            try // Outer try for the 'input' element processing
+            try // Outer try for the element processing
             {
-                if (!IsElementVisible(input)) continue;
+                if (!IsElementVisible(element)) continue;
 
                 bool isExcluded = false;
                 if (excludeElements != null)
                 {
                     foreach (var excludedElement in excludeElements)
                     {
-                        if (AreSameElement(input, excludedElement))
+                        if (AreSameElement(element, excludedElement))
                         {
                             isExcluded = true;
                             break;
@@ -605,7 +643,7 @@ public class LoginDetector
                 }
                 if (isExcluded)
                 {
-                    _logger.LogDebug($"Skipping element (ID={GetAttributeLower(input, "id")}, Name={GetAttributeLower(input, "name")}) for Username as it's in excludeElements.");
+                    _logger.LogDebug($"Skipping element (ID={GetAttributeLower(element, "id")}, Name={GetAttributeLower(element, "name")}) for Username as it's in excludeElements.");
                     continue;
                 }
 
@@ -619,13 +657,14 @@ public class LoginDetector
                     int dataTestScore = 0;
                     int classScore = 0;
 
-                    var type = GetAttributeLower(input, "type");
-                    var id = GetAttributeLower(input, "id");
-                    var name = GetAttributeLower(input, "name");
-                    var placeholder = GetAttributeLower(input, "placeholder");
-                    var ariaLabel = GetAttributeLower(input, "aria-label");
-                    var className = GetAttributeLower(input, "class");
-                    var dataTestId = GetAttributeLower(input, "data-testid");
+                    var tagName = element.TagName?.ToLower();
+                    var type = GetAttributeLower(element, "type");
+                    var id = GetAttributeLower(element, "id");
+                    var name = GetAttributeLower(element, "name");
+                    var placeholder = GetAttributeLower(element, "placeholder");
+                    var ariaLabel = GetAttributeLower(element, "aria-label");
+                    var className = GetAttributeLower(element, "class");
+                    var dataTestId = GetAttributeLower(element, "data-testid");
 
                     // Define target terms for username fields
                     var currentUsernameTerms = new[] { "username", "user", "login", "email", "account", "userid" }; // Renamed to avoid conflict if usernameTerms is class member
@@ -646,10 +685,52 @@ public class LoginDetector
                     score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
                     score += (int)(classScore * 0.4);   // Class names are least reliable
 
-                    // Input type validation with fuzzy matching
-                    if (type == "email") score += 45; // Email type is highly indicative
-                    else if (type == "text") score += 10; // Text type is acceptable
-                    else if (type == "password") score -= 50; // Strong penalty for password fields
+                    // Element type validation with fuzzy matching
+                    if (tagName == "select")
+                    {
+                        // Special scoring for select elements (dropdowns)
+                        score += 25; // Base score for select elements
+                        
+                        // Analyze dropdown options for username-like content
+                        try
+                        {
+                            var options = element.FindElements(By.TagName("option"));
+                            if (options.Count > 0 && options.Count <= 20) // Reasonable option count
+                            {
+                                score += 10; // Bonus for reasonable option count
+                                
+                                // Check if options contain user-like values
+                                var optionValues = options.Select(opt => opt.GetAttribute("value")?.ToLower() ?? "").ToList();
+                                var optionTexts = options.Select(opt => opt.Text?.ToLower() ?? "").ToList();
+                                
+                                foreach (var value in optionValues.Concat(optionTexts))
+                                {
+                                    if (!string.IsNullOrEmpty(value) && 
+                                        (value.Contains("user") || value.Contains("admin") || 
+                                         (value.Length >= 3 && value.Length <= 20 && !value.Contains("select"))))
+                                    {
+                                        score += 5; // Bonus for user-like option values
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug($"Error analyzing select options: {ex.Message}");
+                        }
+                    }
+                    else if (tagName == "input")
+                    {
+                        // Input type validation
+                        if (type == "email") score += 45; // Email type is highly indicative
+                        else if (type == "text") score += 10; // Text type is acceptable
+                        else if (type == "password") score -= 50; // Strong penalty for password fields
+                    }
+                    else
+                    {
+                        // Other element types are unlikely to be username fields
+                        score -= 20;
+                    }
 
                     // Additional contextual scoring
                     
@@ -675,11 +756,11 @@ public class LoginDetector
                     }
 
                     // Form position bonus (username is typically first input)
-                    var formInputs = GetFormInputs(input);
-                    if (formInputs.Count > 0 && AreSameElement(formInputs[0], input)) score += 15; // Used AreSameElement
+                    var formInputs = GetFormInputs(element);
+                    if (formInputs.Count > 0 && AreSameElement(formInputs[0], element)) score += 15; // Used AreSameElement
 
                     // Visibility bonus
-                    if (IsElementVisible(input)) score += 5;
+                    if (IsElementVisible(element)) score += 5;
 
                     // Advanced pattern matching for common username field patterns
                     var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
@@ -703,8 +784,8 @@ public class LoginDetector
                     // Only consider elements with positive scores
                     if (score > 0)
                     {
-                        candidates[input] = score;
-                        _logger.LogDebug($"Username candidate scored {score}: ID={id}, Name={name}, Type={type}");
+                        candidates[element] = score;
+                        _logger.LogDebug($"Username candidate scored {score}: ID={id}, Name={name}, TagName={tagName}, Type={type}");
                     }
                 }
                 catch (Exception ex_inner) // Inner catch for scoring logic
@@ -712,10 +793,10 @@ public class LoginDetector
                     _logger.LogDebug($"Error scoring username element: {ex_inner.Message}");
                 }
                 // Inner try-catch block ends here
-            } // Outer try for 'input' processing ends here.
-            catch (Exception ex_outer) // Catch for the outer try (processing the element 'input')
+            } // Outer try for element processing ends here.
+            catch (Exception ex_outer) // Catch for the outer try (processing the element)
             {
-                _logger.LogDebug(ex_outer, $"Error processing an element in ScoreUsernameElements loop for input: ID={GetAttributeLower(input, "id")}");
+                _logger.LogDebug(ex_outer, $"Error processing an element in ScoreUsernameElements loop for element: ID={GetAttributeLower(element, "id")}");
             }
         } // End of foreach loop
     }
@@ -1234,6 +1315,65 @@ public class LoginDetector
         }
         catch
         {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Fast heuristic to determine if a select element is likely a username dropdown
+    /// Used in fast path detection for performance
+    /// </summary>
+    private bool IsLikelyUsernameDropdown(IWebElement selectElement)
+    {
+        try
+        {
+            var id = GetAttributeLower(selectElement, "id");
+            var name = GetAttributeLower(selectElement, "name");
+            var className = GetAttributeLower(selectElement, "class");
+            
+            // Check for username-like attributes
+            var usernameTerms = new[] { "username", "user", "login", "account", "userid" };
+            var allAttributes = $"{id} {name} {className}";
+            
+            foreach (var term in usernameTerms)
+            {
+                if (allAttributes.Contains(term))
+                {
+                    _logger.LogDebug($"FAST-PATH: Found likely username dropdown with {term} in attributes: ID={id}, Name={name}");
+                    return true;
+                }
+            }
+            
+            // Quick check of option values for username-like content
+            try
+            {
+                var options = selectElement.FindElements(By.TagName("option"));
+                if (options.Count > 1 && options.Count <= 20) // Reasonable range for username dropdowns
+                {
+                    var optionTexts = options.Take(5).Select(o => o.Text?.ToLower() ?? "").ToList();
+                    
+                    // Look for user-like option values
+                    bool hasUserLikeOptions = optionTexts.Any(text => 
+                        text.Contains("user") || text.Contains("admin") || 
+                        text.Length > 3 && text.Length < 20 && !text.Contains("select"));
+                    
+                    if (hasUserLikeOptions)
+                    {
+                        _logger.LogDebug($"FAST-PATH: Found likely username dropdown with user-like options");
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"FAST-PATH: Error checking dropdown options: {ex.Message}");
+            }
+            
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"FAST-PATH: Error analyzing select element: {ex.Message}");
             return false;
         }
     }

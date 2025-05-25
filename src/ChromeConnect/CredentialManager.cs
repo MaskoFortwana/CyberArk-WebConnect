@@ -7,6 +7,7 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using ChromeConnect.Models;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace ChromeConnect.Core;
 
@@ -78,7 +79,7 @@ public class CredentialManager
             var usernameTime = await MeasureEntryTime(async () =>
             {
                 _logger.LogInformation("Entering username");
-                await EnterTextOptimizedAsync(loginForm.UsernameField, username);
+                await EnterUsernameAsync(loginForm.UsernameField, username);
             });
 
             var passwordTime = await MeasureEntryTime(async () =>
@@ -365,6 +366,119 @@ public class CredentialManager
         catch (Exception)
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Enters username into either an input field or a dropdown (select) element
+    /// </summary>
+    private async Task EnterUsernameAsync(IWebElement usernameField, string username)
+    {
+        try
+        {
+            var tagName = usernameField.TagName.ToLower();
+            
+            if (tagName == "select")
+            {
+                _logger.LogInformation("Username field is a dropdown, using dropdown interaction");
+                await HandleUsernameDropdownAsync(usernameField, username);
+            }
+            else
+            {
+                _logger.LogInformation("Username field is an input, using standard text entry");
+                await EnterTextOptimizedAsync(usernameField, username);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error entering username");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Handles username entry for dropdown (select) elements with multiple selection strategies
+    /// </summary>
+    private async Task HandleUsernameDropdownAsync(IWebElement selectElement, string username)
+    {
+        try
+        {
+            var selectWrapper = new SelectElement(selectElement);
+            var options = selectWrapper.Options;
+            
+            _logger.LogDebug($"Username dropdown has {options.Count} options");
+            
+            // Strategy 1: Try exact value match
+            try
+            {
+                selectWrapper.SelectByValue(username);
+                _logger.LogDebug($"Successfully selected username by exact value: {username}");
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Exact value selection failed: {ex.Message}");
+            }
+            
+            // Strategy 2: Try exact text match
+            try
+            {
+                selectWrapper.SelectByText(username);
+                _logger.LogDebug($"Successfully selected username by exact text: {username}");
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Exact text selection failed: {ex.Message}");
+            }
+            
+            // Strategy 3: Try case-insensitive text match
+            try
+            {
+                var matchingOption = options.FirstOrDefault(opt => 
+                    string.Equals(opt.Text, username, StringComparison.OrdinalIgnoreCase));
+                
+                if (matchingOption != null)
+                {
+                    matchingOption.Click();
+                    _logger.LogDebug($"Successfully selected username by case-insensitive text match: {matchingOption.Text}");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Case-insensitive text selection failed: {ex.Message}");
+            }
+            
+            // Strategy 4: Try partial matching (contains)
+            try
+            {
+                var partialMatch = options.FirstOrDefault(opt => 
+                    opt.Text.Contains(username, StringComparison.OrdinalIgnoreCase) ||
+                    opt.GetAttribute("value")?.Contains(username, StringComparison.OrdinalIgnoreCase) == true);
+                
+                if (partialMatch != null)
+                {
+                    partialMatch.Click();
+                    _logger.LogDebug($"Successfully selected username by partial match: {partialMatch.Text}");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"Partial matching selection failed: {ex.Message}");
+            }
+            
+            // Strategy 5: Log available options and throw meaningful error
+            _logger.LogWarning("Failed to find matching username option in dropdown");
+            _logger.LogWarning($"Available options: {string.Join(", ", options.Select(opt => $"'{opt.Text}' (value: '{opt.GetAttribute("value")}')"))}");
+            
+            throw new InvalidOperationException($"Could not find username '{username}' in dropdown options. Available options: {string.Join(", ", options.Select(opt => opt.Text))}");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error handling username dropdown for value: {username}");
+            throw;
         }
     }
 }
