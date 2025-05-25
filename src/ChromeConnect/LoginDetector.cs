@@ -15,7 +15,7 @@ namespace ChromeConnect.Core;
 public class LoginDetector
 {
     private readonly ILogger<LoginDetector> _logger;
-    private readonly DetectionMetricsService _metricsService;
+    private readonly DetectionMetricsService? _metricsService;
     
     // Performance optimization: Cache compiled regex patterns
     private static readonly ConcurrentDictionary<string, Regex> _regexCache = new();
@@ -54,7 +54,7 @@ public class LoginDetector
         { "signin", new[] { "sign-in", "sign_in", "login", "log-in", "enter" } }
     };
 
-    public LoginDetector(ILogger<LoginDetector> logger, DetectionMetricsService metricsService = null)
+    public LoginDetector(ILogger<LoginDetector> logger, DetectionMetricsService? metricsService = null)
     {
         _logger = logger;
         _metricsService = metricsService; // Optional service for enhanced metrics
@@ -218,52 +218,36 @@ public class LoginDetector
                 return null;
             }
 
-            // Take the first visible password field
-            var passwordField = passwordFields.FirstOrDefault(p => IsElementVisible(p));
+            // Take the first visible password field, or if none visible, take the first one (for progressive disclosure)
+            var passwordField = passwordFields.FirstOrDefault(p => IsElementVisible(p)) ?? passwordFields.FirstOrDefault();
             if (passwordField == null)
             {
-                _logger.LogDebug("FAST-PATH: No visible password fields found");
+                _logger.LogDebug("FAST-PATH: No password fields found");
                 return null;
             }
+
+            var isPasswordVisible = IsElementVisible(passwordField);
+            _logger.LogDebug($"FAST-PATH: Found password field (visible: {isPasswordVisible}) - ID: {GetAttributeLower(passwordField, "id")}, Name: {GetAttributeLower(passwordField, "name")}");
 
             loginForm.PasswordField = passwordField;
             _logger.LogDebug($"FAST-PATH: Found password field - ID: {GetAttributeLower(passwordField, "id")}, Name: {GetAttributeLower(passwordField, "name")}");
 
             // **STRATEGY 2: Find username field near the password field**
-            // Look for text/email inputs AND select elements that could be username fields
-            var allInputs = driver.FindElements(By.TagName("input"));
-            var allSelects = driver.FindElements(By.TagName("select"));
+            // Use optimized single query for all potential username elements
+            var usernameElements = driver.FindElements(By.CssSelector(
+                "input[type='text'], input[type='email'], input:not([type]), select[name*='user'], select[id*='user'], select[name*='login'], select[id*='login']"));
             
-            _logger.LogDebug($"FAST-PATH: Found {allInputs.Count} input elements and {allSelects.Count} select elements");
+            _logger.LogDebug($"FAST-PATH: Found {usernameElements.Count} potential username elements");
             
-            // First try to find input-based username fields
-            var usernameInputField = allInputs
-                .Where(input => IsElementVisible(input))
-                .Where(input => {
-                    var inputType = input.GetAttribute("type")?.ToLower();
-                    return inputType == "text" || inputType == "email" || string.IsNullOrEmpty(inputType);
-                })
-                .Where(input => !AreSameElement(input, passwordField)) // Exclude the password field
+            // Find the best username field (prefer visible, then any element for progressive disclosure)
+            var usernameField = usernameElements
+                .Where(element => !AreSameElement(element, passwordField)) // Exclude the password field
+                .Where(element => element.TagName.ToLower() == "input" || IsLikelyUsernameDropdown(element))
+                .OrderByDescending(element => IsElementVisible(element) ? 1 : 0) // Prefer visible elements
+                .ThenBy(element => element.TagName.ToLower() == "select" ? 1 : 0) // Prefer input over select
                 .FirstOrDefault();
             
-            if (usernameInputField != null)
-            {
-                _logger.LogDebug($"FAST-PATH: Found input username field - ID: {GetAttributeLower(usernameInputField, "id")}, Name: {GetAttributeLower(usernameInputField, "name")}");
-            }
-            
-            // Then try to find select-based username fields
-            var usernameSelectField = allSelects
-                .Where(select => IsElementVisible(select))
-                .Where(select => IsLikelyUsernameDropdown(select))
-                .FirstOrDefault();
-            
-            if (usernameSelectField != null)
-            {
-                _logger.LogDebug($"FAST-PATH: Found select username field - ID: {GetAttributeLower(usernameSelectField, "id")}, Name: {GetAttributeLower(usernameSelectField, "name")}");
-            }
-            
-            // Prefer input fields over select fields for fast path (more common), but accept either
-            loginForm.UsernameField = usernameInputField ?? usernameSelectField;
+            loginForm.UsernameField = usernameField;
             
             if (loginForm.UsernameField != null)
             {
@@ -275,17 +259,20 @@ public class LoginDetector
             }
 
             // **STRATEGY 2.5: Find domain field (optional but important for some login forms)**
-            // Look for select elements that could be domain fields
-            var domainSelectField = allSelects
-                .Where(select => IsElementVisible(select))
-                .Where(select => !AreSameElement(select, loginForm.UsernameField)) // Exclude already detected username field
-                .Where(select => IsLikelyDomainDropdown(select))
+            // Use optimized query for domain elements
+            var domainElements = driver.FindElements(By.CssSelector(
+                "select[name*='domain'], select[id*='domain'], select[name*='realm'], select[id*='realm']"));
+            
+            var domainField = domainElements
+                .Where(element => !AreSameElement(element, loginForm.UsernameField)) // Exclude already detected username field
+                .Where(element => IsLikelyDomainDropdown(element))
+                .OrderByDescending(element => IsElementVisible(element) ? 1 : 0) // Prefer visible elements
                 .FirstOrDefault();
             
-            if (domainSelectField != null)
+            if (domainField != null)
             {
-                _logger.LogDebug($"FAST-PATH: Found domain field - ID: {GetAttributeLower(domainSelectField, "id")}, Name: {GetAttributeLower(domainSelectField, "name")}");
-                loginForm.DomainField = domainSelectField;
+                _logger.LogDebug($"FAST-PATH: Found domain field - ID: {GetAttributeLower(domainField, "id")}, Name: {GetAttributeLower(domainField, "name")}");
+                loginForm.DomainField = domainField;
             }
             else
             {
@@ -293,22 +280,31 @@ public class LoginDetector
             }
 
             // **STRATEGY 3: Find submit button**
-            // Look for submit buttons, regular buttons with login text, or submit inputs
-            var submitButton = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"))
-                .Where(btn => IsElementVisible(btn))
-                .FirstOrDefault(btn => {
+            // Use optimized query for submit buttons
+            var submitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"));
+            
+            // Find the best submit button (prefer visible, then any button for progressive disclosure)
+            var submitButton = submitButtons
+                .OrderByDescending(btn => IsElementVisible(btn) ? 1 : 0) // Prefer visible buttons
+                .ThenByDescending(btn => {
+                    // Score buttons by relevance
                     var text = btn.Text?.ToLower() ?? "";
                     var value = btn.GetAttribute("value")?.ToLower() ?? "";
-                    return text.Contains("login") || text.Contains("sign") || text.Contains("submit") ||
-                           value.Contains("login") || value.Contains("sign") || value.Contains("submit") ||
-                           btn.GetAttribute("type")?.ToLower() == "submit";
-                });
+                    var type = btn.GetAttribute("type")?.ToLower() ?? "";
+                    
+                    if (type == "submit") return 3;
+                    if (text.Contains("login") || text.Contains("sign") || value.Contains("login") || value.Contains("sign")) return 2;
+                    if (text.Contains("submit") || value.Contains("submit")) return 1;
+                    return 0;
+                })
+                .FirstOrDefault();
 
             loginForm.SubmitButton = submitButton;
             
             if (submitButton != null)
             {
-                _logger.LogDebug($"FAST-PATH: Found submit button - ID: {GetAttributeLower(submitButton, "id")}, Text: {submitButton.Text}");
+                var isSubmitVisible = IsElementVisible(submitButton);
+                _logger.LogDebug($"FAST-PATH: Found submit button (visible: {isSubmitVisible}) - ID: {GetAttributeLower(submitButton, "id")}, Text: {submitButton.Text}");
             }
 
             var detectionTime = DateTime.Now - startTime;
@@ -318,7 +314,9 @@ public class LoginDetector
             // We need both password and username fields for a valid login form
             if (loginForm.PasswordField != null && loginForm.UsernameField != null)
             {
-                _logger.LogInformation($"FAST-PATH detection successful in {detectionTime.TotalMilliseconds}ms - Found username, password{(loginForm.DomainField != null ? ", and domain" : "")} fields");
+                var isProgressive = !IsElementVisible(loginForm.PasswordField) || (loginForm.SubmitButton != null && !IsElementVisible(loginForm.SubmitButton));
+                var progressiveNote = isProgressive ? " (progressive disclosure detected)" : "";
+                _logger.LogInformation($"FAST-PATH detection successful in {detectionTime.TotalMilliseconds}ms - Found username, password{(loginForm.DomainField != null ? ", and domain" : "")} fields{progressiveNote}");
                 return loginForm;
             }
 
@@ -3179,11 +3177,18 @@ public class LoginDetector
                 try
                 {
                     var score = ScoreElementForType(element, elementType);
-                    if (score > 0 && IsElementVisible(element))
+                    if (score > 0)
                     {
-                        lock (candidates)
+                        // For progressive disclosure, allow hidden elements but prefer visible ones
+                        var isVisible = IsElementVisible(element);
+                        var finalScore = isVisible ? score : score - 10; // Small penalty for hidden elements
+                        
+                        if (finalScore > 0)
                         {
-                            candidates[element] = score;
+                            lock (candidates)
+                            {
+                                candidates[element] = finalScore;
+                            }
                         }
                     }
                 }
@@ -3240,11 +3245,13 @@ public class LoginDetector
             try
             {
                 var elements = driver.FindElements(By.XPath(xpath));
-                var validElement = elements.FirstOrDefault(IsElementVisible);
+                // First try to find a visible element, then fall back to any element (for progressive disclosure)
+                var validElement = elements.FirstOrDefault(IsElementVisible) ?? elements.FirstOrDefault();
                 
                 if (validElement != null)
                 {
-                    _logger.LogDebug($"{elementType} field found with optimized XPath: {xpath}");
+                    var isVisible = IsElementVisible(validElement);
+                    _logger.LogDebug($"{elementType} field found with optimized XPath (visible: {isVisible}): {xpath}");
                     return validElement;
                 }
             }
@@ -3307,7 +3314,8 @@ public class LoginDetector
                 try
                 {
                     var foundElements = shadowRoot.FindElements(By.CssSelector(selector));
-                    elements.AddRange(foundElements.Where(IsElementVisible));
+                    // For progressive disclosure, include both visible and hidden elements
+                    elements.AddRange(foundElements);
                 }
                 catch (Exception ex)
                 {
@@ -3375,11 +3383,18 @@ public class LoginDetector
                     if (excludeElements?.Contains(element) == true) return;
                     
                     var score = ScoreElementForType(element, elementType);
-                    if (score > 0 && IsElementVisible(element))
+                    if (score > 0)
                     {
-                        lock (candidates)
+                        // For progressive disclosure, allow hidden elements but prefer visible ones
+                        var isVisible = IsElementVisible(element);
+                        var finalScore = isVisible ? score : score - 10; // Small penalty for hidden elements
+                        
+                        if (finalScore > 0)
                         {
-                            candidates[element] = score;
+                            lock (candidates)
+                            {
+                                candidates[element] = finalScore;
+                            }
                         }
                     }
                 }

@@ -4,6 +4,7 @@ using System.Net;
 using ChromeConnect.Core; // For IScreenshotCapture if needed by ErrorHandler
 using ChromeConnect.Services;
 using ChromeConnect.Models;
+using ChromeConnect.Configuration;
 using ChromeConnect.Exceptions; // For specific exception checking if needed later
 using Moq; // Added for Moq
 
@@ -95,7 +96,11 @@ public class LoginTests
         var browserManager = new BrowserManager(browserManagerLogger); 
         var loginDetector = new LoginDetector(loginDetectorLogger); 
         var credentialManager = new CredentialManager(credentialManagerLogger); 
-        var loginVerifier = new LoginVerifier(loginVerifierLogger); 
+        var loginVerificationConfig = new LoginVerificationConfig();
+        var timeoutConfig = new TimeoutConfig();
+        var policyFactoryLogger = _loggerFactory!.CreateLogger<PolicyFactory>();
+        var policyFactory = new PolicyFactory(policyFactoryLogger, timeoutConfig);
+        var loginVerifier = new LoginVerifier(loginVerifierLogger, loginVerificationConfig, timeoutConfig, policyFactory); 
         
 
         _chromeConnectService = new ChromeConnectService(

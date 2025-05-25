@@ -2,6 +2,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Extensions.Logging;
 using ChromeConnect.Core;
 using ChromeConnect.Services;
+using ChromeConnect.Configuration;
 using Moq;
 using System.Diagnostics;
 using OpenQA.Selenium;
@@ -63,7 +64,10 @@ public class LoginVerificationTimeoutTests
         };
 
         var logger = _loggerFactory!.CreateLogger<LoginVerifier>();
-        _loginVerifier = new LoginVerifier(logger, config);
+        var timeoutConfig = new TimeoutConfig();
+        var policyFactoryLogger = _loggerFactory!.CreateLogger<PolicyFactory>();
+        var policyFactory = new PolicyFactory(policyFactoryLogger, timeoutConfig);
+        _loginVerifier = new LoginVerifier(logger, config, timeoutConfig, policyFactory);
 
         // Mock successful login scenario (URL change detected quickly)
         var originalUrl = "https://example.com/login";
@@ -103,7 +107,10 @@ public class LoginVerificationTimeoutTests
         };
 
         var logger = _loggerFactory!.CreateLogger<LoginVerifier>();
-        _loginVerifier = new LoginVerifier(logger, config);
+        var timeoutConfig = new TimeoutConfig();
+        var policyFactoryLogger = _loggerFactory!.CreateLogger<PolicyFactory>();
+        var policyFactory = new PolicyFactory(policyFactoryLogger, timeoutConfig);
+        _loginVerifier = new LoginVerifier(logger, config, timeoutConfig, policyFactory);
 
         var originalUrl = "https://example.com/login";
         
@@ -143,7 +150,10 @@ public class LoginVerificationTimeoutTests
         };
 
         var logger = _loggerFactory!.CreateLogger<LoginVerifier>();
-        _loginVerifier = new LoginVerifier(logger, config);
+        var timeoutConfig = new TimeoutConfig();
+        var policyFactoryLogger = _loggerFactory!.CreateLogger<PolicyFactory>();
+        var policyFactory = new PolicyFactory(policyFactoryLogger, timeoutConfig);
+        _loginVerifier = new LoginVerifier(logger, config, timeoutConfig, policyFactory);
 
         var originalUrl = "https://example.com/login";
         
@@ -196,7 +206,10 @@ public class LoginVerificationTimeoutTests
         _mockDriver.Setup(d => d.PageSource).Returns("<html><body>Loading...</body></html>");
 
         // Test new configuration
-        _loginVerifier = new LoginVerifier(logger, newConfig);
+        var timeoutConfig = new TimeoutConfig();
+        var policyFactoryLogger = _loggerFactory!.CreateLogger<PolicyFactory>();
+        var policyFactory = new PolicyFactory(policyFactoryLogger, timeoutConfig);
+        _loginVerifier = new LoginVerifier(logger, newConfig, timeoutConfig, policyFactory);
         var stopwatchNew = Stopwatch.StartNew();
         var resultNew = await _loginVerifier.VerifyLoginSuccessAsync(_mockDriver!.Object);
         stopwatchNew.Stop();
@@ -228,7 +241,10 @@ public class LoginVerificationTimeoutTests
         };
 
         var logger = _loggerFactory!.CreateLogger<LoginVerifier>();
-        _loginVerifier = new LoginVerifier(logger, config);
+        var timeoutConfig = new TimeoutConfig();
+        var policyFactoryLogger = _loggerFactory!.CreateLogger<PolicyFactory>();
+        var policyFactory = new PolicyFactory(policyFactoryLogger, timeoutConfig);
+        _loginVerifier = new LoginVerifier(logger, config, timeoutConfig, policyFactory);
 
         var originalUrl = "https://example.com/login";
         var successUrl = "https://example.com/dashboard";
