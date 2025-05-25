@@ -53,8 +53,8 @@ namespace ChromeConnect.Services
             {
                 return new LoginVerificationConfig
                 {
-                    MaxVerificationTimeSeconds = 6,   // Further reduced to 6s for even faster response
-                    InitialDelayMs = 100,             // Minimal initial delay for immediate detection
+                    MaxVerificationTimeSeconds = 10,  // Reduced from default 30s to 10s
+                    InitialDelayMs = 500,             // Quick initial delay
                     EnableTimingLogs = true,          // Enable performance monitoring
                     CaptureScreenshotsOnFailure = true // Capture screenshots on failures
                 };
@@ -148,19 +148,6 @@ namespace ChromeConnect.Services
             // Register main application service
             services.AddSingleton<ChromeConnectService>();
 
-            // Register options to configure the timeout manager from settings
-            services.AddSingleton(provider =>
-            {
-                var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
-                return new TimeoutSettings
-                {
-                    DefaultTimeoutMs = 10000, // Reduced to 10s for better alignment with LoginVerifier
-                    ElementTimeoutMs = settings.Browser.ElementWaitTimeSeconds * 1000,
-                    ConditionTimeoutMs = settings.Browser.ElementWaitTimeSeconds * 1500,
-                    UrlChangeTimeoutMs = 5000 // Default value
-                };
-            });
-
             return services;
         }
 
@@ -188,6 +175,19 @@ namespace ChromeConnect.Services
                     MaxRetryDelayMs = settings.ErrorHandling.MaxRetryDelayMs,
                     BackoffMultiplier = settings.ErrorHandling.BackoffMultiplier,
                     AddJitter = settings.ErrorHandling.AddJitter
+                };
+            });
+
+            // Register options to configure the timeout manager from settings
+            services.AddSingleton(provider =>
+            {
+                var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
+                return new TimeoutSettings
+                {
+                    DefaultTimeoutMs = settings.Browser.PageLoadTimeoutSeconds * 1000,
+                    ElementTimeoutMs = settings.Browser.ElementWaitTimeSeconds * 1000,
+                    ConditionTimeoutMs = settings.Browser.ElementWaitTimeSeconds * 1500,
+                    UrlChangeTimeoutMs = 5000 // Default value
                 };
             });
 
