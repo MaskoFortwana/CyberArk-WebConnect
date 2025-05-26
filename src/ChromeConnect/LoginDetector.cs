@@ -259,19 +259,28 @@ public class LoginDetector
             }
 
             // **STRATEGY 2.5: Find domain field (optional but important for some login forms)**
-            // Use optimized query for domain elements
+            // Enhanced optimized query for domain elements - support both input and select fields
             var domainElements = driver.FindElements(By.CssSelector(
-                "select[name*='domain'], select[id*='domain'], select[name*='realm'], select[id*='realm']"));
+                "select[name*='domain'], select[id*='domain'], select[name*='realm'], select[id*='realm'], " +
+                "select[name*='tenant'], select[id*='tenant'], select[name*='org'], select[id*='org'], " +
+                "select[name*='company'], select[id*='company'], select[name*='authority'], select[id*='authority'], " +
+                "input[name*='domain'], input[id*='domain'], input[name*='realm'], input[id*='realm'], " +
+                "input[name*='tenant'], input[id*='tenant'], input[name*='org'], input[id*='org'], " +
+                "input[name*='company'], input[id*='company'], input[name*='authority'], input[id*='authority'], " +
+                "select[class*='domain'], input[class*='domain'], " +
+                "select[placeholder*='domain' i], input[placeholder*='domain' i], " +
+                "select[aria-label*='domain' i], input[aria-label*='domain' i]"));
             
             var domainField = domainElements
                 .Where(element => !AreSameElement(element, loginForm.UsernameField)) // Exclude already detected username field
-                .Where(element => IsLikelyDomainDropdown(element))
+                .Where(element => element.TagName.ToLower() == "select" ? IsLikelyDomainDropdown(element) : IsLikelyDomainInput(element))
                 .OrderByDescending(element => IsElementVisible(element) ? 1 : 0) // Prefer visible elements
+                .ThenByDescending(element => CalculateFastPathDomainScore(element)) // Score by relevance
                 .FirstOrDefault();
             
             if (domainField != null)
             {
-                _logger.LogDebug($"FAST-PATH: Found domain field - ID: {GetAttributeLower(domainField, "id")}, Name: {GetAttributeLower(domainField, "name")}");
+                _logger.LogDebug($"FAST-PATH: Found domain field - Tag: {domainField.TagName}, ID: {GetAttributeLower(domainField, "id")}, Name: {GetAttributeLower(domainField, "name")}");
                 loginForm.DomainField = domainField;
             }
             else
@@ -1011,8 +1020,8 @@ public class LoginDetector
                     var className = GetAttributeLower(element, "class");
                     var dataTestId = GetAttributeLower(element, "data-testid");
 
-                    // Define target terms for domain fields
-                    var currentDomainTerms = new[] { "domain", "tenant", "organization", "org", "company", "realm", "authority" }; // Renamed
+                    // Enhanced target terms for domain fields - more comprehensive list
+                    var currentDomainTerms = new[] { "domain", "tenant", "organization", "org", "company", "realm", "authority", "corp", "corporation", "enterprise", "workspace" }; // Renamed
 
                     // Enhanced fuzzy matching for each attribute
                     idScore = ScoreAttributeWithFuzzyMatching(id, currentDomainTerms, ElementType.Domain);
@@ -1065,32 +1074,36 @@ public class LoginDetector
                     // Advanced pattern matching for domain field patterns
                     var allAttributes = $"{id} {name} {placeholder} {ariaLabel} {className} {dataTestId}".ToLower();
                     
-                    // Exact match bonus for "domain" (highest priority for our target case)
-                    if (id == "domain" || name == "domain") score += 50;
+                    // Enhanced exact match bonuses for domain fields (highest priority for our target case)
+                    if (id == "domain" || name == "domain") score += 70; // Increased from 50
+                    if (id.Contains("domain") || name.Contains("domain")) score += 60; // Additional bonus for partial matches
                     
-                    // Domain pattern detection
-                    if (Regex.IsMatch(allAttributes, @"\\b(domain|tenant)\\b")) score += 30;
+                    // Primary domain pattern detection - expanded patterns
+                    if (Regex.IsMatch(allAttributes, @"\b(domain|tenant)\b", RegexOptions.IgnoreCase)) score += 40; // Increased from 30
                     
-                    // Organization pattern detection
-                    if (Regex.IsMatch(allAttributes, @"\\b(organization|organisation|org)\\b")) score += 25;
+                    // Organization pattern detection - more variations
+                    if (Regex.IsMatch(allAttributes, @"\b(organization|organisation|org)\b", RegexOptions.IgnoreCase)) score += 35; // Increased from 25
                     
-                    // Company pattern detection
-                    if (Regex.IsMatch(allAttributes, @"\\b(company|corp|corporation)\\b")) score += 20;
+                    // Company pattern detection - enhanced
+                    if (Regex.IsMatch(allAttributes, @"\b(company|corp|corporation|enterprise)\b", RegexOptions.IgnoreCase)) score += 30; // Increased from 20
                     
-                    // Enterprise/realm patterns
-                    if (Regex.IsMatch(allAttributes, @"\\b(realm|authority|enterprise|workspace)\\b")) score += 20;
+                    // Authority/realm patterns - expanded
+                    if (Regex.IsMatch(allAttributes, @"\b(realm|authority|workspace|directory)\b", RegexOptions.IgnoreCase)) score += 25; // Increased from 20
+                    
+                    // Additional fallback patterns for edge cases
+                    if (Regex.IsMatch(allAttributes, @"\b(dom|tnnt|auth)\b", RegexOptions.IgnoreCase)) score += 15; // Abbreviations
 
                     // STRONG penalty for non-domain patterns - prevent username/password field reuse
-                    if (Regex.IsMatch(allAttributes, @"\\b(username|user|password|pass|email|login)\\b")) score -= 100; // Increased penalty
-                    if (Regex.IsMatch(allAttributes, @"\\b(search|query|filter|submit)\\b")) score -= 50; // Increased penalty
+                    if (Regex.IsMatch(allAttributes, @"\b(username|user|password|pass|email|login)\b", RegexOptions.IgnoreCase)) score -= 120; // Increased penalty even more
+                    if (Regex.IsMatch(allAttributes, @"\b(search|query|filter|submit|firstname|lastname|phone|address)\b", RegexOptions.IgnoreCase)) score -= 60; // Increased penalty and more patterns
 
-                    // Additional validation: Require at least one domain-specific term to have a positive score
-                    bool hasDomainSpecificTerm = Regex.IsMatch(allAttributes, @"\\b(domain|tenant|organization|organisation|org|company|corp|corporation|realm|authority|enterprise|workspace)\\b");
+                    // Enhanced validation: Check for domain-specific terms with more patterns
+                    bool hasDomainSpecificTerm = Regex.IsMatch(allAttributes, @"\b(domain|tenant|organization|organisation|org|company|corp|corporation|realm|authority|enterprise|workspace|directory|dom|tnnt|auth)\b", RegexOptions.IgnoreCase);
                     if (!hasDomainSpecificTerm)
                     {
-                        // If no domain-specific terms found, apply heavy penalty to prevent false positives
-                        score -= 80;
-                        _logger.LogDebug($"No domain-specific terms found in element: ID={id}, Name={name} - applying heavy penalty");
+                        // If no domain-specific terms found, apply moderate penalty but allow for edge cases
+                        score -= 60; // Reduced from 80 to be less strict
+                        _logger.LogDebug($"No domain-specific terms found in element: ID={id}, Name={name} - applying moderate penalty");
                     }
 
                     // Form position bonus (domain is often third field)
@@ -1153,15 +1166,16 @@ public class LoginDetector
                         }
                     }
 
-                    // Only consider elements with positive scores AND domain-specific attributes
-                    if (score > 0 && hasDomainSpecificTerm)
+                    // More lenient scoring - consider elements with positive scores OR high baseline scores even without perfect attributes
+                    if (score > 0 || (score >= -30 && hasDomainSpecificTerm))
                     {
-                        candidates[element] = score;
-                        _logger.LogDebug($"Domain candidate scored {score}: ID={id}, Name={name}, TagName={tagName}");
+                        var finalScore = Math.Max(1, score); // Ensure minimum score of 1 for valid candidates
+                        candidates[element] = finalScore;
+                        _logger.LogDebug($"Domain candidate scored {finalScore}: ID={id}, Name={name}, TagName={tagName} (original score: {score})");
                     }
-                    else if (score <= 0)
+                    else
                     {
-                        _logger.LogDebug($"Domain candidate rejected (score {score}): ID={id}, Name={name}, TagName={tagName}");
+                        _logger.LogDebug($"Domain candidate rejected (score {score}, hasDomainTerm: {hasDomainSpecificTerm}): ID={id}, Name={name}, TagName={tagName}");
                     }
                 }
                 catch (Exception ex_inner) // Inner catch for scoring logic
@@ -3457,6 +3471,99 @@ public class LoginDetector
         {
             _logger.LogDebug(ex, "Exception during AreSameElement comparison.");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Fast heuristic to determine if an input element is likely a domain field
+    /// Used in fast path detection for performance
+    /// </summary>
+    private bool IsLikelyDomainInput(IWebElement inputElement)
+    {
+        try
+        {
+            var id = GetAttributeLower(inputElement, "id");
+            var name = GetAttributeLower(inputElement, "name");
+            var className = GetAttributeLower(inputElement, "class");
+            var placeholder = GetAttributeLower(inputElement, "placeholder");
+            var ariaLabel = GetAttributeLower(inputElement, "aria-label");
+            var type = GetAttributeLower(inputElement, "type");
+            
+            // Only consider text inputs or inputs without a type (defaults to text)
+            if (!string.IsNullOrEmpty(type) && type != "text" && type != "")
+            {
+                return false;
+            }
+            
+            // Check for domain-like attributes
+            var domainTerms = new[] { "domain", "tenant", "organization", "org", "company", "realm", "authority" };
+            var allAttributes = $"{id} {name} {className} {placeholder} {ariaLabel}";
+            
+            foreach (var term in domainTerms)
+            {
+                if (allAttributes.Contains(term))
+                {
+                    _logger.LogDebug($"FAST-PATH: Found likely domain input with {term} in attributes: ID={id}, Name={name}");
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"FAST-PATH: Error analyzing domain input element: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Calculate a relevance score for a domain field element in fast-path detection
+    /// Higher score = more likely to be the correct domain field
+    /// </summary>
+    private int CalculateFastPathDomainScore(IWebElement element)
+    {
+        try
+        {
+            var id = GetAttributeLower(element, "id");
+            var name = GetAttributeLower(element, "name");
+            var className = GetAttributeLower(element, "class");
+            var placeholder = GetAttributeLower(element, "placeholder");
+            var ariaLabel = GetAttributeLower(element, "aria-label");
+            
+            int score = 0;
+            var allAttributes = $"{id} {name} {className} {placeholder} {ariaLabel}";
+            
+            // Exact match bonuses
+            if (id == "domain" || name == "domain") score += 100;
+            if (id.Contains("domain") || name.Contains("domain")) score += 80;
+            
+            // Other domain-related terms
+            if (allAttributes.Contains("tenant")) score += 70;
+            if (allAttributes.Contains("organization") || allAttributes.Contains("org")) score += 60;
+            if (allAttributes.Contains("company") || allAttributes.Contains("corp")) score += 50;
+            if (allAttributes.Contains("realm") || allAttributes.Contains("authority")) score += 40;
+            
+            // Type bonuses
+            if (element.TagName.ToLower() == "select") score += 20; // Prefer dropdowns for domains
+            
+            // Visibility bonus
+            if (IsElementVisible(element)) score += 10;
+            
+            // Penalty for username/password attributes to avoid false positives
+            if (allAttributes.Contains("username") || allAttributes.Contains("user") || 
+                allAttributes.Contains("password") || allAttributes.Contains("pass") ||
+                allAttributes.Contains("email") || allAttributes.Contains("login")) 
+            {
+                score -= 50;
+            }
+            
+            return Math.Max(0, score);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"FAST-PATH: Error calculating domain score: {ex.Message}");
+            return 0;
         }
     }
 }

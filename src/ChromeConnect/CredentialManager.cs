@@ -119,8 +119,8 @@ public class CredentialManager
                         }
                         else
                         {
-                            _logger.LogInformation("Domain field is an input, using standard text entry");
-                            await EnterTextOptimizedAsync(loginForm.DomainField, domain);
+                            _logger.LogInformation("Domain field is an input, using enhanced text entry with validation");
+                            await EnterDomainInputAsync(loginForm.DomainField, domain);
                         }
                     });
                 }
@@ -480,6 +480,70 @@ public class CredentialManager
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error handling username dropdown for value: {username}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Enhanced domain entry for input fields with additional validation and error handling
+    /// </summary>
+    private async Task EnterDomainInputAsync(IWebElement inputElement, string domain)
+    {
+        try
+        {
+            _logger.LogDebug($"Entering domain '{domain}' into input field");
+            
+            // Ensure element is interactable
+            if (!inputElement.Enabled)
+            {
+                _logger.LogWarning("Domain input field is disabled, cannot enter value");
+                throw new InvalidOperationException("Domain input field is disabled");
+            }
+            
+            if (!inputElement.Displayed)
+            {
+                _logger.LogWarning("Domain input field is not visible, cannot enter value");
+                throw new InvalidOperationException("Domain input field is not visible");
+            }
+            
+            // Check for any input restrictions (maxlength, pattern, etc.)
+            var maxLength = inputElement.GetAttribute("maxlength");
+            if (!string.IsNullOrEmpty(maxLength) && int.TryParse(maxLength, out int maxLen))
+            {
+                if (domain.Length > maxLen)
+                {
+                    _logger.LogWarning($"Domain value '{domain}' ({domain.Length} chars) exceeds maxlength {maxLen}, truncating");
+                    domain = domain.Substring(0, maxLen);
+                }
+            }
+            
+            // Use the standard optimized text entry with additional validation
+            await EnterTextOptimizedAsync(inputElement, domain);
+            
+            // Validate that the value was actually entered
+            var enteredValue = inputElement.GetAttribute("value");
+            if (string.IsNullOrEmpty(enteredValue) || !enteredValue.Equals(domain, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning($"Domain value verification failed. Expected: '{domain}', Actual: '{enteredValue}'. Retrying once.");
+                
+                // Retry once with a different approach
+                inputElement.Clear();
+                inputElement.SendKeys(domain);
+                
+                // Check again
+                enteredValue = inputElement.GetAttribute("value");
+                if (string.IsNullOrEmpty(enteredValue) || !enteredValue.Equals(domain, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogError($"Domain value verification failed after retry. Expected: '{domain}', Actual: '{enteredValue}'");
+                    throw new InvalidOperationException($"Failed to enter domain value correctly. Expected: '{domain}', Actual: '{enteredValue}'");
+                }
+            }
+            
+            _logger.LogDebug($"Successfully entered domain '{domain}' into input field");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Error entering domain '{domain}' into input field");
             throw;
         }
     }
