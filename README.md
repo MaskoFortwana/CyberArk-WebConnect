@@ -36,7 +36,7 @@ ChromeConnect is a Windows-based automation utility that streamlines web portal 
 
 1. **Download the latest release**
    - Visit [Releases](https://github.com/yourorg/chromeconnect/releases)
-   - Download `ChromeConnect-X.X.X-win-x64.zip`
+   - Download `ChromeConnect-X.X.X-win-x64.zip` (64-bit) or `ChromeConnect-X.X.X-win-x86.zip` (32-bit)
 
 2. **Extract and setup**
    ```powershell
@@ -66,7 +66,10 @@ git clone https://github.com/yourorg/chromeconnect.git
 cd chromeconnect
 
 # Build using the provided script (PowerShell)
-./publish.ps1 -Version "1.0.0" -Configuration Release
+./publish.ps1 -Version "1.0.0" -Configuration Release -RuntimeIdentifier "win-x64"
+
+# Build for 32-bit Windows
+./publish.ps1 -Version "1.0.0" -Configuration Release -RuntimeIdentifier "win-x86"
 
 # Or build manually
 dotnet publish src/ChromeConnect -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
@@ -140,34 +143,24 @@ ChromeConnect.exe --USR test.automation --PSW AutomationPass --URL https://test.
 
 ## 🔧 Configuration
 
-### Application Settings
+### Embedded Configuration
 
-ChromeConnect uses `appsettings.json` for configuration:
+ChromeConnect uses **embedded configuration** - no external configuration files are required! All settings are built into the executable with sensible defaults:
 
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft": "Warning",
-      "System": "Warning"
-    }
-  },
-  "ChromeConnect": {
-    "DefaultTimeout": 30,
-    "MaxRetryAttempts": 3,
-    "ScreenshotOnError": true,
-    "LoggingLevel": "Information"
-  }
-}
-```
+- **Default Timeout**: 30 seconds
+- **Max Retry Attempts**: 3
+- **Screenshot on Error**: Enabled
+- **Logging Level**: Information (use `--debug` for detailed logging)
+- **Log Location**: Windows temp folder (`%TEMP%\ChromeConnect\`)
 
-### Environment Variables
+### Command-line Overrides
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CHROMECONNECT_LOG_LEVEL` | Override logging level | `Information` |
-| `CHROMECONNECT_TIMEOUT` | Default timeout in seconds | `30` |
+All configuration can be controlled via command-line parameters:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--debug` | Enable debug logging | `false` |
+| `--version` | Show version and deployment info | - |
 
 ---
 
@@ -193,19 +186,21 @@ ChromeConnect captures screenshots during failures for easy troubleshooting:
 
 | Scenario | Filename Pattern | Location |
 |----------|------------------|----------|
-| Login Failed | `LoginFailed_YYYYMMDD_HHMMSS.png` | `./screenshots/` |
-| Verification Error | `VerificationError_YYYYMMDD_HHMMSS.png` | `./screenshots/` |
-| Browser Error | `BrowserError_YYYYMMDD_HHMMSS.png` | `./screenshots/` |
-| Form Not Found | `FormNotFound_YYYYMMDD_HHMMSS.png` | `./screenshots/` |
+| Login Failed | `LoginFailed_YYYYMMDD_HHMMSS.png` | `%TEMP%\ChromeConnect\screenshots\` |
+| Verification Error | `VerificationError_YYYYMMDD_HHMMSS.png` | `%TEMP%\ChromeConnect\screenshots\` |
+| Browser Error | `BrowserError_YYYYMMDD_HHMMSS.png` | `%TEMP%\ChromeConnect\screenshots\` |
+| Form Not Found | `FormNotFound_YYYYMMDD_HHMMSS.png` | `%TEMP%\ChromeConnect\screenshots\` |
 
 ### Log Files
-Detailed logs are stored in the `logs/` directory:
+Detailed logs are stored in the Windows temp folder:
 
 ```
-logs/
+%TEMP%\ChromeConnect\
 ├── chromeconnect-20241123.log    # Daily log files
 ├── chromeconnect-20241124.log
-└── ...
+└── screenshots/                  # Error screenshots
+    ├── LoginFailed_20241123_143022.png
+    └── ...
 ```
 
 **Log Levels:**
@@ -231,7 +226,7 @@ ChromeConnect.exe --debug --USR test --PSW test --URL https://example.com --DOM 
 #### ❌ "Login form not detected"
 **Cause:** Website structure may have changed
 **Solution:**
-1. Check the screenshot in `./screenshots/`
+1. Check the screenshot in `%TEMP%\ChromeConnect\screenshots\`
 2. Verify the URL is correct
 3. Check if the site requires specific browser settings
 

@@ -1,13 +1,16 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using CommandLine;
+using CommandLine.Text;
 using ChromeConnect.Core;
 using ChromeConnect.Models;
 using ChromeConnect.Services;
+using ChromeConnect.Configuration;
+using ChromeConnect.Utilities;
 using Serilog;
 using Serilog.Events;
 
@@ -25,48 +28,121 @@ public class Program
     /// <returns>The exit code of the application.</returns>
     public static async Task<int> Main(string[] args)
     {
-        // Configure Serilog logger first
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production"}.json", optional: true)
-            .AddEnvironmentVariables()
-            .AddCommandLine(args)
-            .Build();
+        // Parse command line arguments first to get debug mode
+        var parserResult = Parser.Default.ParseArguments<CommandLineOptions>(args);
+        bool debugMode = false;
+        CommandLineOptions options = null;
+        
+        if (parserResult is Parsed<CommandLineOptions> parsedOptions)
+        {
+            debugMode = parsedOptions.Value.Debug;
+            options = parsedOptions.Value;
+            
+            // Validate command-line options
+            var validationErrors = options.ValidateOptions();
+            if (validationErrors.Any())
+            {
+                Console.WriteLine("❌ Command-line parameter validation failed:");
+                foreach (var error in validationErrors)
+                {
+                    Console.WriteLine($"   • {error}");
+                }
+                Console.WriteLine();
+                Console.WriteLine("Use --help for parameter information or --version for deployment requirements.");
+                return 4; // Configuration error
+            }
+        }
+        else if (parserResult is NotParsed<CommandLineOptions> notParsed)
+        {
+            // Check if user requested help or version info
+            if (args.Contains("--help") || args.Contains("-h") || args.Contains("/?"))
+            {
+                Console.WriteLine(CommandLineOptions.GetExtendedHelpText());
+                return 0;
+            }
+            
+            // Show parsing errors
+            Console.WriteLine("❌ Command-line argument parsing failed:");
+            foreach (var error in notParsed.Errors)
+            {
+                if (error is MissingRequiredOptionError missingError)
+                {
+                    Console.WriteLine($"   • Missing required parameter: --{missingError.NameInfo.LongName}");
+                }
+                else if (error is UnknownOptionError unknownError)
+                {
+                    Console.WriteLine($"   • Unknown parameter: --{unknownError.Token}");
+                }
+                else
+                {
+                    Console.WriteLine($"   • {error}");
+                }
+            }
+            Console.WriteLine();
+            Console.WriteLine("Use --help for parameter information or --version for deployment requirements.");
+            return 4; // Configuration error
+        }
+
+        // Initialize static configuration with command line overrides
+        StaticConfiguration.Initialize(debugMode, options);
+
+        // Configure Serilog logger using static configuration
+        var logLevel = Enum.Parse<LogEventLevel>(StaticConfiguration.DefaultLogLevel);
+        var microsoftLogLevel = Enum.Parse<LogEventLevel>(StaticConfiguration.MicrosoftLogLevel);
+        var systemLogLevel = Enum.Parse<LogEventLevel>(StaticConfiguration.SystemLogLevel);
 
         Log.Logger = new LoggerConfiguration()
-            // .ReadFrom.Configuration(configuration) // Remove this line - causes issues in single-file deployment
-            .MinimumLevel.Information()
-            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-            .MinimumLevel.Override("System", LogEventLevel.Warning)
+            .MinimumLevel.Is(logLevel)
+            .MinimumLevel.Override("Microsoft", microsoftLogLevel)
+            .MinimumLevel.Override("System", systemLogLevel)
             .Enrich.FromLogContext()
             .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-            .WriteTo.File(Path.Combine(AppContext.BaseDirectory, "logs", "chromeconnect-.log"),
+            .WriteTo.File(Path.Combine(StaticConfiguration.LogDirectory, "chromeconnect-.log"),
                 rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 5,
-                fileSizeLimitBytes: 10 * 1024 * 1024,
+                retainedFileCountLimit: StaticConfiguration.RetainedFileCount,
+                fileSizeLimitBytes: StaticConfiguration.MaxFileSizeMb * 1024 * 1024,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-            .CreateBootstrapLogger(); // Use CreateBootstrapLogger for early logging, then replaced by Host
+            .CreateBootstrapLogger();
 
         try
         {
             Log.Information("Starting ChromeConnect application");
-
-            var parserResult = Parser.Default.ParseArguments<CommandLineOptions>(args);
-            CommandLineOptions options = null;
+            Log.Information($"Logs will be written to: {StaticConfiguration.LogDirectory}");
+            
+            // Register cleanup handlers for ChromeDriver processes
+            RegisterCleanupHandlers();
+            
+            // Perform log cleanup if enabled
+            if (StaticConfiguration.EnableLogCleanup)
+            {
+                Log.Debug("Performing log cleanup...");
+                LogCleanupUtility.CleanupOldLogs(
+                    StaticConfiguration.LogDirectory, 
+                    StaticConfiguration.MaxLogAgeDays, 
+                    StaticConfiguration.MaxLogDirectorySizeMb);
+                
+                var logFileCount = LogCleanupUtility.GetLogFileCount(StaticConfiguration.LogDirectory);
+                var logDirSizeMb = LogCleanupUtility.GetLogDirectorySize(StaticConfiguration.LogDirectory) / (1024.0 * 1024.0);
+                Log.Information("Log cleanup completed. Files: {LogFileCount}, Directory size: {LogDirSizeMb:F2} MB", 
+                    logFileCount, logDirSizeMb);
+            }
             
             if (parserResult.Value?.ShowVersion == true)
             {
                 Console.WriteLine($"{CoreConstants.ApplicationName} version {CoreConstants.Version}");
+                Console.WriteLine();
+                Console.WriteLine("🚀 DEPLOYMENT REQUIREMENTS:");
+                Console.WriteLine($"   • ChromeDriver.exe must be in the same folder as {CoreConstants.ApplicationName}.exe");
+                Console.WriteLine("   • No additional configuration files required");
+                Console.WriteLine($"   • Logs: {StaticConfiguration.LogDirectory}");
+                Console.WriteLine($"   • Screenshots: {StaticConfiguration.ScreenshotDirectory}");
+                Console.WriteLine("   • Compatible with Windows 10/11 (x64)");
+                Console.WriteLine();
+                Console.WriteLine("Use --help for complete parameter reference.");
                 return 0;
             }
             
-            if (parserResult is Parsed<CommandLineOptions> parsed)
-            {
-                options = parsed.Value;
-            }
-            
-            using var host = CreateHostBuilder(args, options?.Debug ?? false, configuration).Build();
+            using var host = CreateHostBuilder(args, debugMode).Build();
             
             if (options == null)
             {
@@ -93,45 +169,66 @@ public class Program
     /// </summary>
     /// <param name="args">Command-line arguments.</param>
     /// <param name="debugMode">Whether debug mode is enabled.</param>
-    /// <param name="configuration">The configuration.</param>
     /// <returns>The configured host builder.</returns>
-    private static IHostBuilder CreateHostBuilder(string[] args, bool debugMode, IConfigurationRoot configuration)
+    private static IHostBuilder CreateHostBuilder(string[] args, bool debugMode)
     {
+        var logLevel = Enum.Parse<LogEventLevel>(StaticConfiguration.DefaultLogLevel);
+        var microsoftLogLevel = Enum.Parse<LogEventLevel>(StaticConfiguration.MicrosoftLogLevel);
+        var systemLogLevel = Enum.Parse<LogEventLevel>(StaticConfiguration.SystemLogLevel);
+
         return Host.CreateDefaultBuilder(args)
             .UseSerilog((context, services, loggerConfiguration) => loggerConfiguration
-                // .ReadFrom.Configuration(context.Configuration) // Remove this line - causes issues in single-file deployment
-                .MinimumLevel.Information()
-                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-                .MinimumLevel.Override("System", LogEventLevel.Warning)
+                .MinimumLevel.Is(logLevel)
+                .MinimumLevel.Override("Microsoft", microsoftLogLevel)
+                .MinimumLevel.Override("System", systemLogLevel)
                 .Enrich.FromLogContext()
-                .WriteTo.Console(debugMode ? LogEventLevel.Debug : LogEventLevel.Information,
+                .WriteTo.Console(debugMode ? LogEventLevel.Debug : logLevel,
                     outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-                .WriteTo.File(Path.Combine(AppContext.BaseDirectory, "logs", "chromeconnect-.log"),
+                .WriteTo.File(Path.Combine(StaticConfiguration.LogDirectory, "chromeconnect-.log"),
                     rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 5,
-                    fileSizeLimitBytes: 10 * 1024 * 1024,
-                    restrictedToMinimumLevel: debugMode ? LogEventLevel.Debug : LogEventLevel.Information,
+                    retainedFileCountLimit: StaticConfiguration.RetainedFileCount,
+                    fileSizeLimitBytes: StaticConfiguration.MaxFileSizeMb * 1024 * 1024,
+                    restrictedToMinimumLevel: debugMode ? LogEventLevel.Debug : logLevel,
                     outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-                // File sink should be configured in appsettings.json under "Serilog" section
             )
-            .ConfigureAppConfiguration((hostContext, configBuilder) =>
-            {
-                // Configuration is already built and passed in, 
-                // but Host.CreateDefaultBuilder adds some default sources.
-                // We can clear them if we want full control from the initial IConfigurationRoot
-                // configBuilder.Sources.Clear(); // Optional: if you want to remove default sources
-                // configBuilder.AddConfiguration(configuration); // Add our pre-built configuration
-                // Default setup is fine, CreateDefaultBuilder reads appsettings.json, env vars, cmd line already.
-            })
             .ConfigureServices((hostContext, services) =>
             {
-                // Create logs directory if it doesn't exist (Serilog might need it if configured for file sink)
-                string logDirectory = Path.Combine(AppContext.BaseDirectory, "logs");
-                Directory.CreateDirectory(logDirectory); // Idempotent
-                
-                services.AddChromeConnectConfiguration(hostContext.Configuration);
-                // services.AddChromeConnectLogging(hostContext.Configuration, debugMode); // REMOVED - Serilog handles this
+                // StaticConfiguration.Initialize() already ensures directories exist
+                services.AddChromeConnectConfiguration();
                 services.AddChromeConnectServices();
             });
+    }
+
+    /// <summary>
+    /// Registers cleanup handlers to ensure ChromeDriver processes are terminated when the application exits.
+    /// </summary>
+    private static void RegisterCleanupHandlers()
+    {
+        // Register handler for normal application exit
+        AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
+        {
+            Console.WriteLine("Application exiting - cleaning up ChromeDriver processes...");
+            BrowserManager.CleanupDriverProcesses();
+            BrowserManager.CleanupOrphanedDrivers();
+        };
+
+        // Register handler for Ctrl+C and other console signals
+        Console.CancelKeyPress += (sender, e) =>
+        {
+            Console.WriteLine("Application interrupted - cleaning up ChromeDriver processes...");
+            BrowserManager.CleanupDriverProcesses();
+            BrowserManager.CleanupOrphanedDrivers();
+            
+            // Allow the application to exit gracefully
+            e.Cancel = false;
+        };
+
+        // Register handler for unhandled exceptions
+        AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+        {
+            Console.WriteLine("Unhandled exception occurred - cleaning up ChromeDriver processes...");
+            BrowserManager.CleanupDriverProcesses();
+            BrowserManager.CleanupOrphanedDrivers();
+        };
     }
 }

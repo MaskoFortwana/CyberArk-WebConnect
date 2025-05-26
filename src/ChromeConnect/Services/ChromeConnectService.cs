@@ -331,6 +331,16 @@ namespace ChromeConnect.Services
                     _logger.LogWarning(ex, "Error closing browser during cleanup");
                 }
             }
+            
+            // Always clean up ChromeDriver processes, regardless of browser cleanup setting
+            try
+            {
+                BrowserManager.CleanupDriverProcesses();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error cleaning up ChromeDriver processes");
+            }
         }
 
         /// <summary>

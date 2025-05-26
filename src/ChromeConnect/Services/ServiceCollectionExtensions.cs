@@ -1,8 +1,6 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
 using ChromeConnect.Core;
 using ChromeConnect.Services;
 using ChromeConnect.Models;
@@ -49,27 +47,10 @@ namespace ChromeConnect.Services
             });
             services.AddSingleton<CredentialManager>();
             
-            // Register timeout configuration from appsettings
+            // Register timeout configuration from static configuration
             services.AddSingleton<TimeoutConfig>(provider =>
             {
-                var configuration = provider.GetRequiredService<IConfiguration>();
-                var timeoutConfig = new TimeoutConfig();
-                
-                // Bind from configuration with fallback to defaults
-                var timeoutSection = configuration.GetSection("ChromeConnect:Timeout");
-                if (timeoutSection.Exists())
-                {
-                    timeoutConfig.InternalTimeout = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("InternalTimeoutSeconds", 15));
-                    timeoutConfig.ExternalTimeout = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("ExternalTimeoutSeconds", 20));
-                    timeoutConfig.InitialDelay = TimeSpan.FromMilliseconds(timeoutSection.GetValue<int>("InitialDelayMs", 100));
-                    timeoutConfig.QuickErrorTimeout = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("QuickErrorTimeoutSeconds", 2));
-                    timeoutConfig.PollingInterval = TimeSpan.FromMilliseconds(timeoutSection.GetValue<int>("PollingIntervalMs", 100));
-                    timeoutConfig.MaxTimePerMethod = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("MaxTimePerMethodSeconds", 3));
-                    timeoutConfig.MinTimePerMethod = TimeSpan.FromSeconds(timeoutSection.GetValue<int>("MinTimePerMethodSeconds", 1));
-                }
-                
-                timeoutConfig.Validate(); // Ensure configuration is valid
-                return timeoutConfig;
+                return StaticConfiguration.GetTimeoutConfig();
             });
 
             // Register PolicyFactory for Polly policies
@@ -180,41 +161,35 @@ namespace ChromeConnect.Services
         }
 
         /// <summary>
-        /// Adds ChromeConnect configuration from the provided <see cref="IConfiguration"/>.
+        /// Adds ChromeConnect configuration using static configuration values.
         /// </summary>
         /// <param name="services">The service collection to add configuration to.</param>
-        /// <param name="configuration">The configuration to bind from.</param>
         /// <returns>The service collection for chaining.</returns>
-        public static IServiceCollection AddChromeConnectConfiguration(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddChromeConnectConfiguration(this IServiceCollection services)
         {
-            // Bind configuration to AppSettings
-            services.Configure<AppSettings>(configuration.GetSection("ChromeConnect"));
-
-            // Register options to configure the error handler from settings
+            // Register error handler settings from static configuration
             services.AddSingleton(provider =>
             {
-                var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
                 return new ErrorHandlerSettings
                 {
-                    CaptureScreenshots = settings.ErrorHandling.CaptureScreenshotsOnError,
-                    CloseDriverOnError = settings.ErrorHandling.CloseBrowserOnError,
-                    DefaultRetryCount = settings.ErrorHandling.MaxRetryAttempts,
-                    DefaultRetryDelayMs = settings.ErrorHandling.InitialRetryDelayMs,
-                    MaxRetryDelayMs = settings.ErrorHandling.MaxRetryDelayMs,
-                    BackoffMultiplier = settings.ErrorHandling.BackoffMultiplier,
-                    AddJitter = settings.ErrorHandling.AddJitter
+                    CaptureScreenshots = StaticConfiguration.CaptureScreenshotsOnError,
+                    CloseDriverOnError = StaticConfiguration.CloseBrowserOnError,
+                    DefaultRetryCount = StaticConfiguration.MaxRetryAttempts,
+                    DefaultRetryDelayMs = StaticConfiguration.InitialRetryDelayMs,
+                    MaxRetryDelayMs = StaticConfiguration.MaxRetryDelayMs,
+                    BackoffMultiplier = StaticConfiguration.BackoffMultiplier,
+                    AddJitter = StaticConfiguration.AddJitter
                 };
             });
 
-            // Register options to configure the timeout manager from settings
+            // Register timeout manager settings from static configuration
             services.AddSingleton(provider =>
             {
-                var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
                 return new TimeoutSettings
                 {
-                    DefaultTimeoutMs = settings.Browser.PageLoadTimeoutSeconds * 1000,
-                    ElementTimeoutMs = settings.Browser.ElementWaitTimeSeconds * 1000,
-                    ConditionTimeoutMs = settings.Browser.ElementWaitTimeSeconds * 1500,
+                    DefaultTimeoutMs = StaticConfiguration.PageLoadTimeoutSeconds * 1000,
+                    ElementTimeoutMs = StaticConfiguration.ElementWaitTimeSeconds * 1000,
+                    ConditionTimeoutMs = StaticConfiguration.ElementWaitTimeSeconds * 1500,
                     UrlChangeTimeoutMs = 5000 // Default value
                 };
             });

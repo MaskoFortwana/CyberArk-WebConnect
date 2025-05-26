@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CommandLine;
 using System.ComponentModel.DataAnnotations;
 
@@ -120,12 +121,85 @@ public class CommandLineOptions
     /// <summary>
     /// Gets or sets a value indicating whether to display version information.
     /// </summary>
-    [Option("version", HelpText = "Display version information")]
+    [Option("version", HelpText = "Display version information and deployment requirements")]
     public bool ShowVersion { get; set; } = false;
 
     /// <summary>
     /// Gets or sets a value indicating whether to enable debug logging.
     /// </summary>
-    [Option("debug", HelpText = "Enable debug logging")]
+    [Option("debug", HelpText = "Enable debug logging (logs written to Windows temp folder)")]
     public bool Debug { get; set; } = false;
+
+    /// <summary>
+    /// Gets comprehensive help text that includes deployment requirements and parameter descriptions.
+    /// </summary>
+    /// <returns>Formatted help text string</returns>
+    public static string GetExtendedHelpText()
+    {
+        return @"
+ChromeConnect - Single Executable Browser Automation Tool
+
+DEPLOYMENT REQUIREMENTS:
+  • ChromeDriver.exe must be placed in the same folder as ChromeConnect.exe
+  • No additional configuration files required (embedded configuration)
+  • Logs are automatically written to Windows temp folder
+  • Compatible with Windows 10/11 (x64)
+
+REQUIRED PARAMETERS:
+  --USR <username>     Username for login form (supports domain\user format)
+  --PSW <password>     Password for authentication (masked in logs)
+  --URL <url>          Target login page URL (must include https://)
+  --DOM <domain>       Domain or tenant identifier
+  --INCOGNITO <yes|no> Use incognito/private browsing mode
+  --KIOSK <yes|no>     Use kiosk mode (fullscreen, no UI)
+  --CERT <ignore|enforce> Certificate validation handling
+
+OPTIONAL PARAMETERS:
+  --version            Display version and deployment information
+  --debug              Enable debug logging (detailed output)
+
+EXAMPLES:
+  ChromeConnect.exe --USR john.doe --PSW mypass123 --URL https://login.company.com --DOM company --INCOGNITO no --KIOSK no --CERT enforce
+  ChromeConnect.exe --USR admin@domain.com --PSW secret --URL https://portal.example.com --DOM example --INCOGNITO yes --KIOSK yes --CERT ignore --debug
+
+LOG LOCATION:
+  Logs are written to: %TEMP%\ChromeConnect\
+  Screenshots (on error): %TEMP%\ChromeConnect\screenshots\
+
+EXIT CODES:
+  0 - Success
+  1 - Login failure (invalid credentials, form not found)
+  2 - System error (browser launch, network issues)
+  3 - Verification uncertain (manual inspection required)
+  4 - Configuration error (missing ChromeDriver, invalid parameters)
+
+For more information, visit: https://github.com/your-repo/ChromeConnect
+";
+    }
+
+    /// <summary>
+    /// Validates the command-line options and returns any validation errors.
+    /// </summary>
+    /// <returns>List of validation error messages, empty if valid</returns>
+    public List<string> ValidateOptions()
+    {
+        var errors = new List<string>();
+
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(Username))
+            errors.Add("Username (--USR) is required and cannot be empty");
+
+        if (string.IsNullOrWhiteSpace(Password))
+            errors.Add("Password (--PSW) is required and cannot be empty");
+
+        if (string.IsNullOrWhiteSpace(Url))
+            errors.Add("URL (--URL) is required and cannot be empty");
+        else if (!Uri.TryCreate(Url, UriKind.Absolute, out var uri) || (uri.Scheme != "http" && uri.Scheme != "https"))
+            errors.Add("URL (--URL) must be a valid HTTP or HTTPS URL");
+
+        if (string.IsNullOrWhiteSpace(Domain))
+            errors.Add("Domain (--DOM) is required and cannot be empty");
+
+        return errors;
+    }
 } 

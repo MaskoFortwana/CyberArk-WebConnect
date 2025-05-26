@@ -25,17 +25,25 @@
 .PARAMETER UpdateVersion
     Whether to update the version in the project file (default: true)
 
+.PARAMETER RuntimeIdentifier
+    The runtime identifier for the target platform (default: win-x64)
+
 .EXAMPLE
     ./publish.ps1 -Version "1.0.1" -Configuration Release
     
 .EXAMPLE
     ./publish.ps1 -Version "1.1.0" -Configuration Debug -CreateZip $false
+    
+.EXAMPLE
+    ./publish.ps1 -Version "1.0.0" -RuntimeIdentifier "win-x86" -Configuration Release
 #>
 
 param (
     [string]$Version = "1.0.0",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
+    [ValidateSet("win-x64", "win-x86")]
+    [string]$RuntimeIdentifier = "win-x64",
     [string]$OutputDir = "./publish",
     [bool]$CreateZip = $true,
     [bool]$Clean = $true,
@@ -45,7 +53,6 @@ param (
 # Script configuration
 $ProjectPath = "./src/ChromeConnect"
 $ProjectFile = "$ProjectPath/ChromeConnect.csproj"
-$RuntimeIdentifier = "win-x64"
 $ExecutableName = "ChromeConnect.exe"
 
 # Colors for output

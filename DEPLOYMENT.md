@@ -33,11 +33,14 @@ The repository includes a comprehensive PowerShell script for automated building
 # Specify version and configuration
 ./publish.ps1 -Version "1.0.1" -Configuration Release
 
+# Build for 32-bit Windows
+./publish.ps1 -Version "1.0.1" -Configuration Release -RuntimeIdentifier "win-x86"
+
 # Debug build without ZIP package
 ./publish.ps1 -Version "1.0.0" -Configuration Debug -CreateZip $false
 
 # Advanced options
-./publish.ps1 -Version "1.2.0" -Configuration Release -OutputDir "./custom-output" -Clean $true
+./publish.ps1 -Version "1.2.0" -Configuration Release -RuntimeIdentifier "win-x64" -OutputDir "./custom-output" -Clean $true
 ```
 
 #### PowerShell Script Parameters
@@ -46,6 +49,7 @@ The repository includes a comprehensive PowerShell script for automated building
 |-----------|-------------|---------|---------|
 | `Version` | Version number for the build | `1.0.0` | `"1.2.3"` |
 | `Configuration` | Build configuration | `Release` | `Release`, `Debug` |
+| `RuntimeIdentifier` | Target platform architecture | `win-x64` | `win-x64`, `win-x86` |
 | `OutputDir` | Output directory for files | `./publish` | `"./my-build"` |
 | `CreateZip` | Create ZIP package | `$true` | `$true`, `$false` |
 | `Clean` | Clean output before build | `$true` | `$true`, `$false` |
@@ -92,13 +96,13 @@ After a successful build, you will find:
 
 ```
 ./publish/
-├── ChromeConnect.exe          # Main executable (self-contained)
-├── appsettings.json          # Configuration file
-├── README.md                 # Documentation
-└── logs/                     # Log directory (created at runtime)
+├── ChromeConnect.exe          # Main executable (self-contained, ~45MB)
+└── README.md                 # Documentation
 
 ./ChromeConnect-1.0.0-win-x64.zip  # Distribution package (if created)
 ```
+
+**Note**: No configuration files are needed! All configuration is embedded in the executable. Logs are automatically written to `%TEMP%\ChromeConnect\`.
 
 ## Installation Instructions
 
