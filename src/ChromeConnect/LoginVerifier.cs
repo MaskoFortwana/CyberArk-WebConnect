@@ -760,7 +760,11 @@ public class LoginVerifier : IScreenshotCapture
             mediumWait.IgnoreExceptionTypes(typeof(NoSuchElementException), typeof(StaleElementReferenceException));
 
             // ENHANCED: Categorized success selectors by reliability and frequency
-            var highPrioritySelectors = new[]
+            // Check if this is a vCenter URL to add specific selectors
+            var currentUrl = driver.Url?.ToLower() ?? "";
+            var isVCenter = currentUrl.Contains("vcenter") || currentUrl.Contains("vsphere");
+            
+            var highPrioritySelectors = new List<string>
             {
                 // Logout/signout indicators (most reliable - always present when logged in)
                 "a[href*='logout']:not([style*='display: none']):not([style*='display:none'])", 
@@ -784,8 +788,47 @@ public class LoginVerifier : IScreenshotCapture
                 ".username-display:not(:empty)", "div.welcome:not(:empty)", "span.welcome:not(:empty)", 
                 ".welcome-message:not(:empty)",
             };
+            
+            // Add vCenter-specific high-priority selectors
+            if (isVCenter)
+            {
+                _logger.LogDebug("[{SessionId}] vCenter URL detected - adding vCenter-specific success indicators", sessionId);
+                highPrioritySelectors.AddRange(new[]
+                {
+                    // vCenter-specific navigation and UI elements
+                    ".vsphere-client-header:not([style*='display: none'])", // vSphere Client header
+                    ".vsphere-client-navigation:not([style*='display: none'])", // Main navigation
+                    ".vsphere-client-main:not([style*='display: none'])", // Main content area
+                    ".vsphere-client-toolbar:not([style*='display: none'])", // Toolbar
+                    ".vsphere-client-sidebar:not([style*='display: none'])", // Sidebar navigation
+                    
+                    // VMware-specific elements
+                    "*[class*='vmware']:not([style*='display: none'])", // Any VMware-branded elements
+                    "*[id*='vmware']:not([style*='display: none'])", // VMware ID elements
+                    ".vmware-header:not([style*='display: none'])", // VMware header
+                    ".vmware-navigation:not([style*='display: none'])", // VMware navigation
+                    
+                    // vCenter dashboard and workspace indicators
+                    ".vcenter-dashboard:not([style*='display: none'])", // Dashboard container
+                    ".vcenter-workspace:not([style*='display: none'])", // Workspace area
+                    ".vcenter-inventory:not([style*='display: none'])", // Inventory panel
+                    ".vcenter-summary:not([style*='display: none'])", // Summary view
+                    
+                    // Common vCenter UI patterns
+                    "*[data-testid*='vcenter']:not([style*='display: none'])", // Test ID patterns
+                    "*[data-testid*='vsphere']:not([style*='display: none'])", // vSphere test IDs
+                    "*[aria-label*='vCenter']:not([style*='display: none'])", // Accessibility labels
+                    "*[aria-label*='vSphere']:not([style*='display: none'])", // vSphere accessibility
+                    
+                    // User session indicators specific to vCenter
+                    ".user-session:not([style*='display: none'])", // User session info
+                    ".session-info:not([style*='display: none'])", // Session details
+                    "*[class*='user-info']:not([style*='display: none'])", // User information
+                    "*[class*='session']:not([style*='display: none'])", // Session-related elements
+                });
+            }
 
-            var mediumPrioritySelectors = new[]
+            var mediumPrioritySelectors = new List<string>
             {
                 // Dashboard and main application areas
                 "div.dashboard", ".dashboard-container", "#dashboard", "main.dashboard",
@@ -804,6 +847,48 @@ public class LoginVerifier : IScreenshotCapture
                 ".workspace", ".workarea", ".content-area", ".user-workspace",
                 ".home-page", ".landing-page", ".member-area",
             };
+            
+            // Add vCenter-specific medium-priority selectors
+            if (isVCenter)
+            {
+                mediumPrioritySelectors.AddRange(new[]
+                {
+                    // vCenter application structure
+                    ".vsphere-client:not([style*='display: none'])", // Main vSphere client container
+                    ".vsphere-ui:not([style*='display: none'])", // vSphere UI container
+                    ".vcenter-ui:not([style*='display: none'])", // vCenter UI container
+                    ".vmware-ui:not([style*='display: none'])", // VMware UI container
+                    
+                    // vCenter navigation and menus
+                    ".vcenter-menu:not([style*='display: none'])", // vCenter menu
+                    ".vcenter-nav:not([style*='display: none'])", // vCenter navigation
+                    ".vsphere-menu:not([style*='display: none'])", // vSphere menu
+                    ".vsphere-nav:not([style*='display: none'])", // vSphere navigation
+                    
+                    // vCenter content areas
+                    ".vcenter-content:not([style*='display: none'])", // Main content
+                    ".vcenter-main:not([style*='display: none'])", // Main area
+                    ".vsphere-content:not([style*='display: none'])", // vSphere content
+                    ".vsphere-main:not([style*='display: none'])", // vSphere main
+                    
+                    // vCenter panels and widgets
+                    ".vcenter-panel:not([style*='display: none'])", // Panels
+                    ".vcenter-widget:not([style*='display: none'])", // Widgets
+                    ".vsphere-panel:not([style*='display: none'])", // vSphere panels
+                    ".vsphere-widget:not([style*='display: none'])", // vSphere widgets
+                    
+                    // VMware branding and layout
+                    ".vmware-layout:not([style*='display: none'])", // VMware layout
+                    ".vmware-container:not([style*='display: none'])", // VMware container
+                    ".vmware-content:not([style*='display: none'])", // VMware content
+                    
+                    // Generic patterns that might be used in vCenter
+                    "*[class*='app-']:not([style*='display: none'])", // App-prefixed classes
+                    "*[class*='client-']:not([style*='display: none'])", // Client-prefixed classes
+                    "*[id*='app-']:not([style*='display: none'])", // App-prefixed IDs
+                    "*[id*='client-']:not([style*='display: none'])", // Client-prefixed IDs
+                });
+            }
 
             var lowPrioritySelectors = new[]
             {
@@ -965,9 +1050,9 @@ public class LoginVerifier : IScreenshotCapture
                     _logger.LogDebug("[{SessionId}] No visible login-specific elements found - checking URL and page characteristics", sessionId);
                     
                     // Additional validation: check if we're on a reasonable page (not error page)
-                    var currentUrl = driver.Url?.ToLower() ?? "";
+                    var pageUrl = driver.Url?.ToLower() ?? "";
                     var isErrorPage = new[] { "error", "404", "403", "500", "unauthorized", "forbidden", "denied" }
-                        .Any(error => currentUrl.Contains(error));
+                        .Any(error => pageUrl.Contains(error));
                     
                     if (!isErrorPage)
                     {
@@ -1024,27 +1109,66 @@ public class LoginVerifier : IScreenshotCapture
                 "span.error:not(:empty):contains('invalid')", "span.error:not(:empty):contains('incorrect')",
                 "p.error:not(:empty):contains('failed')", "p.error:not(:empty):contains('denied')",
                 
-                // Alert-based error messages
-                "div.alert-danger:not(:empty)", "div.alert-error:not(:empty)",
+                // Alert-based error messages (Bootstrap, Foundation, etc.)
+                "div.alert-danger:not(:empty)", "div.alert-error:not(:empty)", "div.alert-warning:not(:empty)",
                 "[role='alert']:not(:empty)[class*='error']", "[role='alert']:not(:empty)[class*='danger']",
+                "[role='alert']:not(:empty)[class*='warning']", "[role='alert']:not(:empty)[class*='fail']",
                 
-                // Login-specific error containers
+                // Login-specific error containers (common naming patterns)
                 ".login-error:not(:empty)", ".authentication-error:not(:empty)", 
-                ".signin-error:not(:empty)", ".auth-error:not(:empty)",
-                "#login-error:not(:empty)", "#authentication-error:not(:empty)",
+                ".signin-error:not(:empty)", ".auth-error:not(:empty)", ".sign-in-error:not(:empty)",
+                "#login-error:not(:empty)", "#authentication-error:not(:empty)", "#signin-error:not(:empty)",
+                "#auth-error:not(:empty)", "#sign-in-error:not(:empty)",
                 
                 // Common error patterns with explicit failure terms
                 "*[class*='error']:not(:empty):contains('login')", "*[class*='error']:not(:empty):contains('password')",
-                "*[class*='error']:not(:empty):contains('username')", "*[class*='error']:not(:empty):contains('credential')"
+                "*[class*='error']:not(:empty):contains('username')", "*[class*='error']:not(:empty):contains('credential')",
+                "*[class*='error']:not(:empty):contains('auth')", "*[class*='error']:not(:empty):contains('signin')",
+                
+                // Generic failure indicators (broad patterns)
+                "*[class*='fail']:not(:empty)", "*[class*='invalid']:not(:empty)", "*[class*='denied']:not(:empty)",
+                "*[class*='unauthorized']:not(:empty)", "*[class*='forbidden']:not(:empty)",
+                
+                // Notification and toast error patterns
+                ".notification.error:not(:empty)", ".toast.error:not(:empty)", ".message.error:not(:empty)",
+                ".snackbar.error:not(:empty)", ".banner.error:not(:empty)",
+                
+                // Modal and dialog error patterns
+                ".modal .error:not(:empty)", ".dialog .error:not(:empty)", ".popup .error:not(:empty)",
+                ".overlay .error:not(:empty)", ".lightbox .error:not(:empty)"
             };
 
             var moderateErrorSelectors = new[]
             {
                 // General error containers (need content validation)
                 "div.error:not(:empty)", "span.error:not(:empty)", "p.error:not(:empty)",
-                "div.alert:not(:empty)", "[role='alert']:not(:empty)",
-                ".validation-error:not(:empty)", ".field-error:not(:empty)",
-                ".form-error:not(:empty)", ".message-error:not(:empty)"
+                "div.alert:not(:empty)", "[role='alert']:not(:empty)", "div.message:not(:empty)",
+                
+                // Form validation errors (common patterns)
+                ".validation-error:not(:empty)", ".field-error:not(:empty)", ".input-error:not(:empty)",
+                ".form-error:not(:empty)", ".message-error:not(:empty)", ".error-message:not(:empty)",
+                
+                // Status and feedback elements
+                ".status:not(:empty)", ".feedback:not(:empty)", ".response:not(:empty)",
+                ".result:not(:empty)", ".outcome:not(:empty)",
+                
+                // Notification systems (generic patterns)
+                ".notification:not(:empty)", ".toast:not(:empty)", ".snackbar:not(:empty)",
+                ".banner:not(:empty)", ".alert-box:not(:empty)", ".message-box:not(:empty)",
+                
+                // Modal and dialog messages
+                ".modal .message:not(:empty)", ".dialog .message:not(:empty)",
+                ".popup .message:not(:empty)", ".overlay .message:not(:empty)",
+                
+                // Generic class patterns that might contain errors
+                "*[class*='error']:not(:empty)", "*[class*='fail']:not(:empty)",
+                "*[class*='invalid']:not(:empty)", "*[class*='warning']:not(:empty)",
+                "*[class*='alert']:not(:empty)", "*[class*='message']:not(:empty)",
+                
+                // Accessibility patterns (ARIA)
+                "*[role='alert']:not(:empty)", "*[aria-live]:not(:empty)",
+                "*[aria-label*='error']:not(:empty)", "*[aria-describedby*='error']:not(:empty)",
+                "*[aria-label*='warning']:not(:empty)", "*[aria-label*='alert']:not(:empty)"
             };
 
             // PHASE 1: Check for critical/specific error messages
@@ -1167,7 +1291,19 @@ public class LoginVerifier : IScreenshotCapture
                     "login failed", "authentication failed", "signin failed",
                     "incorrect password", "incorrect username", "incorrect credentials",
                     "access denied", "login denied", "authentication denied",
-                    "account locked", "account disabled", "account suspended"
+                    "account locked", "account disabled", "account suspended",
+                    
+                    // Additional generic patterns that work across different platforms
+                    "authentication error", "login error", "sign-in error", "signin error",
+                    "unauthorized access", "unauthorized user", "access forbidden",
+                    "invalid login", "invalid signin", "invalid sign-in",
+                    "login unsuccessful", "authentication unsuccessful", "signin unsuccessful",
+                    "bad credentials", "wrong credentials", "expired credentials",
+                    "session expired", "session invalid", "session timeout",
+                    "user not found", "user does not exist", "unknown user",
+                    "password incorrect", "username incorrect", "credentials incorrect",
+                    "authentication failure", "login failure", "signin failure",
+                    "access not allowed", "permission denied", "not authorized"
                 };
                 
                 foreach (var pattern in criticalErrorPatterns)
@@ -1225,12 +1361,14 @@ public class LoginVerifier : IScreenshotCapture
         var criticalKeywords = new[]
         {
             "invalid", "incorrect", "wrong", "failed", "denied", "unauthorized",
-            "locked", "disabled", "suspended", "blocked", "expired"
+            "locked", "disabled", "suspended", "blocked", "expired", "rejected",
+            "forbidden", "unsuccessful", "unable", "error", "bad", "unknown"
         };
         
         var loginContextKeywords = new[]
         {
-            "login", "signin", "password", "username", "credential", "authentication", "auth"
+            "login", "signin", "sign-in", "password", "username", "credential", 
+            "authentication", "auth", "user", "account", "access", "session"
         };
         
         var lowerText = errorText.ToLower();
@@ -1258,7 +1396,21 @@ public class LoginVerifier : IScreenshotCapture
             "login failed", "authentication failed", "signin failed", "sign-in failed",
             "access denied", "login denied", "authentication denied",
             "account locked", "account disabled", "account suspended", "account blocked",
-            "password expired", "account expired", "session expired"
+            "password expired", "account expired", "session expired",
+            
+            // Additional generic error patterns
+            "authentication error", "login error", "signin error", "sign-in error",
+            "unauthorized access", "unauthorized user", "access forbidden",
+            "invalid login", "invalid signin", "invalid sign-in",
+            "login unsuccessful", "authentication unsuccessful", "signin unsuccessful",
+            "bad credentials", "expired credentials", "session invalid", "session timeout",
+            "user not found", "user does not exist", "unknown user",
+            "authentication failure", "login failure", "signin failure",
+            "access not allowed", "permission denied", "not authorized",
+            "credentials rejected", "login rejected", "authentication rejected",
+            "invalid user", "invalid account", "account not found",
+            "login attempt failed", "authentication attempt failed",
+            "unable to authenticate", "unable to login", "unable to sign in"
         };
         
         if (definiteErrors.Any(error => lowerText.Contains(error)))
@@ -1507,8 +1659,9 @@ public class LoginVerifier : IScreenshotCapture
     }
 
     /// <summary>
-    /// Fast page layout change detection method for login success verification.
-    /// Checks if login form elements have disappeared, indicating successful navigation away from login page.
+    /// Enhanced page layout change detection method for login success verification.
+    /// Checks if login form elements have disappeared, with special handling for vCenter URLs.
+    /// Includes validation delays and error state checking to prevent false positives.
     /// </summary>
     /// <param name="driver">The WebDriver instance to check elements from.</param>
     /// <param name="loginFormElements">Array of By selectors for login form elements (username, password, submit button).</param>
@@ -1533,8 +1686,12 @@ public class LoginVerifier : IScreenshotCapture
                 return false;
             }
             
-            _logger.LogDebug("[{SessionId}] Layout detection - checking {ElementCount} login form elements", 
-                           sessionId, loginFormElements.Length);
+            // Check if this is a vCenter URL for special handling
+            var currentUrl = driver.Url?.ToLower() ?? "";
+            var isVCenter = currentUrl.Contains("vcenter") || currentUrl.Contains("vsphere");
+            
+            _logger.LogDebug("[{SessionId}] Layout detection - checking {ElementCount} login form elements (vCenter: {IsVCenter})", 
+                           sessionId, loginFormElements.Length, isVCenter);
             
             int visibleElementsCount = 0;
             int totalElementsChecked = 0;
@@ -1611,6 +1768,86 @@ public class LoginVerifier : IScreenshotCapture
             
             // Determine if layout has changed (login form disappeared)
             bool layoutChanged = visibleElementsCount == 0 && totalElementsChecked > 0;
+            
+            // Enhanced validation for vCenter to prevent false positives
+            if (layoutChanged && isVCenter)
+            {
+                _logger.LogDebug("[{SessionId}] vCenter layout change detected - performing additional validation", sessionId);
+                
+                try
+                {
+                    // Wait a short time to ensure the page has stabilized (vCenter may show loading overlays)
+                    Thread.Sleep(500); // 500ms validation delay for vCenter
+                    
+                    // Re-check for vCenter-specific error indicators that might appear after form disappears
+                    var vCenterErrorSelectors = new[]
+                    {
+                        ".error:not(:empty)", ".alert:not(:empty)", ".message:not(:empty)",
+                        "*[class*='error']:not(:empty)", "*[class*='alert']:not(:empty)",
+                        "*[class*='invalid']:not(:empty)", "*[class*='failed']:not(:empty)",
+                        "*[role='alert']:not(:empty)", ".notification:not(:empty)"
+                    };
+                    
+                    bool hasErrorIndicators = false;
+                    foreach (var errorSelector in vCenterErrorSelectors)
+                    {
+                        try
+                        {
+                            var errorElements = driver.FindElements(By.CssSelector(errorSelector));
+                            foreach (var errorElement in errorElements)
+                            {
+                                if (errorElement.Displayed && !string.IsNullOrWhiteSpace(errorElement.Text))
+                                {
+                                    var errorText = errorElement.Text.ToLower();
+                                    if (errorText.Contains("invalid") || errorText.Contains("incorrect") || 
+                                        errorText.Contains("failed") || errorText.Contains("denied") ||
+                                        errorText.Contains("error") || errorText.Contains("wrong"))
+                                    {
+                                        _logger.LogWarning("[{SessionId}] vCenter error indicator found after layout change: '{ErrorText}'", 
+                                                         sessionId, errorElement.Text.Trim());
+                                        hasErrorIndicators = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (hasErrorIndicators) break;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "[{SessionId}] Error checking vCenter error selector {Selector}", sessionId, errorSelector);
+                        }
+                    }
+                    
+                    if (hasErrorIndicators)
+                    {
+                        _logger.LogWarning("[{SessionId}] ❌ vCenter layout change INVALIDATED due to error indicators - likely false positive", sessionId);
+                        layoutChanged = false;
+                    }
+                    else
+                    {
+                        // Additional check: ensure we're not on a loading/intermediate page
+                        var loadingIndicators = driver.FindElements(By.CssSelector(
+                            ".loading:not([style*='display: none']), .spinner:not([style*='display: none']), " +
+                            "*[class*='loading']:not([style*='display: none']), *[class*='spinner']:not([style*='display: none'])"));
+                        
+                        var visibleLoadingIndicators = loadingIndicators.Where(e => {
+                            try { return e.Displayed; } catch { return false; }
+                        }).ToList();
+                        
+                        if (visibleLoadingIndicators.Any())
+                        {
+                            _logger.LogDebug("[{SessionId}] vCenter loading indicators still visible - may be transitional state", sessionId);
+                            // Don't invalidate but log for awareness
+                        }
+                        
+                        _logger.LogInformation("[{SessionId}] ✅ vCenter layout change VALIDATED after additional checks", sessionId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "[{SessionId}] Error during vCenter validation - proceeding with original result", sessionId);
+                }
+            }
             
             if (layoutChanged)
             {
