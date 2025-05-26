@@ -49,9 +49,10 @@ public class LoginDetector
 
     private static readonly Dictionary<string, string[]> SubmitVariations = new()
     {
-        { "login", new[] { "log-in", "log_in", "signin", "sign-in", "sign_in", "submit", "enter", "go", "connect" } },
-        { "submit", new[] { "login", "signin", "enter", "go", "send", "continue", "proceed" } },
-        { "signin", new[] { "sign-in", "sign_in", "login", "log-in", "enter" } }
+        { "login", new[] { "log-in", "log_in", "signin", "sign-in", "sign_in", "submit", "enter", "go", "connect", "login_button", "login_button_submit" } },
+        { "submit", new[] { "login", "signin", "enter", "go", "send", "continue", "proceed", "login_button_submit", "sign_in_button" } },
+        { "signin", new[] { "sign-in", "sign_in", "login", "log-in", "enter", "sign_in_button" } },
+        { "button", new[] { "login_button", "signin_button", "submit_button", "login_button_submit", "sign_in_button" } }
     };
 
     public LoginDetector(ILogger<LoginDetector> logger, DetectionMetricsService? metricsService = null)
@@ -292,21 +293,30 @@ public class LoginDetector
             // Use optimized query for submit buttons
             var submitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"));
             
-            // Find the best submit button (prefer visible, then any button for progressive disclosure)
+            // Enhanced submit button selection with improved scoring to avoid utility buttons
             var submitButton = submitButtons
-                .OrderByDescending(btn => IsElementVisible(btn) ? 1 : 0) // Prefer visible buttons
-                .ThenByDescending(btn => {
-                    // Score buttons by relevance
-                    var text = btn.Text?.ToLower() ?? "";
-                    var value = btn.GetAttribute("value")?.ToLower() ?? "";
-                    var type = btn.GetAttribute("type")?.ToLower() ?? "";
-                    
-                    if (type == "submit") return 3;
-                    if (text.Contains("login") || text.Contains("sign") || value.Contains("login") || value.Contains("sign")) return 2;
-                    if (text.Contains("submit") || value.Contains("submit")) return 1;
-                    return 0;
-                })
+                .Select(btn => new { Button = btn, Score = CalculateFastPathSubmitScore(btn) })
+                .Where(x => x.Score > -5000) // Filter out explicitly disqualified/non-visible buttons from the main selection
+                .OrderByDescending(x => x.Score)
+                .ThenByDescending(x => IsElementVisible(x.Button) ? 1 : 0) // Secondary sort by visibility, though score should handle this
+                .Select(x => x.Button)
                 .FirstOrDefault();
+
+            if (submitButton != null)
+            {
+                var finalScore = CalculateFastPathSubmitScore(submitButton); // Recalculate to log the final score
+                _logger.LogDebug($"FAST-PATH Selected Submit Button: ID='{submitButton.GetAttribute("id")}', Text='{submitButton.Text}', Final Score={finalScore}");
+                if (finalScore <= 100) // Check if the selected button still has a low score (e.g. only negative scores were available)
+                {
+                    _logger.LogWarning($"FAST-PATH selected a submit button with a low score ({finalScore}). This might indicate an issue or a very unusual page structure.");
+                    // Optionally, could nullify submitButton here to force fallback to standard detection if score is too low
+                    // submitButton = null; 
+                }
+            }
+            else
+            {
+                _logger.LogDebug("FAST-PATH: No suitable submit button found after scoring and filtering.");
+            }
 
             loginForm.SubmitButton = submitButton;
             
@@ -1253,13 +1263,14 @@ public class LoginDetector
                     classScore = ScoreAttributeWithFuzzyMatching(className, currentSubmitTerms, ElementType.SubmitButton);
 
                     // Apply weighted scoring based on attribute reliability for submit buttons
-                    score += (int)(idScore * 0.8);      // ID is reliable
-                    score += (int)(nameScore * 0.8);    // Name is reliable
-                    score += (int)(valueScore * 0.9);   // Value is very reliable for buttons
-                    score += (int)(textScore * 0.95);   // Visible text is most reliable
-                    score += (int)(ariaScore * 0.7);    // ARIA labels are fairly reliable
-                    score += (int)(dataTestScore * 0.8); // Data test attributes are reliable
-                    score += (int)(classScore * 0.4);   // Class names are least reliable
+                    // **ENHANCED WEIGHTS: Prioritize data-testid and type-specific IDs for automation**
+                    score += (int)(idScore * 0.85);      // ID is very reliable, especially for specific patterns
+                    score += (int)(nameScore * 0.8);     // Name is reliable
+                    score += (int)(valueScore * 0.9);    // Value is very reliable for buttons
+                    score += (int)(textScore * 0.95);    // Visible text is most reliable
+                    score += (int)(ariaScore * 0.7);     // ARIA labels are fairly reliable
+                    score += (int)(dataTestScore * 0.9); // Data test attributes are highly reliable for automation (increased from 0.8)
+                    score += (int)(classScore * 0.5);    // Class names reliability increased for semantic classes
 
                     // Element type validation
                     if (type == "submit") score += 50; // Submit type is the strongest indicator
@@ -1288,25 +1299,38 @@ public class LoginDetector
                         }
                     }
 
-                    // Advanced pattern matching for submit button patterns
+                    // **ENHANCED SUBMIT BUTTON SCORING ALGORITHM**
                     var allAttributes = $"{id} {name} {value} {text} {ariaLabel} {className} {dataTestId}".ToLower();
                     
-                    // Login pattern detection
-                    if (Regex.IsMatch(allAttributes, @"\\b(login|log-?in|signin|sign-?in)\\b")) score += 30;
+                    // **HIGH-PRIORITY EXACT MATCHES (100-200 bonus points)**
+                    if (id == "login_button_submit" || dataTestId == "login_button_submit") score += 200;
+                    if (type == "submit" && id.Contains("login_button")) score += 150;
+                    if (type == "submit" && (text == "sign in" || text == "login")) score += 150;
                     
-                    // Submit pattern detection
-                    if (Regex.IsMatch(allAttributes, @"\\b(submit|send)\\b")) score += 25;
+                    // **ENHANCED POSITIVE PATTERN DETECTION (30-80 bonus points)**
+                    // Prioritize exact semantic login actions
+                    if (Regex.IsMatch(allAttributes, @"\bsign\s*in\b", RegexOptions.IgnoreCase)) score += 70;
+                    if (Regex.IsMatch(allAttributes, @"\blogin_button\b", RegexOptions.IgnoreCase)) score += 60;
+                    if (Regex.IsMatch(allAttributes, @"\bsign-in-button\b", RegexOptions.IgnoreCase)) score += 60;
                     
-                    // Action patterns
-                    if (Regex.IsMatch(allAttributes, @"\\b(enter|go|continue|proceed|connect)\\b")) score += 20;
-                    
-                    // Authentication patterns
-                    if (Regex.IsMatch(allAttributes, @"\\b(authenticate|auth|access)\\b")) score += 15;
+                    // Standard login pattern detection (enhanced)
+                    if (Regex.IsMatch(allAttributes, @"\b(login|log-?in|signin)\b", RegexOptions.IgnoreCase)) score += 40;
+                    if (Regex.IsMatch(allAttributes, @"\b(submit|send)\b", RegexOptions.IgnoreCase)) score += 30;
+                    if (Regex.IsMatch(allAttributes, @"\b(enter|go|continue|proceed|connect)\b", RegexOptions.IgnoreCase)) score += 25;
+                    if (Regex.IsMatch(allAttributes, @"\b(authenticate|auth|access)\b", RegexOptions.IgnoreCase)) score += 20;
 
-                    // Penalty for non-submit patterns
-                    if (Regex.IsMatch(allAttributes, @"\\b(cancel|reset|clear|back|previous)\\b")) score -= 30;
-                    if (Regex.IsMatch(allAttributes, @"\\b(register|signup|sign-?up|create|forgot)\\b")) score -= 25;
-                    if (Regex.IsMatch(allAttributes, @"\\b(search|filter|sort|edit|delete)\\b")) score -= 20;
+                    // **STRONG UTILITY BUTTON PENALTIES (-300 to -100 penalty points)**
+                    // Target the specific "Change authentication method" pattern
+                    if (Regex.IsMatch(allAttributes, @"\bchange.*authentication\b", RegexOptions.IgnoreCase)) score -= 300;
+                    if (Regex.IsMatch(allAttributes, @"\bchange.*method\b", RegexOptions.IgnoreCase)) score -= 300;
+                    if (Regex.IsMatch(allAttributes, @"\bchange.*auth\b", RegexOptions.IgnoreCase)) score -= 250;
+                    if (Regex.IsMatch(allAttributes, @"\bchange-authentication\b", RegexOptions.IgnoreCase)) score -= 200;
+                    
+                    // General utility action penalties (enhanced)
+                    if (Regex.IsMatch(allAttributes, @"\b(change|modify|edit|switch|select)\b", RegexOptions.IgnoreCase)) score -= 200;
+                    if (Regex.IsMatch(allAttributes, @"\b(cancel|reset|clear|back|previous|close|exit)\b", RegexOptions.IgnoreCase)) score -= 150;
+                    if (Regex.IsMatch(allAttributes, @"\b(register|signup|sign-?up|create|forgot)\b", RegexOptions.IgnoreCase)) score -= 100;
+                    if (Regex.IsMatch(allAttributes, @"\b(search|filter|sort|delete|remove)\b", RegexOptions.IgnoreCase)) score -= 100;
 
                     // Form position bonus (submit is often last element)
                     var formButtons = GetFormButtons(element);
@@ -1343,11 +1367,28 @@ public class LoginDetector
                     var role = GetAttributeLower(element, "role");
                     if (role == "button") score += 10;
 
-                    // Only consider elements with positive scores
-                    if (score > 0)
+                    // **FINAL VALIDATION: Never select utility buttons regardless of score**
+                    // This is a safety mechanism to prevent selecting "Change authentication method" type buttons
+                    bool isUtilityButton = false;
+                    if (text.Contains("change authentication") || text.Contains("change method") ||
+                        id.Contains("change-authentication") || id.Contains("change") && id.Contains("auth") ||
+                        text.Contains("modify") || text.Contains("edit") || text.Contains("switch") ||
+                        text.Contains("select") && text.Contains("method"))
+                    {
+                        isUtilityButton = true;
+                        score = -1000; // Ensure it never gets selected
+                        _logger.LogDebug($"REJECTED utility button: ID={id}, Text='{text}' - forced score to -1000");
+                    }
+
+                    // Only consider elements with positive scores and not utility buttons
+                    if (score > 0 && !isUtilityButton)
                     {
                         candidates[element] = score;
                         _logger.LogDebug($"Submit candidate scored {score}: ID={id}, Name={name}, TagName={tagName}, Type={type}, Text='{text}'");
+                    }
+                    else if (score <= 0)
+                    {
+                        _logger.LogDebug($"Submit candidate rejected (score {score}): ID={id}, Name={name}, TagName={tagName}, Type={type}, Text='{text}'");
                     }
                 }
                 catch (Exception ex_inner) // Inner catch for scoring logic
@@ -3514,6 +3555,121 @@ public class LoginDetector
         {
             _logger.LogDebug($"FAST-PATH: Error analyzing domain input element: {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Calculate a relevance score for a submit button in fast-path detection
+    /// Higher score = more likely to be the correct submit button
+    /// Enhanced to avoid utility buttons like "Change authentication method"
+    /// </summary>
+    private int CalculateFastPathSubmitScore(IWebElement element)
+    {
+        try
+        {
+            var id = GetAttributeLower(element, "id");
+            var text = element.Text?.ToLower() ?? "";
+            var value = GetAttributeLower(element, "value");
+            var type = GetAttributeLower(element, "type");
+            var className = GetAttributeLower(element, "class");
+            var dataTestId = GetAttributeLower(element, "data-testid");
+            var name = GetAttributeLower(element, "name");
+
+            int score = 0;
+
+            if (!IsElementVisible(element))
+            {
+                score -= 10000;
+            }
+
+            // --- Keyword Signal Analysis ---
+            bool hasPositiveLoginSignal = text.Contains("sign in") || text.Contains("log in") || text.Contains("submit") ||
+                                          id.Contains("login") || id.Contains("signin") || id.Contains("submit") ||
+                                          (!string.IsNullOrEmpty(dataTestId) && (dataTestId.Contains("login") || dataTestId.Contains("submit"))) ||
+                                          (!string.IsNullOrEmpty(name) && (name.Contains("login") || name.Contains("submit")));
+
+            bool hasDisqualifyingUtilitySignal = false;
+            string[] disqualifyingKeywords = { "change", "method", "authentication", "switch", "select", "option", "alternate", "toggle" };
+            string[] attributesForDisqualification = { id, name, className, text, value, dataTestId };
+
+            if (hasPositiveLoginSignal) // Only check for disqualifying keywords if there was a positive login signal
+            {
+                foreach (var attrValue in attributesForDisqualification)
+                {
+                    if (string.IsNullOrEmpty(attrValue)) continue;
+                    foreach (var keyword in disqualifyingKeywords)
+                    {
+                        if (attrValue.Contains(keyword))
+                        {
+                            hasDisqualifyingUtilitySignal = true;
+                            break;
+                        }
+                    }
+                    if (hasDisqualifyingUtilitySignal) break;
+                }
+            }
+
+            // --- Apply Scores Based on Signals ---
+            if (hasPositiveLoginSignal && hasDisqualifyingUtilitySignal)
+            {
+                _logger.LogDebug($"FastPathSubmitScore: Candidate ID='{id}', Text='{text}' has CONFLICTING signals (login + utility). Penalizing heavily.");
+                score -= 2000; // Massive penalty for buttons like "Login options" or "Change login method"
+            }
+            else if (hasPositiveLoginSignal)
+            {
+                _logger.LogDebug($"FastPathSubmitScore: Candidate ID='{id}', Text='{text}' has POSITIVE login signals.");
+                // Apply high-priority exact match bonuses
+                if (id == "login_button_submit") score += 300; // Strongest signal
+                if (dataTestId == "login_button_submit") score += 350; // Even stronger signal for automation
+                if (type == "submit" && (text == "sign in" || text == "login")) score += 200;
+                
+                // Medium-priority semantic bonuses for positive signals
+                if (type == "submit") score += 70;
+                if (text.Contains("sign in") || text.Contains("log in")) score += 90;
+                if (id.Contains("submit") && (id.Contains("login") || id.Contains("signin"))) score += 100;
+                if (!string.IsNullOrEmpty(className) && (className.Contains("sign-in-button") || className.Contains("login-button"))) score += 80;
+                if (!string.IsNullOrEmpty(dataTestId) && (dataTestId.Contains("login") || dataTestId.Contains("submit"))) score += 70;
+            }
+            else // No positive login signal, check for general utility patterns to penalize standalone utility buttons
+            {
+                _logger.LogDebug($"FastPathSubmitScore: Candidate ID='{id}', Text='{text}' has NO positive login signals. Checking for general utility.");
+                foreach (var attrValue in attributesForDisqualification) // Re-use attributesToCheck for general utility check
+                {
+                    if (string.IsNullOrEmpty(attrValue)) continue;
+                    foreach (var keyword in disqualifyingKeywords) // Re-use disqualifyingKeywords for general utility check
+                    {
+                        if (attrValue.Contains(keyword))
+                        {
+                            score -= 200; // Standard penalty for general utility keywords if no login signal was present
+                        }
+                    }
+                }
+            }
+
+            // --- Specific ID/Text Penalties (Can apply regardless of prior signal analysis if needed) ---
+            if (id == "login-form-change-authentication") score -= 600; // Reinforce penalty for this specific known bad ID
+            if (text.Contains("change authentication method")) score -= 500; // Reinforce
+
+            // --- General Contextual Penalties ---
+            if (text.Contains("cancel") || text.Contains("close") || text.Contains("back")) score -= 150;
+            if (text.Contains("help") || text.Contains("support") || text.Contains("forgot")) score -= 150;
+            if (text.Contains("register") || text.Contains("create account")) score -= 150;
+            
+            // --- Final Score Adjustment and Logging ---
+            // Ensure the final score for a viable candidate is significantly positive
+            if (score <= 150 && score > -10000) // Threshold increased to 150
+            {
+                _logger.LogDebug($"FastPathSubmitScore: Candidate ID='{id}', Text='{text}' has low score {score} after all scoring. Disqualifying for fast-path.");
+                return -5000; 
+            }
+
+            _logger.LogDebug($"FastPathSubmitScore: FINAL Score for ID='{id}', Text='{text}', Type='{type}', DataTestID='{dataTestId}' is: {score}");
+            return score;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in CalculateFastPathSubmitScore");
+            return -1000; // Penalize on error
         }
     }
 
