@@ -231,7 +231,6 @@ public class LoginDetector
             _logger.LogDebug($"FAST-PATH: Found password field (visible: {isPasswordVisible}) - ID: {GetAttributeLower(passwordField, "id")}, Name: {GetAttributeLower(passwordField, "name")}");
 
             loginForm.PasswordField = passwordField;
-            _logger.LogDebug($"FAST-PATH: Found password field - ID: {GetAttributeLower(passwordField, "id")}, Name: {GetAttributeLower(passwordField, "name")}");
 
             // **STRATEGY 2: Find username field near the password field**
             // Use optimized single query for all potential username elements
@@ -259,35 +258,50 @@ public class LoginDetector
                 _logger.LogDebug("FAST-PATH: No suitable username field found");
             }
 
-            // **STRATEGY 2.5: Find domain field (optional but important for some login forms)**
-            // Enhanced optimized query for domain elements - support both input and select fields
-            var domainElements = driver.FindElements(By.CssSelector(
-                "select[name*='domain'], select[id*='domain'], select[name*='realm'], select[id*='realm'], " +
-                "select[name*='tenant'], select[id*='tenant'], select[name*='org'], select[id*='org'], " +
-                "select[name*='company'], select[id*='company'], select[name*='authority'], select[id*='authority'], " +
-                "input[name*='domain'], input[id*='domain'], input[name*='realm'], input[id*='realm'], " +
-                "input[name*='tenant'], input[id*='tenant'], input[name*='org'], input[id*='org'], " +
-                "input[name*='company'], input[id*='company'], input[name*='authority'], input[id*='authority'], " +
-                "select[class*='domain'], input[class*='domain'], " +
-                "select[placeholder*='domain' i], input[placeholder*='domain' i], " +
-                "select[aria-label*='domain' i], input[aria-label*='domain' i]"));
+            // **STRATEGY 2.5: OPTIMIZED Domain field detection**
+            // Only look for domain fields if there's evidence they might exist - this saves significant time on simple forms
+            // Quick pre-check: Are there ANY potential domain elements on the page?
+            var quickDomainCheck = driver.FindElements(By.CssSelector(
+                "select[name*='domain' i], select[id*='domain' i], " +
+                "input[name*='domain' i], input[id*='domain' i]"));
             
-            var domainField = domainElements
-                .Where(element => !AreSameElement(element, loginForm.UsernameField)) // Exclude already detected username field
-                .Where(element => element.TagName.ToLower() == "select" ? IsLikelyDomainDropdown(element) : IsLikelyDomainInput(element))
-                .OrderByDescending(element => IsElementVisible(element) ? 1 : 0) // Prefer visible elements
-                .ThenByDescending(element => CalculateFastPathDomainScore(element)) // Score by relevance
-                .FirstOrDefault();
-            
-            if (domainField != null)
+            if (quickDomainCheck.Count > 0)
             {
-                _logger.LogDebug($"FAST-PATH: Found domain field - Tag: {domainField.TagName}, ID: {GetAttributeLower(domainField, "id")}, Name: {GetAttributeLower(domainField, "name")}");
-                loginForm.DomainField = domainField;
-            }
-            else
-            {
-                _logger.LogDebug("FAST-PATH: No domain field found");
-            }
+                _logger.LogDebug($"FAST-PATH: Found {quickDomainCheck.Count} potential domain elements, checking further");
+                
+                // Only do full domain detection if quick check found elements
+                    var domainElements = driver.FindElements(By.CssSelector(
+                        "select[name*='domain'], select[id*='domain'], select[name*='realm'], select[id*='realm'], " +
+                        "select[name*='tenant'], select[id*='tenant'], select[name*='org'], select[id*='org'], " +
+                        "select[name*='company'], select[id*='company'], select[name*='authority'], select[id*='authority'], " +
+                        "input[name*='domain'], input[id*='domain'], input[name*='realm'], input[id*='realm'], " +
+                        "input[name*='tenant'], input[id*='tenant'], input[name*='org'], input[id*='org'], " +
+                        "input[name*='company'], input[id*='company'], input[name*='authority'], input[id*='authority'], " +
+                        "select[class*='domain'], input[class*='domain'], " +
+                        "select[placeholder*='domain' i], input[placeholder*='domain' i], " +
+                        "select[aria-label*='domain' i], input[aria-label*='domain' i]"));
+                    
+                    var domainField = domainElements
+                        .Where(element => !AreSameElement(element, loginForm.UsernameField)) // Exclude already detected username field
+                        .Where(element => element.TagName.ToLower() == "select" ? IsLikelyDomainDropdownOptimized(element) : IsLikelyDomainInput(element))
+                        .OrderByDescending(element => IsElementVisible(element) ? 1 : 0) // Prefer visible elements
+                        .ThenByDescending(element => CalculateFastPathDomainScore(element)) // Score by relevance
+                        .FirstOrDefault();
+                    
+                    if (domainField != null)
+                    {
+                        _logger.LogDebug($"FAST-PATH: Found domain field - Tag: {domainField.TagName}, ID: {GetAttributeLower(domainField, "id")}, Name: {GetAttributeLower(domainField, "name")}");
+                        loginForm.DomainField = domainField;
+                    }
+                    else
+                    {
+                        _logger.LogDebug("FAST-PATH: No suitable domain field found after detailed check");
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("FAST-PATH: No potential domain elements found on page, skipping domain detection");
+                }
 
             // **STRATEGY 3: Find submit button**
             // Use optimized query for submit buttons
@@ -309,8 +323,6 @@ public class LoginDetector
                 if (finalScore <= 100) // Check if the selected button still has a low score (e.g. only negative scores were available)
                 {
                     _logger.LogWarning($"FAST-PATH selected a submit button with a low score ({finalScore}). This might indicate an issue or a very unusual page structure.");
-                    // Optionally, could nullify submitButton here to force fallback to standard detection if score is too low
-                    // submitButton = null; 
                 }
             }
             else
@@ -1543,6 +1555,72 @@ public class LoginDetector
                     {
                         _logger.LogDebug($"FAST-PATH: Found likely domain dropdown with domain-like options");
                         return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"FAST-PATH: Error checking domain dropdown options: {ex.Message}");
+            }
+            
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"FAST-PATH: Error analyzing domain select element: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Optimized version of IsLikelyDomainDropdown that doesn't check all options
+    /// </summary>
+    private bool IsLikelyDomainDropdownOptimized(IWebElement selectElement)
+    {
+        try
+        {
+            var id = GetAttributeLower(selectElement, "id");
+            var name = GetAttributeLower(selectElement, "name");
+            var className = GetAttributeLower(selectElement, "class");
+            
+            // Check for domain-like attributes first - this is the fastest check
+            var domainTerms = new[] { "domain", "tenant", "organization", "org", "company", "realm", "authority" };
+            var allAttributes = $"{id} {name} {className}";
+            
+            foreach (var term in domainTerms)
+            {
+                if (allAttributes.Contains(term))
+                {
+                    _logger.LogDebug($"FAST-PATH: Found likely domain dropdown with {term} in attributes: ID={id}, Name={name}");
+                    return true;
+                }
+            }
+            
+            // OPTIMIZATION: Only check first 3 options for performance
+            try
+            {
+                var options = selectElement.FindElements(By.TagName("option"));
+                if (options.Count > 1 && options.Count <= 50) // Reasonable range for domain dropdowns
+                {
+                    // Only check first 3 options for performance
+                    var sampleOptions = options.Take(3).ToList();
+                    
+                    foreach (var option in sampleOptions)
+                    {
+                        var optionValue = option.GetAttribute("value")?.ToLower() ?? "";
+                        var optionText = option.Text?.ToLower() ?? "";
+                        
+                        // Quick domain pattern check
+                        if (!string.IsNullOrEmpty(optionValue) || !string.IsNullOrEmpty(optionText))
+                        {
+                            if (optionValue.Contains(".local") || optionText.Contains(".local") ||
+                                optionValue.Contains("domain") || optionText.Contains("domain") ||
+                                optionValue.Contains("tenant") || optionText.Contains("tenant"))
+                            {
+                                _logger.LogDebug("FAST-PATH: Found domain-like option in dropdown");
+                                return true;
+                            }
+                        }
                     }
                 }
             }

@@ -39,12 +39,17 @@ public enum TypingMode
 public class CredentialEntryConfig
 {
     public TypingMode TypingMode { get; set; } = TypingMode.OptimizedHuman;
-    public int MinDelayMs { get; set; } = 10;
-    public int MaxDelayMs { get; set; } = 30;
-    public int PostEntryDelayMs { get; set; } = 50;
-    public int SubmissionDelayMs { get; set; } = 500;
+    public int MinDelayMs { get; set; } = 5;  // Reduced from 10ms
+    public int MaxDelayMs { get; set; } = 15; // Reduced from 30ms
+    public int PostEntryDelayMs { get; set; } = 20; // Reduced from 50ms
+    public int SubmissionDelayMs { get; set; } = 200; // Reduced from 500ms
     public bool UseJavaScriptFallback { get; set; } = true;
     public bool LogTimingMetrics { get; set; } = true;
+    
+    // NEW: Form complexity-based configuration
+    public bool AdaptiveDelays { get; set; } = true;
+    public int SimpleFormSubmissionDelayMs { get; set; } = 100; // Fast for simple forms
+    public int ComplexFormSubmissionDelayMs { get; set; } = 300; // Slower for complex forms
 }
 
 public class CredentialManager
@@ -139,8 +144,26 @@ public class CredentialManager
                 _logger.LogDebug("No domain value provided, skipping domain field entry");
             }
 
-            // Wait a brief moment before submission
-            await Task.Delay(_config.SubmissionDelayMs);
+            // Use adaptive delays based on form complexity
+            int submissionDelay = _config.SubmissionDelayMs;
+            if (_config.AdaptiveDelays)
+            {
+                // Simple form: both username and password visible, no domain field
+                bool isSimpleForm = loginForm.UsernameField != null && 
+                                   loginForm.PasswordField != null && 
+                                   IsElementVisible(loginForm.UsernameField) && 
+                                   IsElementVisible(loginForm.PasswordField) &&
+                                   loginForm.DomainField == null;
+                
+                submissionDelay = isSimpleForm ? 
+                    _config.SimpleFormSubmissionDelayMs : 
+                    _config.ComplexFormSubmissionDelayMs;
+                    
+                _logger.LogDebug($"Using {(isSimpleForm ? "simple" : "complex")} form submission delay: {submissionDelay}ms");
+            }
+            
+            // Wait before submission
+            await Task.Delay(submissionDelay);
 
             // Click submit button if it exists, otherwise submit the form via the password field
             if (loginForm.SubmitButton != null)
@@ -211,7 +234,26 @@ public class CredentialManager
             // Focus on the element
             element.Click();
             
-            switch (_config.TypingMode)
+            // OPTIMIZATION: For simple forms, prefer faster typing mode
+            var effectiveTypingMode = _config.TypingMode;
+            if (_config.AdaptiveDelays && effectiveTypingMode == TypingMode.OptimizedHuman)
+            {
+                // Check if this is likely a simple form based on element attributes
+                var elementId = element.GetAttribute("id")?.ToLower() ?? "";
+                var elementName = element.GetAttribute("name")?.ToLower() ?? "";
+                
+                bool isSimpleField = (elementId.Contains("username") || elementId.Contains("password") ||
+                                     elementName.Contains("username") || elementName.Contains("password")) &&
+                                     !elementId.Contains("captcha") && !elementName.Contains("captcha");
+                
+                if (isSimpleField)
+                {
+                    _logger.LogDebug("Using Direct typing mode for simple form field");
+                    effectiveTypingMode = TypingMode.Direct;
+                }
+            }
+            
+            switch (effectiveTypingMode)
             {
                 case TypingMode.Direct:
                     // Fastest method - direct text entry
@@ -229,10 +271,14 @@ public class CredentialManager
                     break;
             }
             
-            // Minimal pause after typing
+            // Minimal pause after typing - reduced for simple forms
             if (_config.PostEntryDelayMs > 0)
             {
-                await Task.Delay(_config.PostEntryDelayMs);
+                var postDelay = _config.AdaptiveDelays && effectiveTypingMode == TypingMode.Direct ? 
+                    Math.Min(_config.PostEntryDelayMs / 2, 10) : // Halve the delay for simple forms
+                    _config.PostEntryDelayMs;
+                    
+                await Task.Delay(postDelay);
             }
         }
         catch (Exception ex)
@@ -703,6 +749,14 @@ public class CredentialManager
             
             _logger.LogDebug($"Progressive disclosure detection: Username={usernameVisible}, Password={passwordVisible}, Submit={submitVisible}");
             
+            // IMPORTANT: If both username AND password are visible, this is NOT progressive disclosure
+            // This is a simple form where all fields are available immediately
+            if (usernameVisible && passwordVisible)
+            {
+                _logger.LogDebug("Both username and password fields are visible - this is a standard form, not progressive disclosure");
+                return false;
+            }
+            
             // Classic progressive disclosure pattern: only username is visible initially
             if (usernameVisible && !passwordVisible)
             {
@@ -710,20 +764,33 @@ public class CredentialManager
                 return true;
             }
             
-            // Alternative pattern: username and password visible but submit button hidden
-            if (usernameVisible && passwordVisible && !submitVisible)
+            // Alternative pattern: neither field is visible initially (rare but possible)
+            if (!usernameVisible && !passwordVisible)
             {
-                _logger.LogDebug("Detected progressive disclosure: username and password visible but submit button hidden");
-                return true;
+                // Check if there are hidden fields that will appear later
+                if (await HasHiddenFormElementsAsync(driver))
+                {
+                    _logger.LogDebug("Detected progressive disclosure: no fields visible but hidden elements found");
+                    return true;
+                }
             }
             
-            // Check for hidden elements in DOM that might become visible
-            if (await HasHiddenFormElementsAsync(driver))
+            // If we have a password field but no username field visible, check for hidden username
+            if (!usernameVisible && passwordVisible)
             {
-                _logger.LogDebug("Detected progressive disclosure: found hidden form elements that may become visible");
-                return true;
+                var hiddenUsernameFields = driver.FindElements(By.CssSelector("input[type='text'], input[type='email']"))
+                    .Where(e => !IsElementVisible(e))
+                    .ToList();
+                    
+                if (hiddenUsernameFields.Any())
+                {
+                    _logger.LogDebug("Detected progressive disclosure: password visible but username hidden");
+                    return true;
+                }
             }
             
+            // Default: This is a standard form
+            _logger.LogDebug("No progressive disclosure patterns detected - treating as standard form");
             return false;
         }
         catch (Exception ex)
