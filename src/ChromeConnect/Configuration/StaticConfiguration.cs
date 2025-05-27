@@ -55,6 +55,25 @@ public static class StaticConfiguration
     /// </summary>
     public static int ElementWaitTimeSeconds { get; set; } = 10;
 
+    /// <summary>
+    /// Whether to start Chrome maximized by default (true)
+    /// </summary>
+    public static bool StartMaximized { get; set; } = true;
+
+    #endregion
+
+    #region Input Blocking Configuration
+
+    /// <summary>
+    /// Whether to enable system-wide input blocking during automation (true)
+    /// </summary>
+    public static bool InputBlockingEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Timeout for input blocking in seconds before automatic restoration (150)
+    /// </summary>
+    public static int InputBlockingTimeoutSeconds { get; set; } = 150;
+
     #endregion
 
     #region Timeout Configuration

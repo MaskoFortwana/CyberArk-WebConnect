@@ -5,6 +5,7 @@ using ChromeConnect.Core;
 using ChromeConnect.Services;
 using ChromeConnect.Models;
 using ChromeConnect.Configuration;
+using ChromeConnect.Utilities;
 using Serilog;
 
 namespace ChromeConnect.Services
@@ -153,6 +154,13 @@ namespace ChromeConnect.Services
                 };
             });
             services.AddSingleton<SessionManager>();
+
+            // Register input blocking utility
+            services.AddTransient<InputBlocker>(provider =>
+            {
+                var logger = provider.GetService<ILogger<InputBlocker>>();
+                return new InputBlocker(StaticConfiguration.InputBlockingTimeoutSeconds * 1000, logger);
+            });
 
             // Register main application service
             services.AddSingleton<ChromeConnectService>();

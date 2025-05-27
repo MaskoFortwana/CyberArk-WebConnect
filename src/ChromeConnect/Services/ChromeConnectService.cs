@@ -5,6 +5,8 @@ using OpenQA.Selenium;
 using ChromeConnect.Core;
 using ChromeConnect.Models;
 using ChromeConnect.Exceptions;
+using ChromeConnect.Utilities;
+using ChromeConnect.Configuration;
 using System.Collections.Generic;
 using System.Threading;
 using System.Linq;
@@ -72,16 +74,27 @@ namespace ChromeConnect.Services
         {
             _logger.LogInformation("ChromeConnect starting");
             IWebDriver driver = null;
+            InputBlocker? inputBlocker = null;
 
             // Log options (masking sensitive fields)
             LogCommandLineOptions(options);
 
             try
             {
+                // Initialize input blocking if enabled
+                if (StaticConfiguration.InputBlockingEnabled)
+                {
+                    _logger.LogInformation("Input blocking is enabled - initializing InputBlocker with {TimeoutSeconds}s timeout", StaticConfiguration.InputBlockingTimeoutSeconds);
+                    
+                    // Create logger for InputBlocker
+                    var inputBlockerLogger = _logger as ILogger<InputBlocker>;
+                    inputBlocker = new InputBlocker(StaticConfiguration.InputBlockingTimeoutSeconds * 1000, inputBlockerLogger);
+                }
+
                 // Launch the browser with error handling
                 driver = await _errorHandler.ExecuteWithErrorHandlingAsync(async () =>
                 {
-                    _logger.LogInformation("Launching Chrome browser");
+                    _logger.LogInformation("Launching Chrome browser (always maximized)");
                     return _browserManager.LaunchBrowser(
                         options.Url,
                         options.Incognito,
@@ -93,6 +106,20 @@ namespace ChromeConnect.Services
                 {
                     _logger.LogError("Failed to launch browser");
                     return 1;
+                }
+
+                // Start input blocking if enabled
+                if (inputBlocker != null)
+                {
+                    bool blockingStarted = inputBlocker.StartBlocking();
+                    if (blockingStarted)
+                    {
+                        _logger.LogInformation("System-wide input blocking is now active");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to start input blocking - continuing without input protection");
+                    }
                 }
 
                 // Perform the login process with error handling and retry for transient issues
@@ -269,6 +296,24 @@ namespace ChromeConnect.Services
             }
             finally
             {
+                // Ensure input blocking is stopped before cleanup
+                if (inputBlocker != null)
+                {
+                    try
+                    {
+                        inputBlocker.StopBlocking();
+                        _logger.LogInformation("Input blocking deactivated in cleanup");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error stopping input blocking during cleanup");
+                    }
+                    finally
+                    {
+                        inputBlocker.Dispose();
+                    }
+                }
+
                 // Clean up resources if needed
                 CleanupResources(driver);
             }

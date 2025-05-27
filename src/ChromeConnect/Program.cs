@@ -208,6 +208,17 @@ public class Program
         AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
         {
             Console.WriteLine("Application exiting - cleaning up ChromeDriver processes...");
+            
+            // Emergency input unblocking
+            try
+            {
+                ChromeConnect.Utilities.NativeMethods.BlockInput(false);
+            }
+            catch
+            {
+                // Best effort
+            }
+            
             BrowserManager.CleanupDriverProcesses();
             BrowserManager.CleanupOrphanedDrivers();
         };
@@ -216,6 +227,17 @@ public class Program
         Console.CancelKeyPress += (sender, e) =>
         {
             Console.WriteLine("Application interrupted - cleaning up ChromeDriver processes...");
+            
+            // Emergency input unblocking
+            try
+            {
+                ChromeConnect.Utilities.NativeMethods.BlockInput(false);
+            }
+            catch
+            {
+                // Best effort
+            }
+            
             BrowserManager.CleanupDriverProcesses();
             BrowserManager.CleanupOrphanedDrivers();
             
@@ -227,6 +249,18 @@ public class Program
         AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
         {
             Console.WriteLine("Unhandled exception occurred - cleaning up ChromeDriver processes...");
+            
+            // Emergency input unblocking
+            try
+            {
+                Console.WriteLine("Emergency input unblocking...");
+                ChromeConnect.Utilities.NativeMethods.BlockInput(false);
+            }
+            catch
+            {
+                // Last resort attempt - can't do much if this fails
+            }
+            
             BrowserManager.CleanupDriverProcesses();
             BrowserManager.CleanupOrphanedDrivers();
         };

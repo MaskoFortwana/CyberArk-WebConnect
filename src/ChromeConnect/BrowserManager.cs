@@ -46,6 +46,7 @@ public class BrowserManager
                 "--disable-gpu",
                 "--no-sandbox", // Required for some environments
                 "--disable-dev-shm-usage", // Required for some environments
+                "--start-maximized", // HARDCODED: Always start Chrome in maximized state for better automation visibility
                 
                 // PERFORMANCE FIX: Disable TensorFlow/ML features that cause 30-second delays
                 "--disable-features=VizDisplayCompositor,TranslateUI,OptimizationHints,AutofillServerCommunication",
@@ -80,6 +81,9 @@ public class BrowserManager
                 options.AddArgument("--kiosk");
             }
 
+            // Note: --start-maximized is now hardcoded in the default flags above
+            // This conditional logic is no longer needed
+
             if (ignoreCertErrors)
             {
                 _logger.LogDebug("Adding --ignore-certificate-errors flag");
@@ -101,11 +105,8 @@ public class BrowserManager
             // Track the ChromeDriver process for cleanup
             TrackDriverProcess(chromeDriverService);
             
-            // Set window size if not in kiosk mode
-            if (!kiosk)
-            {
-                driver.Manage().Window.Size = new System.Drawing.Size(1280, 1024);
-            }
+            // Window size is handled by --start-maximized flag, no manual sizing needed
+            // Note: In kiosk mode, --kiosk flag overrides --start-maximized anyway
 
             // Set timeouts
             driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(30);
