@@ -21,6 +21,11 @@ public class LoginVerifier : IScreenshotCapture
     private readonly PolicyFactory _policyFactory;
     private string _initialLoginUrl = string.Empty; // NEW: Store initial URL for comparison
 
+    /// <summary>
+    /// Gets the login verification configuration
+    /// </summary>
+    public LoginVerificationConfig Config => _config;
+
     public LoginVerifier(ILogger<LoginVerifier> logger, LoginVerificationConfig config, TimeoutConfig timeoutConfig, PolicyFactory policyFactory)
     {
         _logger = logger;
@@ -2116,4 +2121,67 @@ public class LoginVerificationConfig
     /// Whether to capture screenshots on verification failures
     /// </summary>
     public bool CaptureScreenshotsOnFailure { get; set; } = true;
+
+    /// <summary>
+    /// Maximum time to wait for page transition in seconds (default: 5 seconds)
+    /// </summary>
+    public int MaxTransitionWaitTimeSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// Initial polling interval for transition detection in milliseconds
+    /// </summary>
+    public int InitialPollingIntervalMs { get; set; } = 100;
+
+    /// <summary>
+    /// Maximum polling interval for transition detection in milliseconds
+    /// </summary>
+    public int MaxPollingIntervalMs { get; set; } = 500;
+
+    /// <summary>
+    /// Growth factor for progressive polling intervals
+    /// </summary>
+    public double PollingIntervalGrowthFactor { get; set; } = 1.5;
+
+    /// <summary>
+    /// Number of stable checks required before considering page stable
+    /// </summary>
+    public int StableCheckCount { get; set; } = 2;
+
+    /// <summary>
+    /// Site-specific configuration overrides
+    /// Key: hostname or domain pattern (e.g., "pvwa.masko.local", "*.vsphere.local")
+    /// Value: site-specific configuration
+    /// </summary>
+    public Dictionary<string, SiteSpecificConfig> SiteSpecificConfigurations { get; set; } = new Dictionary<string, SiteSpecificConfig>();
+
+    /// <summary>
+    /// Whether to use page transition detection before verification
+    /// </summary>
+    public bool UsePageTransitionDetection { get; set; } = true;
+}
+
+/// <summary>
+/// Site-specific configuration for login verification
+/// </summary>
+public class SiteSpecificConfig
+{
+    /// <summary>
+    /// Initial delay override for this site in milliseconds
+    /// </summary>
+    public int? InitialDelayMs { get; set; }
+
+    /// <summary>
+    /// Maximum transition wait time override for this site in seconds
+    /// </summary>
+    public int? MaxTransitionWaitTimeSeconds { get; set; }
+
+    /// <summary>
+    /// Custom polling interval for this site in milliseconds
+    /// </summary>
+    public int? PollingIntervalMs { get; set; }
+
+    /// <summary>
+    /// Additional notes about this site's behavior
+    /// </summary>
+    public string Notes { get; set; } = "";
 }

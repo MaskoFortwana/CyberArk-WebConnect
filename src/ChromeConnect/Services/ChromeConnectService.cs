@@ -19,6 +19,7 @@ namespace ChromeConnect.Services
     public class ChromeConnectService
     {
         private readonly ILogger<ChromeConnectService> _logger;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly BrowserManager _browserManager;
         private readonly LoginDetector _loginDetector;
         private readonly CredentialManager _credentialManager;
@@ -35,6 +36,7 @@ namespace ChromeConnect.Services
         /// Initializes a new instance of the <see cref="ChromeConnectService"/> class.
         /// </summary>
         /// <param name="logger">The logger instance.</param>
+        /// <param name="loggerFactory">The logger factory for creating specific loggers.</param>
         /// <param name="browserManager">The browser manager instance.</param>
         /// <param name="loginDetector">The login form detector instance.</param>
         /// <param name="credentialManager">The credential manager instance.</param>
@@ -45,6 +47,7 @@ namespace ChromeConnect.Services
         /// <param name="errorMonitor">The error monitor instance.</param>
         public ChromeConnectService(
             ILogger<ChromeConnectService> logger,
+            ILoggerFactory loggerFactory,
             BrowserManager browserManager,
             LoginDetector loginDetector,
             CredentialManager credentialManager,
@@ -55,6 +58,7 @@ namespace ChromeConnect.Services
             ErrorMonitor errorMonitor)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
             _browserManager = browserManager ?? throw new ArgumentNullException(nameof(browserManager));
             _loginDetector = loginDetector ?? throw new ArgumentNullException(nameof(loginDetector));
             _credentialManager = credentialManager ?? throw new ArgumentNullException(nameof(credentialManager));
@@ -234,6 +238,64 @@ namespace ChromeConnect.Services
                             loginForm.UsernameField != null ? "username" : "password");
                     }
 
+                    // Check if page transition detection is enabled
+                    if (_loginVerifier.Config.UsePageTransitionDetection)
+                    {
+                        try
+                        {
+                            // Get site-specific configuration if available
+                            var currentUrl = new Uri(driver.Url);
+                            var siteConfig = GetSiteSpecificConfig(currentUrl.Host);
+                            
+                            // Create page transition detector with initial state
+                            var transitionDetector = new PageTransitionDetector(driver, _loggerFactory.CreateLogger<PageTransitionDetector>());
+                            
+                            // Configure based on site-specific settings or defaults
+                            if (siteConfig != null)
+                            {
+                                transitionDetector.InitialWaitMs = siteConfig.InitialDelayMs ?? _loginVerifier.Config.InitialDelayMs;
+                                var maxWaitSeconds = siteConfig.MaxTransitionWaitTimeSeconds ?? _loginVerifier.Config.MaxTransitionWaitTimeSeconds;
+                                
+                                _logger.LogInformation("Using site-specific configuration for {Host}: InitialWait={InitialWaitMs}ms, MaxWait={MaxWaitSeconds}s",
+                                    currentUrl.Host, transitionDetector.InitialWaitMs, maxWaitSeconds);
+                                
+                                // Wait for page transition
+                                var transitionTimeout = TimeSpan.FromSeconds(maxWaitSeconds);
+                                var pageTransitioned = await transitionDetector.WaitForPageTransition(transitionTimeout);
+                                
+                                if (!pageTransitioned)
+                                {
+                                    _logger.LogWarning("No page transition detected after {Timeout}s, proceeding with verification anyway", maxWaitSeconds);
+                                }
+                            }
+                            else
+                            {
+                                // Use default configuration
+                                transitionDetector.InitialWaitMs = _loginVerifier.Config.InitialDelayMs;
+                                transitionDetector.InitialPollingIntervalMs = _loginVerifier.Config.InitialPollingIntervalMs;
+                                transitionDetector.MaxPollingIntervalMs = _loginVerifier.Config.MaxPollingIntervalMs;
+                                transitionDetector.PollingIntervalGrowthFactor = _loginVerifier.Config.PollingIntervalGrowthFactor;
+                                transitionDetector.StableCheckCount = _loginVerifier.Config.StableCheckCount;
+                                
+                                _logger.LogInformation("Using default page transition detection configuration");
+                                
+                                // Wait for page transition
+                                var transitionTimeout = TimeSpan.FromSeconds(_loginVerifier.Config.MaxTransitionWaitTimeSeconds);
+                                var pageTransitioned = await transitionDetector.WaitForPageTransition(transitionTimeout);
+                                
+                                if (!pageTransitioned)
+                                {
+                                    _logger.LogWarning("No page transition detected after {Timeout}s, proceeding with verification anyway", 
+                                        _loginVerifier.Config.MaxTransitionWaitTimeSeconds);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error during page transition detection, proceeding with verification");
+                        }
+                    }
+
                     // Use fast verification instead of old timeout-heavy method
                     _logger.LogInformation("Verifying login success using fast detection");
                     var sessionId = Guid.NewGuid().ToString("N")[..8];
@@ -317,6 +379,35 @@ namespace ChromeConnect.Services
                 // Clean up resources if needed
                 CleanupResources(driver);
             }
+        }
+
+        /// <summary>
+        /// Gets site-specific configuration for the given hostname
+        /// </summary>
+        private SiteSpecificConfig? GetSiteSpecificConfig(string hostname)
+        {
+            var config = _loginVerifier.Config;
+            if (config.SiteSpecificConfigurations == null || config.SiteSpecificConfigurations.Count == 0)
+                return null;
+
+            // First check for exact match
+            if (config.SiteSpecificConfigurations.TryGetValue(hostname, out var exactMatch))
+                return exactMatch;
+
+            // Then check for wildcard patterns
+            foreach (var kvp in config.SiteSpecificConfigurations)
+            {
+                var pattern = kvp.Key;
+                if (pattern.StartsWith("*."))
+                {
+                    // Simple wildcard matching for subdomains
+                    var domain = pattern.Substring(2);
+                    if (hostname.EndsWith(domain, StringComparison.OrdinalIgnoreCase))
+                        return kvp.Value;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

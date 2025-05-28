@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ChromeConnect.Core;
@@ -66,7 +67,16 @@ namespace ChromeConnect.Services
                     MaxVerificationTimeSeconds = (int)timeoutConfig.InternalTimeout.TotalSeconds,
                     InitialDelayMs = (int)timeoutConfig.InitialDelay.TotalMilliseconds,
                     EnableTimingLogs = true,          // Enable performance monitoring
-                    CaptureScreenshotsOnFailure = true // Capture screenshots on failures
+                    CaptureScreenshotsOnFailure = true, // Capture screenshots on failures
+                    // New properties for page transition detection
+                    UsePageTransitionDetection = true,
+                    MaxTransitionWaitTimeSeconds = 5,
+                    InitialPollingIntervalMs = 100,
+                    MaxPollingIntervalMs = 500,
+                    PollingIntervalGrowthFactor = 1.5,
+                    StableCheckCount = 2,
+                    // Site-specific configurations - empty by default, can be configured externally
+                    SiteSpecificConfigurations = new Dictionary<string, SiteSpecificConfig>()
                 };
             });
             services.AddSingleton<LoginVerifier>();
