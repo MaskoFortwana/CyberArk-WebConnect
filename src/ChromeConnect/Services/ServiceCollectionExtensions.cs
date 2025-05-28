@@ -66,6 +66,7 @@ namespace ChromeConnect.Services
                 {
                     MaxVerificationTimeSeconds = (int)timeoutConfig.InternalTimeout.TotalSeconds,
                     InitialDelayMs = (int)timeoutConfig.InitialDelay.TotalMilliseconds,
+                    PostSubmissionDelayMs = 2000, // 2 seconds default delay after credential submission
                     EnableTimingLogs = true,          // Enable performance monitoring
                     CaptureScreenshotsOnFailure = true, // Capture screenshots on failures
                     // New properties for page transition detection

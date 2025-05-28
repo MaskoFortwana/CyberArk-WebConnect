@@ -188,4 +188,21 @@ dev-debug.log
 # .taskmasterconfig - Keep tracked (project configuration)
 # tasks/ - Keep tracked (project tasks)
 # tasks.json - Keep tracked (main task file)
-# scripts/ - Keep tracked (project scripts and PRDs) 
+# scripts/ - Keep tracked (project scripts and PRDs)
+
+# Added by Claude Task Master
+logs
+# Dependency directories
+node_modules/
+# Environment variables
+# Editor directories and files
+.idea
+.vscode
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+# Task files
+tasks.json
+tasks/ 

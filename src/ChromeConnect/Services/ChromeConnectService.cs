@@ -221,6 +221,10 @@ namespace ChromeConnect.Services
                         loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit']"));
                     }
 
+                    // Get site-specific configuration once for reuse
+                    var currentUri = new Uri(driver.Url);
+                    var siteConfig = GetSiteSpecificConfig(currentUri.Host);
+
                     // Enter credentials with timeout handling
                     bool credentialsEntered = await _timeoutManager.ExecuteWithTimeoutAsync<bool>(
                         async (CancellationToken tokenFromManager) =>
@@ -243,10 +247,6 @@ namespace ChromeConnect.Services
                     {
                         try
                         {
-                            // Get site-specific configuration if available
-                            var currentUrl = new Uri(driver.Url);
-                            var siteConfig = GetSiteSpecificConfig(currentUrl.Host);
-                            
                             // Create page transition detector with initial state
                             var transitionDetector = new PageTransitionDetector(driver, _loggerFactory.CreateLogger<PageTransitionDetector>());
                             
@@ -257,7 +257,7 @@ namespace ChromeConnect.Services
                                 var maxWaitSeconds = siteConfig.MaxTransitionWaitTimeSeconds ?? _loginVerifier.Config.MaxTransitionWaitTimeSeconds;
                                 
                                 _logger.LogInformation("Using site-specific configuration for {Host}: InitialWait={InitialWaitMs}ms, MaxWait={MaxWaitSeconds}s",
-                                    currentUrl.Host, transitionDetector.InitialWaitMs, maxWaitSeconds);
+                                    currentUri.Host, transitionDetector.InitialWaitMs, maxWaitSeconds);
                                 
                                 // Wait for page transition
                                 var transitionTimeout = TimeSpan.FromSeconds(maxWaitSeconds);
@@ -294,6 +294,32 @@ namespace ChromeConnect.Services
                         {
                             _logger.LogWarning(ex, "Error during page transition detection, proceeding with verification");
                         }
+                    }
+
+                    // Apply post-submission delay before verification if configured
+                    // Determine the delay to use (site-specific or global default)
+                    var delayMs = siteConfig?.PostSubmissionDelayMs ?? _loginVerifier.Config.PostSubmissionDelayMs;
+                    
+                    if (delayMs > 0)
+                    {
+                        _logger.LogInformation("Applying post-submission delay of {DelayMs}ms before verification to allow page to process login", delayMs);
+                        var delayStart = DateTime.Now;
+                        
+                        try
+                        {
+                            await Task.Delay(delayMs);
+                            var actualDelay = DateTime.Now - delayStart;
+                            _logger.LogInformation("Post-submission delay completed in {ActualDelayMs}ms", actualDelay.TotalMilliseconds);
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            _logger.LogWarning("Post-submission delay was cancelled");
+                            throw;
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogDebug("No post-submission delay configured, proceeding immediately with verification");
                     }
 
                     // Use fast verification instead of old timeout-heavy method

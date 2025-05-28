@@ -2113,6 +2113,13 @@ public class LoginVerificationConfig
     public int InitialDelayMs { get; set; } = 500;
 
     /// <summary>
+    /// Delay to wait after credential submission before starting verification in milliseconds.
+    /// This allows web applications time to process login and update the page.
+    /// Default: 2000ms (2 seconds)
+    /// </summary>
+    public int PostSubmissionDelayMs { get; set; } = 2000;
+
+    /// <summary>
     /// Whether to enable detailed timing logs
     /// </summary>
     public bool EnableTimingLogs { get; set; } = true;
@@ -2169,6 +2176,12 @@ public class SiteSpecificConfig
     /// Initial delay override for this site in milliseconds
     /// </summary>
     public int? InitialDelayMs { get; set; }
+
+    /// <summary>
+    /// Post-submission delay override for this site in milliseconds.
+    /// If not specified, the global PostSubmissionDelayMs value will be used.
+    /// </summary>
+    public int? PostSubmissionDelayMs { get; set; }
 
     /// <summary>
     /// Maximum transition wait time override for this site in seconds
