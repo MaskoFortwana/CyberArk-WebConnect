@@ -66,12 +66,12 @@ namespace ChromeConnect.Services
                 {
                     MaxVerificationTimeSeconds = (int)timeoutConfig.InternalTimeout.TotalSeconds,
                     InitialDelayMs = (int)timeoutConfig.InitialDelay.TotalMilliseconds,
-                    PostSubmissionDelayMs = 2000, // 2 seconds default delay after credential submission
+                    PostSubmissionDelayMs = 0, // Removed 2 seconds delay - no longer needed
                     EnableTimingLogs = true,          // Enable performance monitoring
                     CaptureScreenshotsOnFailure = true, // Capture screenshots on failures
                     // New properties for page transition detection
                     UsePageTransitionDetection = true,
-                    MaxTransitionWaitTimeSeconds = 5,
+                    MaxTransitionWaitTimeSeconds = 3,
                     InitialPollingIntervalMs = 100,
                     MaxPollingIntervalMs = 500,
                     PollingIntervalGrowthFactor = 1.5,
