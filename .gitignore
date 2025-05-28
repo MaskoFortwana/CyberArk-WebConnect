@@ -7,6 +7,7 @@
 !.vscode/extensions.json
 *.code-workspace
 .history/
+.vshistory/
 
 # User-specific files
 *.rsuser
@@ -30,7 +31,6 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
-publish/
 
 # .NET Core
 project.lock.json
@@ -94,13 +94,8 @@ _TeamCity*
 # NuGet Packages
 *.nupkg
 *.snupkg
-# The packages folder can be ignored because of Package Restore
 **/[Pp]ackages/*
-# except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
-# Uncomment if necessary however generally it will be regenerated when needed
-#!**/[Pp]ackages/repositories.config
-# NuGet v3's project.json files produces more ignorable files
 *.nuget.props
 *.nuget.targets
 
@@ -114,9 +109,7 @@ _pkginfo.txt
 *.appxupload
 
 # Visual Studio cache files
-# files ending in .cache can be ignored
 *.[Cc]ache
-# but keep track of directories ending in .cache
 !?*.[Cc]ache/
 
 # Others
@@ -130,8 +123,7 @@ ClientBin/
 *.publishsettings
 orleans.codegen.cs
 
-# Backup & report files from converting an old project file
-# to a newer Visual Studio version
+# Backup & report files
 _UpgradeReport_Files/
 Backup*/
 UpgradeLog*.XML
@@ -159,19 +151,8 @@ FakesAssemblies/
 # GhostDoc plugin setting file
 *.GhostDoc.xml
 
-# Node.js Tools for Visual Studio
-.ntvs_analysis.dat
-node_modules/
-
-# Zip files
-*.zip
-
 # Local History for Visual Studio
 .localhistory/
-
-# VS history files
-.history/
-.vshistory/
 
 # Windows shortcuts
 *.lnk
@@ -179,32 +160,32 @@ node_modules/
 # macOS specific files
 .DS_Store
 
+# Environment variables (sensitive data only)
+.env
+
+# Project-specific ignores
+# Screenshots from automation debugging
+screenshots/
+
+# Published application builds (keep source, ignore binaries)
+publish/*.exe
+publish/*.dll
+publish/*.pdb
+publish/*.deps.json
+publish/*.runtimeconfig.json
+
+# Release artifacts (zip files in root)
+/*.zip
+
 # Logs
-logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 dev-debug.log
 
-# Dependency directories
-node_modules/
-
-# Environment variables
-.env
-
-# Editor directories and files
-.idea
-.vscode
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# OS specific
-.DS_Store
-
-# Task files
-tasks.json
-tasks/ 
+# Task Master files - KEEP THESE TRACKED
+# .taskmasterconfig - Keep tracked (project configuration)
+# tasks/ - Keep tracked (project tasks)
+# tasks.json - Keep tracked (main task file)
+# scripts/ - Keep tracked (project scripts and PRDs) 
