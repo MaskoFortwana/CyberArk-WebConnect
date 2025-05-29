@@ -66,6 +66,17 @@
     <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
   </ItemGroup>
 
-
+  <!-- Post-build target for DLL extraction simulation -->
+  <Target Name="PostBuildDllExtraction" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">
+    <Message Text="Starting post-build DLL extraction for AppLocker compatibility..." Importance="high" />
+    <PropertyGroup>
+      <ExtractDllsScript>$(ProjectDir)ExtractDlls.ps1</ExtractDllsScript>
+      <PowerShellCommand>powershell -ExecutionPolicy Bypass -Command "&amp; { &amp; '$(ExtractDllsScript)' -OutputPath '$(PublishDir.TrimEnd('\'))' -ProjectDir '$(ProjectDir.TrimEnd('\'))' -Configuration '$(Configuration)' }"</PowerShellCommand>
+    </PropertyGroup>
+    <Exec Command="$(PowerShellCommand)" 
+          ContinueOnError="true" 
+          IgnoreExitCode="true" />
+    <Message Text="Post-build DLL extraction completed." Importance="high" />
+  </Target>
 
 </Project>

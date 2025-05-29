@@ -1,0 +1,83 @@
+{
+  "testConfiguration": {
+    "version": "1.0.0",
+    "description": "ChromeConnect Build and Extraction Test Configuration",
+    "settings": {
+      "testOutputDir": "./test-results",
+      "buildConfiguration": "Release",
+      "testVersion": "1.0.0-test",
+      "cleanupAfterTest": true,
+      "verboseOutput": false,
+      "skipBuildTest": false
+    },
+    "expectedValues": {
+      "extractionPath": "C:\\Program Files (x86)\\CyberArk\\PSM\\Components\\ChromeConnect",
+      "hashDirectory": "BUVKQZGVGMYJUEVNC62UH0NUC1GYHEG=",
+      "environmentVariable": "DOTNET_BUNDLE_EXTRACT_BASE_DIR",
+      "minimumDotnetVersion": "8.0.0",
+      "minimumExecutableSize": 52428800
+    },
+    "requiredFiles": [
+      "./publish.ps1",
+      "./deploy.ps1",
+      "./src/ChromeConnect/ExtractDlls.ps1",
+      "./src/ChromeConnect/ChromeConnect.csproj",
+      "./scripts/SetEnvironmentVariable.ps1",
+      "./scripts/SetSystemEnvironmentVariable.ps1",
+      "./scripts/VerifyEnvironmentSetup.ps1"
+    ],
+    "testCategories": [
+      {
+        "name": "EnvironmentVariable",
+        "description": "Tests environment variable setup and configuration",
+        "priority": "high"
+      },
+      {
+        "name": "DirectoryStructure",
+        "description": "Tests extraction directory structure and permissions",
+        "priority": "high"
+      },
+      {
+        "name": "RequiredScripts",
+        "description": "Tests existence of required PowerShell scripts",
+        "priority": "medium"
+      },
+      {
+        "name": "DotnetEnvironment",
+        "description": "Tests .NET runtime and project dependencies",
+        "priority": "high"
+      },
+      {
+        "name": "BuildProcess",
+        "description": "Tests the complete build process",
+        "priority": "high"
+      },
+      {
+        "name": "DllExtraction",
+        "description": "Tests DLL extraction simulation functionality",
+        "priority": "high"
+      },
+      {
+        "name": "DeploymentScript",
+        "description": "Tests deployment script functionality",
+        "priority": "medium"
+      },
+      {
+        "name": "CleanMachine",
+        "description": "Tests behavior on clean machine without pre-existing setup",
+        "priority": "high"
+      }
+    ],
+    "testTimeouts": {
+      "buildProcess": 300,
+      "dllExtraction": 60,
+      "environmentSetup": 30
+    },
+    "reporting": {
+      "generateMarkdownReport": true,
+      "generateJsonReport": true,
+      "includeTimestamps": true,
+      "includeDetailedLogs": false
+    }
+  }
+} 

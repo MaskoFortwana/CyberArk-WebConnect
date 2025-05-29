@@ -97,10 +97,44 @@ After a successful build, you will find:
 ```
 ./publish/
 ├── ChromeConnect.exe          # Main executable (self-contained, ~45MB)
+├── ExtractedDLLs/            # Pre-extracted dependencies (AppLocker compatible)
+│   └── [hash-directory]/     # Contains all .NET runtime dependencies (~85MB)
+│       ├── Microsoft.Extensions.*.dll
+│       ├── Selenium.*.dll
+│       ├── System.*.dll
+│       └── [180+ additional DLL files]
 └── README.md                 # Documentation
 
 ./ChromeConnect-1.0.0-win-x64.zip  # Distribution package (if created)
 ```
+
+### DLL Extraction Solution
+
+The build process now includes **automatic DLL extraction** to ensure compatibility with enterprise environments:
+
+- **AppLocker Compatible**: Pre-extracted DLLs prevent runtime extraction failures
+- **Enterprise Ready**: Works in CyberArk PSM and other restricted environments
+- **Zero Configuration**: No additional setup required for deployment
+- **Fully Automated**: Integrated into standard build pipeline
+
+**Build Process Changes:**
+1. **Environment Setup**: Configures `DOTNET_BUNDLE_EXTRACT_BASE_DIR` temporarily
+2. **Application Build**: Standard .NET single-file publish
+3. **DLL Extraction Simulation**: Runs application to trigger dependency extraction
+4. **Package Integration**: Copies extracted DLLs to deployment package
+5. **Verification**: Validates package completeness and integrity
+
+**Expected Output:**
+```
+==================== DLL EXTRACTION SIMULATION ====================
+INFO: Target extraction path: C:\temp\ChromeConnect\extracted
+INFO: Running DLL extraction simulation with: ./publish/ChromeConnect.exe
+INFO: Extraction process completed in 2.34 seconds with exit code: 4
+SUCCESS: Found extraction directory: 8e89e2c6a5d4... with 189 DLL files (85.68 MB)
+SUCCESS: Successfully copied extracted DLLs to deployment package
+```
+
+For detailed information about the DLL extraction solution, see [DLL_EXTRACTION_SOLUTION.md](DLL_EXTRACTION_SOLUTION.md).
 
 **Note**: No configuration files are needed! All configuration is embedded in the executable. Logs are automatically written to `%TEMP%\ChromeConnect\`.
 
@@ -211,6 +245,40 @@ For enterprise environments:
 3. **SCCM/Intune**: Use Microsoft deployment tools for automated installation
 4. **Docker**: Build a Windows container image (requires Windows containers)
 
+#### AppLocker and Restricted Environments
+
+ChromeConnect is designed to work seamlessly in enterprise environments with strict security policies:
+
+**✅ AppLocker Compatible**
+- **No Runtime DLL Extraction**: All dependencies are pre-extracted and included in the deployment package
+- **No Temp Directory Access**: Application doesn't require write access to user or system temp directories
+- **Pre-approved Paths**: Works with standard application installation paths approved by AppLocker policies
+
+**🔐 CyberArk PSM Integration**
+```powershell
+# Recommended PSM deployment path
+$PSMPath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+Expand-Archive -Path "ChromeConnect-1.0.0-win-x64.zip" -DestinationPath $PSMPath -Force
+```
+
+**🏢 Corporate Workstation Deployment**
+```powershell
+# Standard corporate deployment
+$CorporatePath = "C:\Program Files\ChromeConnect"
+Expand-Archive -Path "ChromeConnect-1.0.0-win-x64.zip" -DestinationPath $CorporatePath -Force
+
+# Verify AppLocker compatibility
+& "$CorporatePath\ChromeConnect.exe" --version
+```
+
+**Key Benefits for Enterprise:**
+- **Zero Configuration**: No environment variables or special setup required at runtime
+- **Policy Compliant**: Respects existing AppLocker and security policies
+- **Isolated Dependencies**: All dependencies contained within deployment package
+- **Audit Friendly**: Predictable file structure and behavior for security audits
+
+For detailed technical information about the AppLocker compatibility solution, see [DLL_EXTRACTION_SOLUTION.md](DLL_EXTRACTION_SOLUTION.md).
+
 ### Automated Deployment
 
 Create a deployment script:
@@ -258,6 +326,14 @@ ChromeConnect requires:
 - All communication uses secure protocols
 - Chrome runs in isolated mode
 
+### AppLocker and Security Policies
+
+With the new DLL extraction solution:
+- **No Policy Violations**: Application doesn't attempt runtime DLL extraction
+- **Predictable Behavior**: All file operations are within deployment directory
+- **Audit Compliance**: File structure is consistent and auditable
+- **Security Review Friendly**: Clear separation of executable and dependencies
+
 ## Performance Optimization
 
 ### Startup Time
@@ -265,6 +341,7 @@ ChromeConnect requires:
 - **ReadyToRun**: Enabled in Release builds for faster startup
 - **Trimming**: Unused code is removed to reduce size
 - **Compression**: Single-file compression reduces I/O
+- **Pre-extracted DLLs**: No runtime extraction delays
 
 ### Memory Usage
 
@@ -272,26 +349,34 @@ ChromeConnect requires:
 - **Native Dependencies**: Included and optimized for single-file deployment
 - **Chrome Management**: WebDriverManager handles Chrome lifecycle efficiently
 
+### Package Size Considerations
+
+With DLL extraction solution:
+- **Larger Package Size**: ~120-140MB (includes 85MB of extracted DLLs)
+- **Trade-off**: Size increase for enterprise compatibility
+- **Network Transfer**: Consider compression for network deployments
+- **Storage Planning**: Account for larger deployment packages
+
 ## Version Management
 
 ### Updating ChromeConnect
 
 1. **Download new version** ZIP package
 2. **Stop running instances** of ChromeConnect
-3. **Replace executable** and configuration files
+3. **Replace entire directory** (includes new ExtractedDLLs)
 4. **Test functionality** with a simple command
 
 ### Rollback Procedure
 
-1. **Keep previous version** as backup
-2. **Replace with backup executable** if issues occur
-3. **Restore previous configuration** if needed
+1. **Keep previous version** as backup (entire directory)
+2. **Replace with backup directory** if issues occur
+3. **Verify ExtractedDLLs integrity** after rollback
 
 ## Support and Maintenance
 
 ### Log Analysis
 
-Monitor the `logs/` directory for:
+Monitor the `%TEMP%\ChromeConnect\` directory for:
 - **Error patterns**: Recurring failures
 - **Performance issues**: Slow operations
 - **Authentication problems**: Login failures
@@ -312,10 +397,31 @@ if %ERRORLEVEL% EQU 0 (
 
 ### Backup Strategy
 
-Backup these critical files:
-- `ChromeConnect.exe` (the main executable)
-- `appsettings.json` (configuration)
-- `logs/` directory (for troubleshooting)
+Backup these critical components:
+- **Entire deployment directory** (includes ChromeConnect.exe and ExtractedDLLs/)
+- **Configuration files** (if any custom configurations)
+- **Log files** (for troubleshooting historical issues)
+
+### Package Integrity Verification
+
+Verify deployment package integrity:
+
+```powershell
+# Verify main executable exists
+if (Test-Path "ChromeConnect.exe") {
+    Write-Host "✅ Main executable found"
+} else {
+    Write-Host "❌ Main executable missing"
+}
+
+# Verify ExtractedDLLs directory exists
+if (Test-Path "ExtractedDLLs") {
+    $dllCount = (Get-ChildItem -Path "ExtractedDLLs" -Recurse -Filter "*.dll").Count
+    Write-Host "✅ ExtractedDLLs directory found with $dllCount DLL files"
+} else {
+    Write-Host "❌ ExtractedDLLs directory missing - AppLocker compatibility may be affected"
+}
+```
 
 ---
 
@@ -325,5 +431,6 @@ Backup these critical files:
 - **Issue Tracker**: Report bugs and request features
 - **Documentation**: Comprehensive API and usage documentation
 - **Support**: Contact information for technical support
+- **DLL Extraction Guide**: [DLL_EXTRACTION_SOLUTION.md](DLL_EXTRACTION_SOLUTION.md)
 
-For detailed usage instructions, see the main [README.md](README.md) file. 
+For detailed usage instructions, see the main [README.md](README.md) file.

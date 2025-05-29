@@ -1,60 +1,77 @@
-# ChromeConnect Login Verification Timing Fix
+# ChromeConnect AppLocker DLL Solution - Product Requirements Document
+
+## Project Overview
+Implement Solution 1 for resolving AppLocker DLL blocking issues in ChromeConnect application. The current single-file deployment extracts DLLs to user temp folders which are blocked by AppLocker policies in production environments.
 
 ## Problem Statement
+- ChromeConnect.exe extracts DLLs to `%OSDRIVE%\USERS\USERNAME\APPDATA\LOCAL\TEMP\.NET\CHROMECONNECT\` during execution
+- AppLocker blocks execution of DLLs from user temp folders in production
+- Need to redirect DLL extraction to approved directory: `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\`
 
-ChromeConnect is experiencing login verification timing issues where the system starts checking for login success immediately after credential submission (within 3ms), but many web applications take 1-3 seconds to complete the login process and update the page title, URL, or layout. This results in false negative verification results and unnecessary 32-second timeouts.
+## Technical Requirements
 
-## Current Issue
+### Core Implementation
+1. **Environment Variable Configuration**
+   - Set `DOTNET_BUNDLE_EXTRACT_BASE_DIR=C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\`
+   - Ensure this is set before application execution
+   - Should work for both development and production environments
 
-From the logs, we can see:
-- Credentials are submitted at 08:36:24.423
-- Verification starts at 08:36:24.426 (only 3ms later)
-- Fast verification fails because page hasn't changed yet
-- System waits 32 seconds for uncertainty assessment
-- Manual inspection shows login was actually successful
+2. **Publish Script Modification**
+   - Update existing `publish.ps1` to include extraction directory setup
+   - Implement Option A: First-run extraction simulation during build
+   - Extract DLLs during publish process to capture the hash-based folder structure
+   - Include extracted DLL folder in deployment package
 
-## Required Solution
+3. **Build Process Enhancement**
+   - Maintain existing single-file deployment configuration
+   - Keep current `<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>`
+   - Add extraction step during publish to pre-generate DLL folder
+   - Package both .exe and extracted DLLs for deployment
 
-### Core Changes
-1. **Add Post-Submission Delay**: Implement a configurable delay between credential submission and verification start to allow web applications time to process login and update the page.
+4. **Directory Structure Management**
+   - Create target directory if it doesn't exist
+   - Handle hash-based subdirectory creation (e.g., `BUVKQZGVGMYJUEVNC62UH0NUC1GYHEG=`)
+   - Ensure proper permissions for extraction directory
+   - Clean up old extraction folders if needed
 
-2. **Enhanced Fast Verification**: Improve the FastVerifyLoginSuccess method to include multiple verification attempts with progressive delays.
+### Deployment Integration
+1. **PowerShell Script Updates**
+   - Modify publish script to run extraction simulation
+   - Copy extracted DLL structure to deployment package
+   - Ensure environment variable is set before execution
+   - Add validation steps to verify extraction works
 
-3. **Smart Delay Configuration**: Make the delay configurable per-site and provide sensible defaults.
+2. **Testing Requirements**
+   - Test build process without breaking existing functionality
+   - Verify DLL extraction works to custom directory
+   - Ensure application still functions correctly
+   - Test on clean machine without pre-existing temp extractions
 
-### Technical Requirements
+## Constraints
+- **DO NOT** change core application functionality
+- **DO NOT** modify Selenium dependencies or usage
+- **DO NOT** test against real websites
+- **DO NOT** change existing .csproj configuration beyond what's necessary
+- **DO NOT** break existing publish workflow
+- Test only up to successful build and extraction
 
-#### 1. Post-Submission Delay Implementation
-- Add configurable delay between credential submission and verification start
-- Default delay: 2-3 seconds
-- Site-specific override capability
-- Make delay configurable in appsettings.json
+## Success Criteria
+1. DLLs extract to `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\` instead of user temp
+2. Application builds and publishes successfully
+3. Extracted DLL folder is included in deployment package
+4. Environment variable configuration works correctly
+5. Existing functionality remains unchanged
+6. Build process completes without errors
 
-#### 2. Enhanced Verification Flow
-- Implement progressive verification with multiple attempts
-- Use shorter initial checks followed by longer delays if needed
-- Early success detection to avoid unnecessary waiting
+## Technical Stack
+- .NET 8 single-file deployment
+- PowerShell build scripts
+- Windows AppLocker environment
+- CyberArk PSM Components integration
 
-#### 3. Configuration Management
-- Add PostSubmissionDelayMs to LoginVerificationConfig
-- Add site-specific configuration support
-- Maintain backward compatibility
-
-### Expected Behavior
-1. Credentials are submitted
-2. System waits for configured delay (default 2-3 seconds)
-3. Fast verification runs with higher success rate
-4. If fast verification fails, run progressive checks
-5. Complete verification in under 10 seconds for most successful logins
-
-### Testing Requirements
-- Test with various web applications including the PVWA site
-- Verify successful login detection timing improvements
-- Ensure no regression in failed login detection
-- Performance testing to ensure overall speed improvement
-
-### Success Criteria
-- Login verification completes in under 10 seconds for successful logins
-- False negative verification results reduced by 90%
-- No increase in false positive results
-- Maintains compatibility with all existing supported sites
+## Deliverables
+1. Updated `publish.ps1` script with extraction logic
+2. Environment variable configuration
+3. Pre-extracted DLL folder structure in deployment
+4. Documentation for deployment process
+5. Validation that build process works correctly

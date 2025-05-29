@@ -164,6 +164,34 @@ All configuration can be controlled via command-line parameters:
 
 ---
 
+## 🔐 Enterprise Compatibility
+
+### AppLocker DLL Extraction Solution
+
+ChromeConnect includes a **specialized DLL extraction solution** designed for enterprise environments with AppLocker or similar security policies that restrict runtime DLL extraction.
+
+#### ✨ Key Features
+- **🛡️ AppLocker Compatible**: No runtime extraction to restricted directories
+- **📦 Pre-extracted Dependencies**: All DLLs included in deployment package
+- **🔧 Zero Configuration**: Works out-of-the-box in restricted environments
+- **⚡ Automated**: Fully integrated into build pipeline
+
+#### 🎯 Target Environments
+- **CyberArk PSM**: Privileged Session Management environments
+- **Corporate Workstations**: With strict AppLocker policies
+- **Zero-Trust Networks**: Where file system access is controlled
+- **Secure Environments**: Any environment blocking temp directory writes
+
+#### 📋 How It Works
+1. **Build-Time Extraction**: DLLs are pre-extracted during the build process
+2. **Package Integration**: Extracted dependencies are included in deployment ZIP
+3. **Runtime Resolution**: .NET finds dependencies without temp directory access
+4. **Security Compliance**: No policy violations or permission issues
+
+For detailed information, see [DLL_EXTRACTION_SOLUTION.md](DLL_EXTRACTION_SOLUTION.md).
+
+---
+
 ## 🔍 Browser Behavior
 
 ### Successful Login
