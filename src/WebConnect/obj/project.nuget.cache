@@ -1,10 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "lvqNbKwQPmM=",
+  "dgSpecHash": "bGBl3tbPq6E=",
   "success": true,
   "projectFilePath": "C:\\projects\\CyberArk-WebConnect\\src\\WebConnect\\WebConnect.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Masko\\.nuget\\packages\\commandlineparser\\2.9.1\\commandlineparser.2.9.1.nupkg.sha512",
+    "C:\\Users\\Masko\\.nuget\\packages\\dotnetseleniumextras.waithelpers\\3.11.0\\dotnetseleniumextras.waithelpers.3.11.0.nupkg.sha512",
     "C:\\Users\\Masko\\.nuget\\packages\\microsoft.codeanalysis.netanalyzers\\8.0.0\\microsoft.codeanalysis.netanalyzers.8.0.0.nupkg.sha512",
     "C:\\Users\\Masko\\.nuget\\packages\\microsoft.extensions.configuration\\8.0.0\\microsoft.extensions.configuration.8.0.0.nupkg.sha512",
     "C:\\Users\\Masko\\.nuget\\packages\\microsoft.extensions.configuration.abstractions\\8.0.0\\microsoft.extensions.configuration.abstractions.8.0.0.nupkg.sha512",

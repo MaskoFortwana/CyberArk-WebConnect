@@ -14,9 +14,9 @@
     
     <!-- Assembly and version information -->
     <AssemblyName>WebConnect</AssemblyName>
-    <AssemblyVersion>1.0.9.0</AssemblyVersion>
-    <FileVersion>1.0.9.0</FileVersion>
-    <Version>1.0.9</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.0</Version>
     <AssemblyTitle>WebConnect</AssemblyTitle>
     <AssemblyDescription>Web Portal Authentication Automation Tool</AssemblyDescription>
     <AssemblyCompany>WebConnect</AssemblyCompany>
@@ -45,6 +45,7 @@
     </PackageReference>
     <PackageReference Include="Selenium.WebDriver" Version="4.15.0" />
     <PackageReference Include="Selenium.Support" Version="4.15.0" />
+    <PackageReference Include="DotNetSeleniumExtras.WaitHelpers" Version="3.11.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
 
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />

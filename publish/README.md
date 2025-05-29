@@ -139,11 +139,6 @@ WebConnect.exe --USR prod.user --PSW SecureProductionPass --URL https://secure.p
 WebConnect.exe --USR test.automation --PSW AutomationPass --URL https://test.portal.com --DOM TEST --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
-### Financial Services Portal
-```powershell
-WebConnect.exe --USR employee.id --PSW CompanyPassword --URL https://sso.company.com --DOM COMPANY --INCOGNITO yes --KIOSK no --CERT ignore
-```
-
 ---
 
 ## 🔧 Configuration
@@ -306,17 +301,17 @@ WebConnect/
 │   ├── TimeoutManager.cs          # Timeout handling
 │   └── Constants.cs               # Application constants
 ├── Services/
-│   ├── WebConnectService.cs       # Main orchestration
-│   ├── LoginDetector.cs           # Form detection
-│   ├── LoginPerformer.cs          # Login execution
-│   ├── SessionManager.cs          # Session management
-│   └── ErrorHandler.cs            # Error handling
+│   ├── WebConnectService.cs    # Main orchestration
+│   ├── LoginDetector.cs          # Form detection
+│   ├── LoginPerformer.cs         # Login execution
+│   ├── SessionManager.cs         # Session management
+│   └── ErrorHandler.cs           # Error handling
 ├── Models/
-│   ├── CommandLineOptions.cs      # CLI options
-│   ├── LoginFormElements.cs       # Form models
-│   └── Configuration models       # Various config models
+│   ├── CommandLineOptions.cs     # CLI options
+│   ├── LoginFormElements.cs      # Form models
+│   └── Configuration models      # Various config models
 └── Exceptions/
-    └── Custom exception classes   # Specific exceptions
+    └── Custom exception classes  # Specific exceptions
 ```
 
 ---

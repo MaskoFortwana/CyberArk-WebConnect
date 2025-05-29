@@ -238,7 +238,7 @@ namespace WebConnect.Services
         private string GetErrorTypeKey(Exception exception)
         {
             // For WebConnect exceptions, use the most specific type name
-            var exceptionTypeName = GetExceptionTypeName(exception);
+            var exceptionTypeName = exception.GetType().Name;
             
             // Add error code if it's a WebConnect exception with an error code
             if (exception is WebConnectException ccException &&
