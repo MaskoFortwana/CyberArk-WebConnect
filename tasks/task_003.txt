@@ -1,0 +1,21 @@
+# Task ID: 3
+# Title: Enhance Build Process
+# Status: done
+# Dependencies: 2
+# Priority: high
+# Description: Modify the build process to maintain single-file deployment and include DLL extraction step.
+# Details:
+1. Review the existing .csproj file.
+2. Ensure the following setting is present and unchanged:
+   <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+3. Add a post-build event to trigger DLL extraction:
+   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+     <Exec Command="powershell -ExecutionPolicy Bypass -File $(ProjectDir)ExtractDlls.ps1" />
+   </Target>
+4. Create ExtractDlls.ps1 script to handle DLL extraction simulation.
+
+# Test Strategy:
+1. Run a full build process.
+2. Verify that the single-file deployment is still generated.
+3. Check if the DLL extraction occurs during the build.
+4. Ensure the extracted DLLs are included in the output directory.

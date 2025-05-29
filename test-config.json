@@ -1,7 +1,7 @@
 {
   "testConfiguration": {
     "version": "1.0.0",
-    "description": "ChromeConnect Build and Extraction Test Configuration",
+    "description": "WebConnect Build and Extraction Test Configuration",
     "settings": {
       "testOutputDir": "./test-results",
       "buildConfiguration": "Release",
@@ -11,7 +11,7 @@
       "skipBuildTest": false
     },
     "expectedValues": {
-      "extractionPath": "C:\\Program Files (x86)\\CyberArk\\PSM\\Components\\ChromeConnect",
+      "extractionPath": "C:\\Program Files (x86)\\CyberArk\\PSM\\Components\\WebConnect",
       "hashDirectory": "BUVKQZGVGMYJUEVNC62UH0NUC1GYHEG=",
       "environmentVariable": "DOTNET_BUNDLE_EXTRACT_BASE_DIR",
       "minimumDotnetVersion": "8.0.0",
@@ -20,8 +20,8 @@
     "requiredFiles": [
       "./publish.ps1",
       "./deploy.ps1",
-      "./src/ChromeConnect/ExtractDlls.ps1",
-      "./src/ChromeConnect/ChromeConnect.csproj",
+      "./src/WebConnect/ExtractDlls.ps1",
+      "./src/WebConnect/WebConnect.csproj",
       "./scripts/SetEnvironmentVariable.ps1",
       "./scripts/SetSystemEnvironmentVariable.ps1",
       "./scripts/VerifyEnvironmentSetup.ps1"

@@ -32,6 +32,10 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Build directories (additional coverage)
+**/bin/
+**/obj/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
@@ -174,7 +178,16 @@ publish/*.pdb
 publish/*.deps.json
 publish/*.runtimeconfig.json
 
-# Release artifacts (zip files in root)
+# Legacy ChromeConnect artifacts
+ChromeConnect-*.zip
+ChromeConnect.exe
+ChromeConnect-*.exe
+
+# WebConnect build artifacts
+WebConnect-*.zip
+WebConnect-*.exe
+
+# General release artifacts (zip files in root)
 /*.zip
 
 # Logs
@@ -190,19 +203,12 @@ dev-debug.log
 # tasks.json - Keep tracked (main task file)
 # scripts/ - Keep tracked (project scripts and PRDs)
 
-# Added by Claude Task Master
-logs
-# Dependency directories
+# Node.js dependencies
 node_modules/
-# Environment variables
+
 # Editor directories and files
 .idea
-.vscode
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
-# OS specific
-# Task files
-tasks.json
-tasks/ 
+*.sw? 

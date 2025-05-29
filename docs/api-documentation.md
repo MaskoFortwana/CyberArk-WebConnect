@@ -1,6 +1,6 @@
-# ChromeConnect API Documentation
+# WebConnect API Documentation
 
-This documentation provides comprehensive reference information for developers integrating with or extending ChromeConnect. It covers all public APIs, classes, methods, events, and configuration options with detailed examples and usage guidelines.
+This documentation provides comprehensive reference information for developers integrating with or extending WebConnect. It covers all public APIs, classes, methods, events, and configuration options with detailed examples and usage guidelines.
 
 ## 📋 Table of Contents
 
@@ -23,39 +23,39 @@ This documentation provides comprehensive reference information for developers i
 
 #### NuGet Package Integration
 ```xml
-<PackageReference Include="ChromeConnect" Version="1.0.0" />
+<PackageReference Include="WebConnect" Version="1.0.0" />
 ```
 
 #### Basic DI Container Setup
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using ChromeConnect.Services;
+using WebConnect.Services;
 
 var host = Host.CreateDefaultBuilder()
     .ConfigureServices((context, services) =>
     {
-        // Add all ChromeConnect services
-        services.AddChromeConnectServices();
+        // Add all WebConnect services
+        services.AddWebConnectServices();
         
         // Add configuration binding
-        services.AddChromeConnectConfiguration(context.Configuration);
+        services.AddWebConnectConfiguration(context.Configuration);
     })
     .Build();
 
 // Get the main service
-var chromeConnectService = host.Services.GetRequiredService<ChromeConnectService>();
+var webConnectService = host.Services.GetRequiredService<WebConnectService>();
 ```
 
 #### Minimal Setup Without DI
 ```csharp
 using Microsoft.Extensions.Logging;
-using ChromeConnect.Core;
-using ChromeConnect.Services;
+using WebConnect.Core;
+using WebConnect.Services;
 
 // Create logger
 using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-var logger = loggerFactory.CreateLogger<ChromeConnectService>();
+var logger = loggerFactory.CreateLogger<WebConnectService>();
 
 // Create services manually
 var browserManager = new BrowserManager(loggerFactory.CreateLogger<BrowserManager>());
@@ -68,7 +68,7 @@ var timeoutManager = new TimeoutManager(loggerFactory.CreateLogger<TimeoutManage
 var errorMonitor = new ErrorMonitor(loggerFactory.CreateLogger<ErrorMonitor>());
 
 // Create main service
-var service = new ChromeConnectService(
+var service = new WebConnectService(
     logger, browserManager, loginDetector, credentialManager,
     loginVerifier, screenshotCapture, errorHandler, timeoutManager, errorMonitor);
 ```
@@ -77,15 +77,15 @@ var service = new ChromeConnectService(
 
 ## 🔧 Core Components
 
-### ChromeConnectService
+### WebConnectService
 
-**Namespace:** `ChromeConnect.Services`  
+**Namespace:** `WebConnect.Services`  
 **Purpose:** Main orchestration service that coordinates the entire authentication workflow.
 
 #### Constructor
 ```csharp
-public ChromeConnectService(
-    ILogger<ChromeConnectService> logger,
+public WebConnectService(
+    ILogger<WebConnectService> logger,
     BrowserManager browserManager,
     LoginDetector loginDetector,
     CredentialManager credentialManager,
@@ -99,7 +99,7 @@ public ChromeConnectService(
 #### Primary Method
 ```csharp
 /// <summary>
-/// Executes the ChromeConnect workflow with the specified options.
+/// Executes the WebConnect workflow with the specified options.
 /// </summary>
 /// <param name="options">The command-line options.</param>
 /// <returns>The exit code of the operation (0=success, 1=failure, 2=error).</returns>
@@ -120,7 +120,7 @@ var options = new CommandLineOptions
     Debug = false
 };
 
-int exitCode = await chromeConnectService.ExecuteAsync(options);
+int exitCode = await webConnectService.ExecuteAsync(options);
 
 switch (exitCode)
 {
@@ -138,7 +138,7 @@ switch (exitCode)
 
 ### BrowserManager
 
-**Namespace:** `ChromeConnect.Core`  
+**Namespace:** `WebConnect.Core`  
 **Purpose:** Manages Chrome browser lifecycle and WebDriver configuration.
 
 #### Primary Method
@@ -176,7 +176,7 @@ if (driver != null)
 
 ### LoginDetector
 
-**Namespace:** `ChromeConnect.Services`  
+**Namespace:** `WebConnect.Services`  
 **Purpose:** Detects and analyzes login forms on web pages using multiple strategies.
 
 #### Primary Methods
@@ -227,7 +227,7 @@ if (result != null)
 
 ### SessionManager
 
-**Namespace:** `ChromeConnect.Services`  
+**Namespace:** `WebConnect.Services`  
 **Purpose:** Manages browser sessions including persistence, validation, and recovery.
 
 #### Key Methods
@@ -329,7 +329,7 @@ else
 
 ### JavaScriptInteractionManager
 
-**Namespace:** `ChromeConnect.Services`  
+**Namespace:** `WebConnect.Services`  
 **Purpose:** Handles JavaScript-heavy page interactions and dynamic content.
 
 #### Key Methods
@@ -428,7 +428,7 @@ if (eventResult.Success)
 
 ### DetectionMetricsService
 
-**Namespace:** `ChromeConnect.Services`  
+**Namespace:** `WebConnect.Services`  
 **Purpose:** Tracks detection method performance and provides analytics for optimization.
 
 #### Key Methods
@@ -516,7 +516,7 @@ Console.WriteLine($"Reasoning: {recommendation.Reasoning}");
 
 ### PopupAndIFrameHandler
 
-**Namespace:** `ChromeConnect.Services`  
+**Namespace:** `WebConnect.Services`  
 **Purpose:** Handles popup windows and iFrames during login processes.
 
 #### Key Methods
@@ -801,7 +801,7 @@ public class ErrorHandlingSettings
 **appsettings.json:**
 ```json
 {
-  "ChromeConnect": {
+  "WebConnect": {
     "Browser": {
       "ChromeDriverPath": "",
       "UseHeadless": false,
@@ -1169,8 +1169,8 @@ public class CustomErrorHandler : ErrorHandler
 // Startup.cs or Program.cs
 public void ConfigureServices(IServiceCollection services)
 {
-    // Add ChromeConnect services
-    services.AddChromeConnectServices(options =>
+    // Add WebConnect services
+    services.AddWebConnectServices(options =>
     {
         options.DefaultTimeout = TimeSpan.FromSeconds(30);
         options.EnableMetrics = true;
@@ -1178,7 +1178,7 @@ public void ConfigureServices(IServiceCollection services)
     });
     
     // Add configuration
-    services.AddChromeConnectConfiguration(Configuration);
+    services.AddWebConnectConfiguration(Configuration);
     
     // Add custom implementations
     services.AddSingleton<IScreenshotCapture, CloudScreenshotCapture>();
@@ -1190,14 +1190,14 @@ public void ConfigureServices(IServiceCollection services)
 [Route("api/[controller]")]
 public class AuthenticationController : ControllerBase
 {
-    private readonly ChromeConnectService _chromeConnectService;
+    private readonly WebConnectService _webConnectService;
     private readonly ILogger<AuthenticationController> _logger;
     
     public AuthenticationController(
-        ChromeConnectService chromeConnectService,
+        WebConnectService webConnectService,
         ILogger<AuthenticationController> logger)
     {
-        _chromeConnectService = chromeConnectService;
+        _webConnectService = webConnectService;
         _logger = logger;
     }
     
@@ -1216,7 +1216,7 @@ public class AuthenticationController : ControllerBase
                 IgnoreCertErrors = request.IgnoreCertErrors
             };
             
-            var exitCode = await _chromeConnectService.ExecuteAsync(options);
+            var exitCode = await _webConnectService.ExecuteAsync(options);
             
             return exitCode switch
             {
@@ -1239,16 +1239,16 @@ public class AuthenticationController : ControllerBase
 ```csharp
 public class ScheduledAuthenticationService : BackgroundService
 {
-    private readonly ChromeConnectService _chromeConnectService;
+    private readonly WebConnectService _webConnectService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ScheduledAuthenticationService> _logger;
     
     public ScheduledAuthenticationService(
-        ChromeConnectService chromeConnectService,
+        WebConnectService webConnectService,
         IConfiguration configuration,
         ILogger<ScheduledAuthenticationService> logger)
     {
-        _chromeConnectService = chromeConnectService;
+        _webConnectService = webConnectService;
         _configuration = configuration;
         _logger = logger;
     }
@@ -1298,7 +1298,7 @@ public class ScheduledAuthenticationService : BackgroundService
             Incognito = true
         };
         
-        var exitCode = await _chromeConnectService.ExecuteAsync(options);
+        var exitCode = await _webConnectService.ExecuteAsync(options);
         
         _logger.LogInformation("Scheduled authentication for {TaskName} completed with exit code {ExitCode}",
             task.Name, exitCode);
@@ -1310,10 +1310,10 @@ public class ScheduledAuthenticationService : BackgroundService
 
 ```csharp
 [TestClass]
-public class ChromeConnectIntegrationTests
+public class WebConnectIntegrationTests
 {
     private IServiceProvider _serviceProvider;
-    private ChromeConnectService _chromeConnectService;
+    private WebConnectService _webConnectService;
     
     [TestInitialize]
     public void Setup()
@@ -1323,14 +1323,14 @@ public class ChromeConnectIntegrationTests
         // Add test logging
         services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
         
-        // Add ChromeConnect services with test configuration
-        services.AddChromeConnectServices();
+        // Add WebConnect services with test configuration
+        services.AddWebConnectServices();
         
         // Override with test implementations
         services.AddSingleton<IScreenshotCapture, TestScreenshotCapture>();
         
         _serviceProvider = services.BuildServiceProvider();
-        _chromeConnectService = _serviceProvider.GetRequiredService<ChromeConnectService>();
+        _webConnectService = _serviceProvider.GetRequiredService<WebConnectService>();
     }
     
     [TestMethod]
@@ -1349,7 +1349,7 @@ public class ChromeConnectIntegrationTests
         };
         
         // Act
-        var exitCode = await _chromeConnectService.ExecuteAsync(options);
+        var exitCode = await _webConnectService.ExecuteAsync(options);
         
         // Assert
         Assert.AreEqual(0, exitCode, "Login should succeed");
@@ -1368,7 +1368,7 @@ public class ChromeConnectIntegrationTests
             Incognito = true
         };
         
-        var exitCode = await _chromeConnectService.ExecuteAsync(options);
+        var exitCode = await _webConnectService.ExecuteAsync(options);
         
         Assert.AreEqual(1, exitCode, "Login should fail with invalid credentials");
     }
@@ -1403,7 +1403,7 @@ services.AddSingleton<BrowserManager>();           // Expensive to create
 services.AddSingleton<LoginDetector>();           // Stateless, can be shared
 services.AddSingleton<DetectionMetricsService>(); // Maintains metrics state
 services.AddScoped<SessionManager>();             // Per-request state
-services.AddTransient<ChromeConnectService>();    // Lightweight orchestrator
+services.AddTransient<WebConnectService>();    // Lightweight orchestrator
 ```
 
 ### Error Handling and Logging
@@ -1479,13 +1479,13 @@ public class SecureCredentialManager
     
     public string ProtectCredential(string credential)
     {
-        var protector = _dataProtection.CreateProtector("ChromeConnect.Credentials");
+        var protector = _dataProtection.CreateProtector("WebConnect.Credentials");
         return protector.Protect(credential);
     }
     
     public string UnprotectCredential(string protectedCredential)
     {
-        var protector = _dataProtection.CreateProtector("ChromeConnect.Credentials");
+        var protector = _dataProtection.CreateProtector("WebConnect.Credentials");
         return protector.Unprotect(protectedCredential);
     }
 }
@@ -1493,7 +1493,7 @@ public class SecureCredentialManager
 // Register data protection
 services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(@".\keys"))
-    .SetApplicationName("ChromeConnect");
+    .SetApplicationName("WebConnect");
 ```
 
 ---
@@ -1504,12 +1504,12 @@ services.AddDataProtection()
 
 **Before (Command-line):**
 ```bash
-ChromeConnect.exe --USR user@example.com --PSW password123 --URL https://portal.com --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR user@example.com --PSW password123 --URL https://portal.com --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 **After (API):**
 ```csharp
-var chromeConnectService = serviceProvider.GetRequiredService<ChromeConnectService>();
+var webConnectService = serviceProvider.GetRequiredService<WebConnectService>();
 
 var options = new CommandLineOptions
 {
@@ -1522,17 +1522,17 @@ var options = new CommandLineOptions
     IgnoreCertErrors = true
 };
 
-int exitCode = await chromeConnectService.ExecuteAsync(options);
+int exitCode = await webConnectService.ExecuteAsync(options);
 ```
 
 ### Upgrading from v1.0 to v1.1 (Future)
 
 ```csharp
 // v1.0 usage
-var service = new ChromeConnectService(/* manual dependencies */);
+var service = new WebConnectService(/* manual dependencies */);
 
 // v1.1 usage with enhanced DI support
-services.AddChromeConnectServices(options =>
+services.AddWebConnectServices(options =>
 {
     options.EnableAdvancedDetection = true;
     options.EnableMetrics = true;

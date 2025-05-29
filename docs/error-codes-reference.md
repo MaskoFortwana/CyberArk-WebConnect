@@ -1,6 +1,6 @@
-# ChromeConnect Error Codes and Messages Reference
+# WebConnect Error Codes and Messages Reference
 
-This document provides a comprehensive reference for all error codes, messages, and their resolutions in ChromeConnect. It covers exit codes, exception error codes, log messages, and troubleshooting guidance organized by category and severity.
+This document provides a comprehensive reference for all error codes, messages, and their resolutions in WebConnect. It covers exit codes, exception error codes, log messages, and troubleshooting guidance organized by category and severity.
 
 ## 📋 Table of Contents
 
@@ -20,7 +20,7 @@ This document provides a comprehensive reference for all error codes, messages, 
 
 ## 🚀 Exit Codes
 
-ChromeConnect uses standardized exit codes to indicate the overall result of the authentication process:
+WebConnect uses standardized exit codes to indicate the overall result of the authentication process:
 
 ### Standard Exit Codes
 
@@ -36,7 +36,7 @@ ChromeConnect uses standardized exit codes to indicate the overall result of the
 #### Exit Code 0: Success
 ```powershell
 # Example successful execution
-ChromeConnect.exe --USR user@domain.com --PSW password123 --URL https://portal.com --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR user@domain.com --PSW password123 --URL https://portal.com --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
 # Exit Code: 0
 ```
 **Meaning**: Authentication completed successfully and the user is logged in.
@@ -44,7 +44,7 @@ ChromeConnect.exe --USR user@domain.com --PSW password123 --URL https://portal.c
 #### Exit Code 1: Login Failure
 ```powershell
 # Example failed execution
-ChromeConnect.exe --USR wronguser@domain.com --PSW wrongpass --URL https://portal.com --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR wronguser@domain.com --PSW wrongpass --URL https://portal.com --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
 # Exit Code: 1
 ```
 **Common Causes**:
@@ -88,7 +88,7 @@ ChromeConnect.exe --USR wronguser@domain.com --PSW wrongpass --URL https://porta
 
 ## 🔧 Exception Error Codes
 
-ChromeConnect uses structured error codes in exceptions for detailed error tracking and handling:
+WebConnect uses structured error codes in exceptions for detailed error tracking and handling:
 
 ### Browser Exception Codes
 
@@ -227,7 +227,7 @@ Context: Page URL: {url}
 **Debug Commands**:
 ```powershell
 # Enable debug mode for detailed logging
-ChromeConnect.exe --debug --USR user --PSW pass --URL "https://example.com/login" --DOM CORP --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --debug --USR user --PSW pass --URL "https://example.com/login" --DOM CORP --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 #### CREDENTIAL_ENTRY_001: Credential Entry Failed
@@ -444,7 +444,7 @@ Service: SessionManager
 
 #### 1. Enable Debug Mode
 ```powershell
-ChromeConnect.exe --debug --USR user --PSW pass --URL "https://example.com" --DOM CORP --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --debug --USR user --PSW pass --URL "https://example.com" --DOM CORP --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 #### 2. Check Screenshots
@@ -566,7 +566,7 @@ Always test the target URL manually in a browser to understand the expected beha
 ### Automated Monitoring
 ```powershell
 # PowerShell script for monitoring
-$result = ChromeConnect.exe --USR $user --PSW $pass --URL $url --DOM $domain --INCOGNITO yes --KIOSK no --CERT ignore
+$result = WebConnect.exe --USR $user --PSW $pass --URL $url --DOM $domain --INCOGNITO yes --KIOSK no --CERT ignore
 switch ($LASTEXITCODE) {
     0 { Write-Host "✅ Success" -ForegroundColor Green }
     1 { Write-Host "❌ Login Failed" -ForegroundColor Red }
@@ -584,4 +584,4 @@ switch ($LASTEXITCODE) {
 
 ---
 
-*This error reference is maintained alongside the ChromeConnect codebase and updated with each release. For the most current information, always refer to the latest version in the repository.* 
+*This error reference is maintained alongside the WebConnect codebase and updated with each release. For the most current information, always refer to the latest version in the repository.* 

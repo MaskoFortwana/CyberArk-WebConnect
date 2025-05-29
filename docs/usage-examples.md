@@ -1,6 +1,6 @@
-# ChromeConnect Usage Examples
+# WebConnect Usage Examples
 
-This guide provides detailed, real-world examples of how to use ChromeConnect in various scenarios. Each example includes complete command-line syntax, explanations, and expected outcomes.
+This guide provides detailed, real-world examples of how to use WebConnect in various scenarios. Each example includes complete command-line syntax, explanations, and expected outcomes.
 
 ## 📋 Table of Contents
 
@@ -19,11 +19,11 @@ This guide provides detailed, real-world examples of how to use ChromeConnect in
 
 ### Example 1: Basic Corporate Portal Login
 
-**Scenario**: Simple login to a corporate portal with standard credentials.
+**Scenario**: Standard corporate portal with username/password authentication.
 
 **Command**:
 ```powershell
-ChromeConnect.exe --USR john.doe --PSW SecurePass123! --URL https://portal.company.com/login --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR john.doe --PSW SecurePass123! --URL https://portal.company.com/login --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 **Explanation**:
@@ -52,13 +52,13 @@ ChromeConnect.exe --USR john.doe --PSW SecurePass123! --URL https://portal.compa
 
 ## 🏢 Corporate and Enterprise Scenarios
 
-### Example 2: Multi-Domain Enterprise SSO
+### Example 2: Enterprise SSO with Advanced Options
 
-**Scenario**: Login to an enterprise SSO system that requires domain selection.
+**Scenario**: Single Sign-On portal in a corporate environment with security policies.
 
 **Command**:
 ```powershell
-ChromeConnect.exe --USR employee.id@company.com --PSW EnterprisePass2024 --URL https://sso.company.com/auth/login --DOM NORTH_AMERICA --INCOGNITO yes --KIOSK no --CERT enforce --debug
+WebConnect.exe --USR employee.id@company.com --PSW EnterprisePass2024 --URL https://sso.company.com/auth/login --DOM NORTH_AMERICA --INCOGNITO yes --KIOSK no --CERT enforce --debug
 ```
 
 **PowerShell Script Example**:
@@ -74,14 +74,13 @@ param(
     [string]$Region = "NORTH_AMERICA"
 )
 
-# Convert SecureString to plain text for ChromeConnect
-$PlainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
-)
+# Convert SecureString to plain text for WebConnect
+$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+$PlainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
 
 Write-Host "Initiating SSO login for $EmployeeId in region $Region..." -ForegroundColor Yellow
 
-$result = & ChromeConnect.exe --USR $EmployeeId --PSW $PlainPassword --URL "https://sso.company.com/auth/login" --DOM $Region --INCOGNITO yes --KIOSK no --CERT enforce --debug
+$result = & WebConnect.exe --USR $EmployeeId --PSW $PlainPassword --URL "https://sso.company.com/auth/login" --DOM $Region --INCOGNITO yes --KIOSK no --CERT enforce --debug
 
 switch ($LASTEXITCODE) {
     0 { 
@@ -94,7 +93,7 @@ switch ($LASTEXITCODE) {
     }
     2 { 
         Write-Host "⚠️ Application error - Check logs for details" -ForegroundColor Yellow
-        Get-Content -Path ".\logs\chromeconnect-$(Get-Date -Format 'yyyyMMdd').log" -Tail 10
+        Get-Content -Path ".\logs\webconnect-$(Get-Date -Format 'yyyyMMdd').log" -Tail 10
     }
 }
 
@@ -123,7 +122,7 @@ set DOMAIN=CORPORATE
 
 echo.
 echo [1/3] Logging into Corporate Portal...
-ChromeConnect.exe --USR %USERNAME% --PSW %1 --URL https://portal.company.com --DOM %DOMAIN% --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR %USERNAME% --PSW %1 --URL https://portal.company.com --DOM %DOMAIN% --INCOGNITO yes --KIOSK no --CERT ignore
 if %ERRORLEVEL% NEQ 0 (
     echo ❌ Corporate Portal login failed
     goto :error
@@ -131,7 +130,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [2/3] Logging into HR System...
-ChromeConnect.exe --USR %USERNAME% --PSW %1 --URL https://hr.company.com/login --DOM %DOMAIN% --INCOGNITO no --KIOSK no --CERT ignore
+WebConnect.exe --USR %USERNAME% --PSW %1 --URL https://hr.company.com/login --DOM %DOMAIN% --INCOGNITO no --KIOSK no --CERT ignore
 if %ERRORLEVEL% NEQ 0 (
     echo ❌ HR System login failed
     goto :error
@@ -139,7 +138,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [3/3] Logging into Project Management...
-ChromeConnect.exe --USR %USERNAME% --PSW %1 --URL https://pm.company.com/auth --DOM %DOMAIN% --INCOGNITO no --KIOSK no --CERT ignore
+WebConnect.exe --USR %USERNAME% --PSW %1 --URL https://pm.company.com/auth --DOM %DOMAIN% --INCOGNITO no --KIOSK no --CERT ignore
 if %ERRORLEVEL% NEQ 0 (
     echo ❌ Project Management login failed
     goto :error
@@ -211,7 +210,7 @@ function Start-EnvironmentLogin {
     Write-Host "Starting login for $env environment..." -ForegroundColor Cyan
     
     $startTime = Get-Date
-    $process = Start-Process -FilePath "ChromeConnect.exe" -ArgumentList @(
+    $process = Start-Process -FilePath "WebConnect.exe" -ArgumentList @(
         "--USR", $config.user,
         "--PSW", $config.password,
         "--URL", $config.url,
@@ -291,7 +290,7 @@ $results | Format-Table Environment, Success, Duration, ExitCode -AutoSize
 
 ### Example 5: Continuous Integration Integration
 
-**Scenario**: Using ChromeConnect in CI/CD pipelines for automated testing.
+**Scenario**: Using WebConnect in CI/CD pipelines for automated testing.
 
 **Azure DevOps Pipeline YAML**:
 ```yaml
@@ -314,15 +313,15 @@ stages:
     displayName: 'Setup Test Environment Logins'
     steps:
     - task: PowerShell@2
-      displayName: 'Download ChromeConnect'
+      displayName: 'Download WebConnect'
       inputs:
         targetType: 'inline'
         script: |
-          # Download latest ChromeConnect release
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/yourorg/chromeconnect/releases/latest"
+          # Download latest WebConnect release
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/MaskoFortwana/webconnect/releases/latest"
           $downloadUrl = $release.assets | Where-Object { $_.name -like "*win-x64.zip" } | Select-Object -First 1
-          Invoke-WebRequest -Uri $downloadUrl.browser_download_url -OutFile "ChromeConnect.zip"
-          Expand-Archive -Path "ChromeConnect.zip" -DestinationPath "." -Force
+          Invoke-WebRequest -Uri $downloadUrl.browser_download_url -OutFile "WebConnect.zip"
+          Expand-Archive -Path "WebConnect.zip" -DestinationPath "." -Force
 
     - task: PowerShell@2
       displayName: 'Setup Test Environment'
@@ -330,7 +329,7 @@ stages:
         targetType: 'inline'
         script: |
           # Setup environment login
-          $result = & .\ChromeConnect.exe --USR "$(testUsername)" --PSW "$(testPassword)" --URL "$(testUrl)" --DOM "$(testDomain)" --INCOGNITO yes --KIOSK no --CERT ignore --debug
+          $result = & .\WebConnect.exe --USR "$(testUsername)" --PSW "$(testPassword)" --URL "$(testUrl)" --DOM "$(testDomain)" --INCOGNITO yes --KIOSK no --CERT ignore --debug
           
           if ($LASTEXITCODE -eq 0) {
             Write-Host "##[section]✅ Environment setup successful"
@@ -371,7 +370,7 @@ stages:
 **GitHub Actions Workflow**:
 ```yaml
 # .github/workflows/automated-testing.yml
-name: Automated Testing with ChromeConnect
+name: Automated Testing with WebConnect
 
 on:
   push:
@@ -388,17 +387,17 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup ChromeConnect
+    - name: Setup WebConnect
       run: |
-        # Download and extract ChromeConnect
-        $release = Invoke-RestMethod -Uri "${{ env.GITHUB_API_URL }}/repos/${{ github.repository }}/releases/latest"
+        # Download and extract WebConnect
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/MaskoFortwana/webconnect/releases/latest"
         $asset = $release.assets | Where-Object { $_.name -like "*win-x64.zip" }
-        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "ChromeConnect.zip"
-        Expand-Archive -Path "ChromeConnect.zip" -DestinationPath "tools" -Force
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "WebConnect.zip"
+        Expand-Archive -Path "WebConnect.zip" -DestinationPath "tools" -Force
       
     - name: Authenticate Test Environment
       run: |
-        $result = & .\tools\ChromeConnect.exe --USR "${{ secrets.TEST_USERNAME }}" --PSW "${{ secrets.TEST_PASSWORD }}" --URL "${{ vars.TEST_URL }}" --DOM "${{ vars.TEST_DOMAIN }}" --INCOGNITO yes --KIOSK no --CERT ignore
+        $result = & .\tools\WebConnect.exe --USR "${{ secrets.TEST_USERNAME }}" --PSW "${{ secrets.TEST_PASSWORD }}" --URL "${{ vars.TEST_URL }}" --DOM "${{ vars.TEST_DOMAIN }}" --INCOGNITO yes --KIOSK no --CERT ignore
         
         if ($LASTEXITCODE -ne 0) {
           echo "::error::Authentication failed with exit code $LASTEXITCODE"
@@ -463,7 +462,7 @@ function Start-AuthenticatedSession {
     
     # Retrieve password from secure storage (example using Windows Credential Manager)
     try {
-        $credential = Get-StoredCredential -Target "ChromeConnect-Reports"
+        $credential = Get-StoredCredential -Target "WebConnect-Reports"
         $password = $credential.GetNetworkCredential().Password
     } catch {
         Write-Log "Failed to retrieve stored credentials" "ERROR"
@@ -473,7 +472,7 @@ function Start-AuthenticatedSession {
         )
     }
     
-    $authProcess = Start-Process -FilePath "ChromeConnect.exe" -ArgumentList @(
+    $authProcess = Start-Process -FilePath "WebConnect.exe" -ArgumentList @(
         "--USR", $config.username,
         "--PSW", $password,
         "--URL", $config.url,
@@ -580,7 +579,7 @@ $trigger = New-ScheduledTaskTrigger -Daily -At 6:00AM
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $principal = New-ScheduledTaskPrincipal -UserId "DOMAIN\ServiceAccount" -LogonType Password
 
-Register-ScheduledTask -TaskName "ChromeConnect-DataExtraction" -Action $action -Trigger $trigger -Settings $settings -Principal $principal
+Register-ScheduledTask -TaskName "WebConnect-DataExtraction" -Action $action -Trigger $trigger -Settings $settings -Principal $principal
 ```
 
 **Expected Outcome**:
@@ -596,7 +595,7 @@ Register-ScheduledTask -TaskName "ChromeConnect-DataExtraction" -Action $action 
 
 ### Example 7: Integration with Monitoring Systems
 
-**Scenario**: Integrating ChromeConnect with monitoring and alerting systems.
+**Scenario**: Integrating WebConnect with monitoring and alerting systems.
 
 **PowerShell Monitoring Integration**:
 ```powershell
@@ -604,7 +603,7 @@ Register-ScheduledTask -TaskName "ChromeConnect-DataExtraction" -Action $action 
 param(
     [string[]]$Systems = @("Portal", "HR", "Finance"),
     [string]$InfluxDBUrl = "http://localhost:8086",
-    [string]$Database = "chromeconnect_metrics"
+    [string]$Database = "webconnect_metrics"
 )
 
 # InfluxDB integration functions
@@ -646,7 +645,7 @@ function Test-SystemLogin {
     
     Write-Host "Testing login for $SystemName..." -ForegroundColor Cyan
     
-    $process = Start-Process -FilePath "ChromeConnect.exe" -ArgumentList @(
+    $process = Start-Process -FilePath "WebConnect.exe" -ArgumentList @(
         "--USR", $Config.username,
         "--PSW", $Config.password,
         "--URL", $Config.url,
@@ -672,17 +671,17 @@ function Test-SystemLogin {
     
     # Send to Prometheus (pushgateway)
     $prometheusMetrics = @"
-# HELP chromeconnect_login_duration_seconds Time taken for login attempt
-# TYPE chromeconnect_login_duration_seconds gauge
-chromeconnect_login_duration_seconds{system="$SystemName",environment="production"} $duration
+# HELP webconnect_login_duration_seconds Time taken for login attempt
+# TYPE webconnect_login_duration_seconds gauge
+webconnect_login_duration_seconds{system="$SystemName",environment="production"} $duration
 
-# HELP chromeconnect_login_success Login attempt success indicator
-# TYPE chromeconnect_login_success gauge
-chromeconnect_login_success{system="$SystemName",environment="production"} $(if ($success) { 1 } else { 0 })
+# HELP webconnect_login_success Login attempt success indicator
+# TYPE webconnect_login_success gauge
+webconnect_login_success{system="$SystemName",environment="production"} $(if ($success) { 1 } else { 0 })
 "@
     
     try {
-        Invoke-RestMethod -Uri "http://pushgateway:9091/metrics/job/chromeconnect/instance/$env:COMPUTERNAME" -Method POST -Body $prometheusMetrics
+        Invoke-RestMethod -Uri "http://pushgateway:9091/metrics/job/webconnect/instance/$env:COMPUTERNAME" -Method POST -Body $prometheusMetrics
         Write-Host "✅ Metrics sent to Prometheus" -ForegroundColor Green
     } catch {
         Write-Host "⚠️ Failed to send metrics to Prometheus: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -729,7 +728,7 @@ foreach ($system in $Systems) {
         # Slack notification on failure
         if (-not $result.Success) {
             $slackPayload = @{
-                text = "🚨 ChromeConnect Login Failure"
+                text = "🚨 WebConnect Login Failure"
                 attachments = @(@{
                     color = "danger"
                     fields = @(
@@ -769,11 +768,11 @@ $results | Format-Table System, Success, Duration, ExitCode, Timestamp -AutoSize
 
 ### Example 8: Selenium Test Suite Integration
 
-**Scenario**: Using ChromeConnect to pre-authenticate sessions for Selenium test suites.
+**Scenario**: Using WebConnect to pre-authenticate sessions for Selenium test suites.
 
 **C# Integration Example**:
 ```csharp
-// ChromeConnectTestBase.cs
+// WebConnectTestBase.cs
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using System;
@@ -782,7 +781,7 @@ using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [TestClass]
-public class ChromeConnectTestBase
+public class WebConnectTestBase
 {
     protected IWebDriver Driver;
     protected string BaseUrl;
@@ -793,24 +792,24 @@ public class ChromeConnectTestBase
     {
         BaseUrl = Environment.GetEnvironmentVariable("TEST_BASE_URL") ?? "https://test.company.com";
         
-        // Pre-authenticate using ChromeConnect
-        AuthenticateWithChromeConnect();
+        // Pre-authenticate using WebConnect
+        AuthenticateWithWebConnect();
         
         // Initialize Selenium with the authenticated session
         InitializeSeleniumDriver();
     }
 
-    private void AuthenticateWithChromeConnect()
+    private void AuthenticateWithWebConnect()
     {
         var username = Environment.GetEnvironmentVariable("TEST_USERNAME") ?? "test.user";
         var password = Environment.GetEnvironmentVariable("TEST_PASSWORD") ?? throw new InvalidOperationException("TEST_PASSWORD not set");
         var domain = Environment.GetEnvironmentVariable("TEST_DOMAIN") ?? "TEST";
 
-        var chromeConnectPath = Path.Combine(TestContext.TestRunDirectory, "ChromeConnect.exe");
+        var webConnectPath = Path.Combine(TestContext.TestRunDirectory, "WebConnect.exe");
         
         var processInfo = new ProcessStartInfo
         {
-            FileName = chromeConnectPath,
+            FileName = webConnectPath,
             Arguments = $"--USR {username} --PSW {password} --URL {BaseUrl}/login --DOM {domain} --INCOGNITO no --KIOSK no --CERT ignore",
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -830,7 +829,7 @@ public class ChromeConnectTestBase
             else
             {
                 var error = process.StandardError.ReadToEnd();
-                throw new InvalidOperationException($"ChromeConnect authentication failed with exit code {process.ExitCode}: {error}");
+                throw new InvalidOperationException($"WebConnect authentication failed with exit code {process.ExitCode}: {error}");
             }
         }
     }
@@ -839,8 +838,8 @@ public class ChromeConnectTestBase
     {
         var options = new ChromeOptions();
         
-        // Use the same user data directory that ChromeConnect used
-        var userDataDir = Path.Combine(Path.GetTempPath(), "ChromeConnect_UserData");
+        // Use the same user data directory that WebConnect used
+        var userDataDir = Path.Combine(Path.GetTempPath(), "WebConnect_UserData");
         options.AddArgument($"--user-data-dir={userDataDir}");
         
         // Additional options for test stability
@@ -866,7 +865,7 @@ public class ChromeConnectTestBase
 
 // Example test class using the base
 [TestClass]
-public class DashboardTests : ChromeConnectTestBase
+public class DashboardTests : WebConnectTestBase
 {
     [TestMethod]
     public void VerifyDashboardLoadsAfterAuthentication()
@@ -927,13 +926,13 @@ switch ($Environment) {
 # Retrieve password from secure store
 $env:TEST_PASSWORD = (Get-StoredCredential -Target "SeleniumTests-$Environment").GetNetworkCredential().Password
 
-Write-Host "Running Selenium tests with ChromeConnect pre-authentication..." -ForegroundColor Cyan
+Write-Host "Running Selenium tests with WebConnect pre-authentication..." -ForegroundColor Cyan
 Write-Host "Environment: $Environment" -ForegroundColor Yellow
 Write-Host "Test Category: $TestCategory" -ForegroundColor Yellow
 
-# Copy ChromeConnect to test output directory
+# Copy WebConnect to test output directory
 $testDir = ".\bin\Debug\net8.0"
-Copy-Item "ChromeConnect.exe" -Destination $testDir -Force
+Copy-Item "WebConnect.exe" -Destination $testDir -Force
 
 # Run tests with MSTest
 $testResults = & dotnet test --filter "TestCategory=$TestCategory" --logger "trx;LogFileName=TestResults.trx" --logger "console;verbosity=detailed"
@@ -984,7 +983,7 @@ Remove-Item $env:TEST_PASSWORD -ErrorAction SilentlyContinue
       "Microsoft": "Information"
     }
   },
-  "ChromeConnect": {
+  "WebConnect": {
     "DefaultTimeout": 60,
     "MaxRetryAttempts": 5,
     "ScreenshotOnError": true,
@@ -1009,7 +1008,7 @@ Remove-Item $env:TEST_PASSWORD -ErrorAction SilentlyContinue
       "Microsoft": "Error"
     }
   },
-  "ChromeConnect": {
+  "WebConnect": {
     "DefaultTimeout": 30,
     "MaxRetryAttempts": 3,
     "ScreenshotOnError": false,
@@ -1030,7 +1029,7 @@ Remove-Item $env:TEST_PASSWORD -ErrorAction SilentlyContinue
 **High-Performance Configuration**:
 ```json
 {
-  "ChromeConnect": {
+  "WebConnect": {
     "DefaultTimeout": 15,
     "MaxRetryAttempts": 2,
     "ScreenshotOnError": false,
@@ -1066,7 +1065,7 @@ Remove-Item $env:TEST_PASSWORD -ErrorAction SilentlyContinue
 
 **Debug Configuration Script**:
 ```powershell
-# Debug-ChromeConnect.ps1
+# Debug-WebConnect.ps1
 param(
     [string]$Url,
     [string]$Username,
@@ -1078,8 +1077,8 @@ param(
 
 function Enable-DebugLogging {
     # Set debug environment variables
-    $env:CHROMECONNECT_LOG_LEVEL = "Debug"
-    $env:CHROMECONNECT_SCREENSHOT_DIR = ".\debug-screenshots"
+    $env:WEBCONNECT_LOG_LEVEL = "Debug"
+    $env:WEBCONNECT_SCREENSHOT_DIR = ".\debug-screenshots"
     
     # Ensure debug directories exist
     @("debug-screenshots", "debug-logs", "network-logs") | ForEach-Object {
@@ -1093,50 +1092,50 @@ function Start-NetworkCapture {
     if ($CaptureNetwork) {
         Write-Host "Starting network capture..." -ForegroundColor Cyan
         
-        # Start Chrome with network logging
-        $chromeArgs = @(
+        # Start WebConnect with network logging
+        $webConnectArgs = @(
             "--enable-logging",
             "--log-level=0",
             "--enable-net-log",
             "--net-log-capture-mode=Everything",
-            "--log-file=.\network-logs\chrome-debug.log"
+            "--log-file=.\network-logs\webconnect-debug.log"
         )
         
-        return $chromeArgs
+        return $webConnectArgs
     }
     return @()
 }
 
 function Test-Prerequisites {
-    Write-Host "=== ChromeConnect Debug Prerequisites ===" -ForegroundColor Yellow
+    Write-Host "=== WebConnect Debug Prerequisites ===" -ForegroundColor Yellow
     
-    # Check Chrome installation
-    $chromePaths = @(
-        "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
-        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
-        "${env:LOCALAPPDATA}\Google\Chrome\Application\chrome.exe"
+    # Check WebConnect installation
+    $webConnectPaths = @(
+        "${env:ProgramFiles}\Google\Chrome\Application\webconnect.exe",
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\webconnect.exe",
+        "${env:LOCALAPPDATA}\Google\Chrome\Application\webconnect.exe"
     )
     
-    $chromeFound = $false
-    foreach ($path in $chromePaths) {
+    $webConnectFound = $false
+    foreach ($path in $webConnectPaths) {
         if (Test-Path $path) {
             $version = (Get-Item $path).VersionInfo.ProductVersion
-            Write-Host "✅ Chrome found: $path (Version: $version)" -ForegroundColor Green
-            $chromeFound = $true
+            Write-Host "✅ WebConnect found: $path (Version: $version)" -ForegroundColor Green
+            $webConnectFound = $true
             break
         }
     }
     
-    if (-not $chromeFound) {
-        Write-Host "❌ Chrome not found in standard locations" -ForegroundColor Red
+    if (-not $webConnectFound) {
+        Write-Host "❌ WebConnect not found in standard locations" -ForegroundColor Red
         return $false
     }
     
-    # Check ChromeConnect
-    if (Test-Path "ChromeConnect.exe") {
-        Write-Host "✅ ChromeConnect.exe found" -ForegroundColor Green
+    # Check WebConnect
+    if (Test-Path "WebConnect.exe") {
+        Write-Host "✅ WebConnect.exe found" -ForegroundColor Green
     } else {
-        Write-Host "❌ ChromeConnect.exe not found in current directory" -ForegroundColor Red
+        Write-Host "❌ WebConnect.exe not found in current directory" -ForegroundColor Red
         return $false
     }
     
@@ -1173,11 +1172,11 @@ function Start-DebugSession {
     
     if ($Verbose) {
         Write-Host "`nExecuting command:" -ForegroundColor Yellow
-        Write-Host "ChromeConnect.exe $($arguments -join ' ')" -ForegroundColor White
+        Write-Host "WebConnect.exe $($arguments -join ' ')" -ForegroundColor White
     }
     
     $startTime = Get-Date
-    $process = Start-Process -FilePath "ChromeConnect.exe" -ArgumentList $arguments -Wait -PassThru -NoNewWindow
+    $process = Start-Process -FilePath "WebConnect.exe" -ArgumentList $arguments -Wait -PassThru -NoNewWindow
     $endTime = Get-Date
     $duration = $endTime - $startTime
     
@@ -1232,7 +1231,7 @@ function Analyze-DebugResults {
         2 { 
             Write-Host "❌ Application Error: Check system configuration" -ForegroundColor Red
             Write-Host "Recommendations:" -ForegroundColor Yellow
-            Write-Host "  - Verify Chrome is properly installed" -ForegroundColor Yellow
+            Write-Host "  - Verify WebConnect is properly installed" -ForegroundColor Yellow
             Write-Host "  - Check network connectivity" -ForegroundColor Yellow
             Write-Host "  - Review error logs for specific issues" -ForegroundColor Yellow
         }
@@ -1262,13 +1261,13 @@ try {
     exit 1
 } finally {
     # Cleanup sensitive environment variables
-    Remove-Item Env:CHROMECONNECT_LOG_LEVEL -ErrorAction SilentlyContinue
+    Remove-Item Env:WEBCONNECT_LOG_LEVEL -ErrorAction SilentlyContinue
 }
 ```
 
 **Usage**:
 ```powershell
-.\Debug-ChromeConnect.ps1 -Url "https://portal.company.com/login" -Username "test.user" -Password "TestPass123" -Domain "TEST" -Verbose -CaptureNetwork
+.\Debug-WebConnect.ps1 -Url "https://portal.company.com/login" -Username "test.user" -Password "TestPass123" -Domain "TEST" -Verbose -CaptureNetwork
 ```
 
 ---
@@ -1280,17 +1279,17 @@ try {
 1. **Credential Management**:
    ```powershell
    # Use Windows Credential Manager
-   cmdkey /add:ChromeConnect-Production /user:prod.user /pass:SecurePassword
+   cmdkey /add:WebConnect-Production /user:prod.user /pass:SecurePassword
    
    # Retrieve in scripts
-   $credential = Get-StoredCredential -Target "ChromeConnect-Production"
+   $credential = Get-StoredCredential -Target "WebConnect-Production"
    ```
 
 2. **Environment Separation**:
    ```powershell
    # Use environment-specific configurations
    $env:ENVIRONMENT = "Production"
-   ChromeConnect.exe --USR $prodUser --PSW $prodPass --URL $prodUrl --DOM $prodDomain --INCOGNITO yes --KIOSK no --CERT enforce
+   WebConnect.exe --USR $prodUser --PSW $prodPass --URL $prodUrl --DOM $prodDomain --INCOGNITO yes --KIOSK no --CERT enforce
    ```
 
 3. **Logging Security**:
@@ -1298,7 +1297,7 @@ try {
    {
      "Logging": {
        "LogLevel": {
-         "ChromeConnect.Services.LoginPerformer": "Warning"
+         "WebConnect.Services.LoginPerformer": "Warning"
        }
      }
    }
@@ -1310,20 +1309,20 @@ try {
    ```powershell
    # Parallel execution for multiple systems
    $systems | ForEach-Object -Parallel {
-       & ChromeConnect.exe --USR $_.user --PSW $_.pass --URL $_.url --DOM $_.domain --INCOGNITO yes --KIOSK no --CERT ignore
+       & WebConnect.exe --USR $_.user --PSW $_.pass --URL $_.url --DOM $_.domain --INCOGNITO yes --KIOSK no --CERT ignore
    }
    ```
 
 2. **Resource Management**:
    ```powershell
-   # Monitor and cleanup Chrome processes
-   Get-Process chrome | Where-Object { $_.StartTime -lt (Get-Date).AddHours(-2) } | Stop-Process -Force
+   # Monitor and cleanup WebConnect processes
+   Get-Process webconnect | Where-Object { $_.StartTime -lt (Get-Date).AddHours(-2) } | Stop-Process -Force
    ```
 
 3. **Configuration Tuning**:
    ```json
    {
-     "ChromeConnect": {
+     "WebConnect": {
        "DefaultTimeout": 20,
        "Authentication": {
          "TypingDelay": 50
@@ -1337,10 +1336,10 @@ try {
 1. **Regular Health Checks**:
    ```powershell
    # Daily health check script
-   $result = & ChromeConnect.exe --USR $monitorUser --PSW $monitorPass --URL $healthUrl --DOM $domain --INCOGNITO yes --KIOSK no --CERT ignore
+   $result = & WebConnect.exe --USR $monitorUser --PSW $monitorPass --URL $healthUrl --DOM $domain --INCOGNITO yes --KIOSK no --CERT ignore
    
    if ($LASTEXITCODE -ne 0) {
-       Send-Alert -Message "ChromeConnect health check failed" -Severity "High"
+       Send-Alert -Message "WebConnect health check failed" -Severity "High"
    }
    ```
 
@@ -1353,8 +1352,8 @@ try {
 3. **Version Management**:
    ```powershell
    # Check for updates
-   $currentVersion = & ChromeConnect.exe --version
-   $latestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/yourorg/chromeconnect/releases/latest"
+   $currentVersion = & WebConnect.exe --version
+   $latestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/MaskoFortwana/webconnect/releases/latest"
    
    if ($latestRelease.tag_name -ne $currentVersion) {
        Write-Host "New version available: $($latestRelease.tag_name)"
@@ -1370,11 +1369,11 @@ try {
 - **Documentation**: [Full Documentation](../README.md)
 - **Command Reference**: [Command-line Reference](command-line-reference.md)
 - **Troubleshooting**: [Configuration and Troubleshooting Guide](configuration-troubleshooting.md)
-- **GitHub Issues**: [Report Issues](https://github.com/yourorg/chromeconnect/issues)
+- **GitHub Issues**: [Report Issues](https://github.com/MaskoFortwana/webconnect/issues)
 
 ### Community Examples
 
-Visit our [GitHub Discussions](https://github.com/yourorg/chromeconnect/discussions) for community-contributed examples and use cases.
+Visit our [GitHub Discussions](https://github.com/MaskoFortwana/webconnect/discussions) for community-contributed examples and use cases.
 
 ### Contributing Examples
 

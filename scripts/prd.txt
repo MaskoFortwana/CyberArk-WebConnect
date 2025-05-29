@@ -1,18 +1,18 @@
-# ChromeConnect AppLocker DLL Solution - Product Requirements Document
+# WebConnect AppLocker DLL Solution - Product Requirements Document
 
 ## Project Overview
-Implement Solution 1 for resolving AppLocker DLL blocking issues in ChromeConnect application. The current single-file deployment extracts DLLs to user temp folders which are blocked by AppLocker policies in production environments.
+Implement Solution 1 for resolving AppLocker DLL blocking issues in WebConnect application. The current single-file deployment extracts DLLs to user temp folders which are blocked by AppLocker policies in production environments.
 
 ## Problem Statement
-- ChromeConnect.exe extracts DLLs to `%OSDRIVE%\USERS\USERNAME\APPDATA\LOCAL\TEMP\.NET\CHROMECONNECT\` during execution
+- WebConnect.exe extracts DLLs to `%OSDRIVE%\USERS\USERNAME\APPDATA\LOCAL\TEMP\.NET\WEBCONNECT\` during execution
 - AppLocker blocks execution of DLLs from user temp folders in production
-- Need to redirect DLL extraction to approved directory: `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\`
+- Need to redirect DLL extraction to approved directory: `C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\`
 
 ## Technical Requirements
 
 ### Core Implementation
 1. **Environment Variable Configuration**
-   - Set `DOTNET_BUNDLE_EXTRACT_BASE_DIR=C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\`
+   - Set `DOTNET_BUNDLE_EXTRACT_BASE_DIR=C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\`
    - Ensure this is set before application execution
    - Should work for both development and production environments
 
@@ -56,7 +56,7 @@ Implement Solution 1 for resolving AppLocker DLL blocking issues in ChromeConnec
 - Test only up to successful build and extraction
 
 ## Success Criteria
-1. DLLs extract to `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\` instead of user temp
+1. DLLs extract to `C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\` instead of user temp
 2. Application builds and publishes successfully
 3. Extracted DLL folder is included in deployment package
 4. Environment variable configuration works correctly

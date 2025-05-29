@@ -1,6 +1,6 @@
-# Configuration and Troubleshooting Guide
+# WebConnect Configuration and Troubleshooting Guide
 
-This comprehensive guide covers ChromeConnect configuration options, common issues, and troubleshooting procedures.
+This comprehensive guide covers WebConnect configuration options, common issues, and troubleshooting procedures.
 
 ## 📋 Table of Contents
 
@@ -19,7 +19,7 @@ This comprehensive guide covers ChromeConnect configuration options, common issu
 
 ## 🔧 Configuration Overview
 
-ChromeConnect uses a hierarchical configuration system that prioritizes settings in the following order:
+WebConnect uses a hierarchical configuration system that prioritizes settings in the following order:
 
 1. **Command-line arguments** (highest priority)
 2. **Environment variables**
@@ -35,19 +35,19 @@ This allows for flexible deployment scenarios while maintaining sensible default
 ### 1. Command-line Arguments
 Primary method for runtime configuration:
 ```powershell
-ChromeConnect.exe --USR john.doe --PSW password --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore --debug
+WebConnect.exe --USR john.doe --PSW password --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore --debug
 ```
 
 ### 2. Environment Variables
 For system-wide or deployment-specific settings:
 ```powershell
 # PowerShell
-$env:CHROMECONNECT_LOG_LEVEL = "Debug"
-$env:CHROMECONNECT_TIMEOUT = "60"
+$env:WEBCONNECT_LOG_LEVEL = "Debug"
+$env:WEBCONNECT_TIMEOUT = "60"
 
 # CMD
-set CHROMECONNECT_LOG_LEVEL=Debug
-set CHROMECONNECT_TIMEOUT=60
+set WEBCONNECT_LOG_LEVEL=Debug
+set WEBCONNECT_TIMEOUT=60
 ```
 
 ### 3. Configuration File (appsettings.json)
@@ -61,7 +61,7 @@ For persistent application settings:
       "System": "Warning"
     }
   },
-  "ChromeConnect": {
+  "WebConnect": {
     "DefaultTimeout": 30,
     "MaxRetryAttempts": 3,
     "ScreenshotOnError": true,
@@ -76,10 +76,10 @@ For persistent application settings:
 
 ### Core Application Settings
 
-#### `ChromeConnect` Section
+#### `WebConnect` Section
 ```json
 {
-  "ChromeConnect": {
+  "WebConnect": {
     "DefaultTimeout": 30,              // Default operation timeout (seconds)
     "MaxRetryAttempts": 3,             // Maximum retry attempts for operations
     "ScreenshotOnError": true,         // Capture screenshots on errors
@@ -110,12 +110,12 @@ For persistent application settings:
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `CHROMECONNECT_LOG_LEVEL` | Override logging level | `Information` | `Debug` |
-| `CHROMECONNECT_TIMEOUT` | Default timeout (seconds) | `30` | `60` |
-| `CHROMECONNECT_SCREENSHOT_DIR` | Screenshot directory | `./screenshots` | `C:\Logs\Screenshots` |
-| `CHROMECONNECT_LOG_DIR` | Log file directory | `./logs` | `C:\Logs\ChromeConnect` |
-| `CHROMECONNECT_RETRY_ATTEMPTS` | Maximum retry attempts | `3` | `5` |
-| `CHROMECONNECT_TYPING_DELAY` | Typing delay (ms) | `100` | `200` |
+| `WEBCONNECT_LOG_LEVEL` | Override logging level | `Information` | `Debug` |
+| `WEBCONNECT_TIMEOUT` | Default timeout (seconds) | `30` | `60` |
+| `WEBCONNECT_SCREENSHOT_DIR` | Screenshot directory | `./screenshots` | `C:\Logs\Screenshots` |
+| `WEBCONNECT_LOG_DIR` | Log file directory | `./logs` | `C:\Logs\WebConnect` |
+| `WEBCONNECT_RETRY_ATTEMPTS` | Maximum retry attempts | `3` | `5` |
+| `WEBCONNECT_TYPING_DELAY` | Typing delay (ms) | `100` | `200` |
 | `CHROME_PATH` | Custom Chrome executable path | Auto-detect | `C:\Chrome\chrome.exe` |
 | `CHROMEDRIVER_PATH` | Custom ChromeDriver path | Auto-download | `C:\Drivers\chromedriver.exe` |
 
@@ -186,7 +186,7 @@ icacls ".\screenshots" /grant "${env:USERNAME}:(OI)(CI)F"
 |-------|----------|
 | Chrome not installed | Install [Google Chrome](https://www.google.com/chrome/) |
 | Insufficient permissions | Run as administrator |
-| Antivirus blocking | Add ChromeConnect to exclusions |
+| Antivirus blocking | Add WebConnect to exclusions |
 | Corrupted Chrome installation | Reinstall Chrome |
 | Missing dependencies | Install [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) |
 
@@ -198,296 +198,255 @@ icacls ".\screenshots" /grant "${env:USERNAME}:(OI)(CI)F"
 # Check Chrome processes
 Get-Process chrome -ErrorAction SilentlyContinue
 
-# Test with debug mode
-ChromeConnect.exe --debug --USR test --PSW test --URL https://google.com --DOM test --INCOGNITO yes --KIOSK no --CERT ignore
+# Test WebConnect browser launch
+WebConnect.exe --USR test --PSW test --URL about:blank --DOM test --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 ### 2. ChromeDriver Issues
 
-#### Issue: "ChromeDriver not found" or "Version mismatch"
+#### Issue: "ChromeDriver version mismatch"
 **Symptoms:**
-- Error about driver compatibility
-- Browser launches but automation fails
-- Version mismatch messages
+- Error message: "This version of ChromeDriver only supports Chrome version X"
+- Browser launches but fails to respond
+- Selenium exceptions
 
 **Solutions:**
+```powershell
+# Force ChromeDriver re-download
+Remove-Item -Path ".\drivers\chromedriver.exe" -Force -ErrorAction SilentlyContinue
 
-1. **Automatic Download (Recommended):**
-   ```powershell
-   # ChromeConnect automatically downloads compatible drivers
-   # Ensure internet connectivity
-   Test-NetConnection -ComputerName www.google.com -Port 443
-   ```
+# Set custom ChromeDriver path
+$env:CHROMEDRIVER_PATH = "C:\CustomDrivers\chromedriver.exe"
 
-2. **Manual Driver Management:**
-   ```powershell
-   # Download ChromeDriver manually
-   # 1. Check Chrome version
-   & "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe" --version
-   
-   # 2. Download matching driver from https://chromedriver.chromium.org/
-   # 3. Extract to PATH or set CHROMEDRIVER_PATH environment variable
-   $env:CHROMEDRIVER_PATH = "C:\path\to\chromedriver.exe"
-   ```
+# Manual ChromeDriver download
+Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/LATEST_RELEASE" -OutFile ".\temp_version.txt"
+$version = Get-Content ".\temp_version.txt"
+Invoke-WebRequest -Uri "https://chromedriver.storage.googleapis.com/$version/chromedriver_win32.zip" -OutFile ".\chromedriver.zip"
+```
 
-### 3. Login Form Detection Issues
+### 3. Login Detection Issues
 
-#### Issue: "Login form not detected"
+#### Issue: "Login form not found"
 **Symptoms:**
-- Error: "Could not find login form"
-- Screenshot shows the page but no interaction
-- Process exits with code 1
+- Error message: "Unable to find login form elements"
+- Browser opens but no interaction occurs
+- Timeout waiting for elements
 
-**Diagnostic Steps:**
+**Troubleshooting Steps:**
+```powershell
+# Enable debug logging
+WebConnect.exe --USR test --PSW test --URL https://example.com --DOM test --INCOGNITO yes --KIOSK no --CERT ignore --debug
 
-1. **Verify URL:**
-   ```powershell
-   # Test URL accessibility
-   Invoke-WebRequest -Uri "https://your-target-site.com" -Method Head
-   ```
+# Increase detection timeout
+$env:WEBCONNECT_TIMEOUT = "60"
 
-2. **Check Page Structure:**
-   - Review screenshot in `./screenshots/` directory
-   - Ensure you're pointing to the login page, not a landing page
-   - Check if the site requires specific browser settings
+# Test manual navigation
+WebConnect.exe --USR test --PSW test --URL https://example.com --DOM test --INCOGNITO no --KIOSK no --CERT ignore
+# Then manually inspect the page
+```
 
-3. **Enable Debug Mode:**
-   ```powershell
-   ChromeConnect.exe --debug --USR test --PSW test --URL https://your-site.com --DOM test --INCOGNITO no --KIOSK no --CERT ignore
-   ```
+### 4. Authentication Issues
 
-4. **Site-Specific Issues:**
-
-| Site Type | Common Issue | Solution |
-|-----------|--------------|----------|
-| SPA (Single Page App) | Dynamic form loading | Wait longer, use `--debug` to see timing |
-| iframe-based login | Form in iframe | Check if popup handler is working |
-| JavaScript-heavy | Form created dynamically | Verify JavaScript execution is enabled |
-| Multi-step login | Multiple pages | May need manual handling |
-
-### 4. Authentication Failures
-
-#### Issue: "Login failed" with valid credentials
+#### Issue: "Login verification failed"
 **Symptoms:**
-- Credentials are correct but login fails
-- Process exits with code 1
-- No error messages visible
-
-**Investigation Steps:**
-
-1. **Check Screenshots:**
-   ```powershell
-   # Review latest screenshots
-   Get-ChildItem -Path ".\screenshots" -Filter "*.png" | Sort-Object LastWriteTime -Descending | Select-Object -First 5
-   ```
-
-2. **Manual Verification:**
-   - Try logging in manually with the same credentials
-   - Check for CAPTCHAs or additional security measures
-   - Verify domain field requirements
-
-3. **Common Causes:**
-
-| Cause | Solution |
-|-------|----------|
-| CAPTCHA required | Use session management to reduce CAPTCHAs |
-| Two-factor authentication | Handle 2FA flow (may need customization) |
-| Rate limiting | Add delays between attempts |
-| Session requirements | Enable incognito mode or session management |
-| Special characters | Ensure proper encoding/escaping |
-
-### 5. Network and Connectivity Issues
-
-#### Issue: Timeouts and network errors
-**Symptoms:**
-- "Navigation timeout" errors
-- Slow performance
-- Intermittent failures
+- Credentials entered successfully
+- Form submitted but verification fails
+- Appears to be logged in manually but WebConnect reports failure
 
 **Solutions:**
+```powershell
+# Enable screenshots for debugging
+WebConnect.exe --USR user --PSW pass --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore
 
-1. **Increase Timeouts:**
-   ```json
-   {
-     "ChromeConnect": {
-       "DefaultTimeout": 60,
-       "BrowserOptions": {
-         "PageLoadTimeout": 60
-       }
-     }
-   }
-   ```
+# Check screenshots directory
+Get-ChildItem .\screenshots\*.png | Sort-Object LastWriteTime -Descending
 
-2. **Network Diagnostics:**
-   ```powershell
-   # Test connectivity
-   Test-NetConnection -ComputerName target-domain.com -Port 443
-   
-   # Check DNS resolution
-   Resolve-DnsName target-domain.com
-   
-   # Test with different DNS
-   nslookup target-domain.com 8.8.8.8
-   ```
+# Increase verification timeout
+$env:WEBCONNECT_TIMEOUT = "45"
+```
 
-3. **Proxy Configuration:**
-   ```powershell
-   # If behind corporate proxy, configure Chrome
-   $env:CHROME_PROXY = "http://proxy.company.com:8080"
-   ```
+### 5. Network and Certificate Issues
+
+#### Issue: "Certificate validation failed"
+**Symptoms:**
+- SSL/TLS handshake errors
+- "Certificate not trusted" messages
+- Connection timeouts
+
+**Solutions:**
+```powershell
+# Ignore certificate validation (development only)
+WebConnect.exe --USR user --PSW pass --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore
+
+# Add certificate to Windows certificate store
+# (Requires administrator privileges)
+Import-Certificate -FilePath ".\certificate.crt" -CertStoreLocation Cert:\LocalMachine\Root
+
+# Test connectivity
+Test-NetConnection -ComputerName "example.com" -Port 443
+```
 
 ---
 
 ## 🔍 Troubleshooting Procedures
 
-### Systematic Troubleshooting Approach
+### Systematic Diagnostics
 
-#### Step 1: Enable Debug Mode
+#### Step 1: Basic Environment Check
 ```powershell
-ChromeConnect.exe --debug --USR your-username --PSW your-password --URL https://your-site.com --DOM your-domain --INCOGNITO yes --KIOSK no --CERT ignore
+# Run environment diagnostics
+$diagnostics = @{
+    "OS" = (Get-ComputerInfo).WindowsProductName
+    "PowerShell" = $PSVersionTable.PSVersion
+    "Chrome" = if (Test-Path "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe") { "Installed" } else { "Not Found" }
+    "DotNet" = [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
+    "WorkingDirectory" = Get-Location
+    "ExecutionPolicy" = Get-ExecutionPolicy
+}
+
+$diagnostics | ConvertTo-Json -Depth 2
 ```
 
-#### Step 2: Review Logs
+#### Step 2: Configuration Validation
 ```powershell
-# Check latest log file
-Get-Content -Path ".\logs\chromeconnect-$(Get-Date -Format 'yyyyMMdd').log" -Tail 50
-
-# Search for errors
-Select-String -Path ".\logs\*.log" -Pattern "ERROR|Exception|Failed" | Select-Object -Last 10
-```
-
-#### Step 3: Analyze Screenshots
-```powershell
-# Open latest screenshot
-$latestScreenshot = Get-ChildItem -Path ".\screenshots" -Filter "*.png" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-Start-Process $latestScreenshot.FullName
-```
-
-#### Step 4: Verify Configuration
-```powershell
-# Check effective configuration
-ChromeConnect.exe --help
-
-# Verify environment variables
-Get-ChildItem Env:CHROMECONNECT_*
-```
-
-### Advanced Diagnostics
-
-#### Process Monitoring
-```powershell
-# Monitor Chrome processes
-Get-Process | Where-Object {$_.ProcessName -like "*chrome*"} | Format-Table ProcessName, Id, WorkingSet, StartTime
-
-# Monitor ChromeConnect resource usage
-$process = Get-Process ChromeConnect -ErrorAction SilentlyContinue
-if ($process) {
-    Write-Host "Memory Usage: $([math]::Round($process.WorkingSet64/1MB, 2)) MB"
-    Write-Host "CPU Time: $($process.TotalProcessorTime)"
+# Validate configuration file
+if (Test-Path ".\appsettings.json") {
+    try {
+        $config = Get-Content ".\appsettings.json" | ConvertFrom-Json
+        Write-Host "✓ Configuration file is valid JSON"
+        $config.WebConnect | ConvertTo-Json
+    } catch {
+        Write-Host "✗ Configuration file has syntax errors: $($_.Exception.Message)"
+    }
+} else {
+    Write-Host "⚠ No appsettings.json found (using defaults)"
 }
 ```
 
-#### Network Analysis
+#### Step 3: Connectivity Test
 ```powershell
-# Monitor network connections
-Get-NetTCPConnection | Where-Object {$_.OwningProcess -eq (Get-Process chrome).Id}
+# Test network connectivity to target URL
+param([string]$TargetUrl = "https://example.com")
 
-# Check for blocked connections
-Get-WinEvent -FilterHashtable @{LogName='System'; ID=4625} -MaxEvents 10
+$uri = [System.Uri]$TargetUrl
+$connection = Test-NetConnection -ComputerName $uri.Host -Port $uri.Port -InformationLevel Detailed
+
+@{
+    "Host" = $uri.Host
+    "Port" = $uri.Port
+    "Connected" = $connection.TcpTestSucceeded
+    "Latency" = $connection.PingReplyDetails.RoundtripTime
+    "DNS_Resolution" = $connection.ResolvedAddresses
+} | ConvertTo-Json
+```
+
+#### Step 4: Minimal Test Run
+```powershell
+# Perform minimal test to isolate issues
+WebConnect.exe --USR "test" --PSW "test" --URL "about:blank" --DOM "test" --INCOGNITO yes --KIOSK no --CERT ignore --debug
+
+# Check exit code
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓ Basic browser launch successful"
+} else {
+    Write-Host "✗ Basic browser launch failed with exit code: $LASTEXITCODE"
+}
+```
+
+### Advanced Debugging
+
+#### Enable Verbose Logging
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft": "Information",
+      "System": "Information",
+      "WebConnect": "Trace"
+    }
+  }
+}
+```
+
+#### Performance Profiling
+```powershell
+# Profile WebConnect execution
+$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+$process = Start-Process -FilePath "WebConnect.exe" -ArgumentList @(
+    "--USR", "user",
+    "--PSW", "password",
+    "--URL", "https://example.com",
+    "--DOM", "domain",
+    "--INCOGNITO", "yes",
+    "--KIOSK", "no",
+    "--CERT", "ignore"
+) -Wait -PassThru -NoNewWindow
+
+$stopwatch.Stop()
+
+@{
+    "ExecutionTime" = $stopwatch.Elapsed.ToString()
+    "ExitCode" = $process.ExitCode
+    "PeakMemoryMB" = [math]::Round($process.PeakWorkingSet64/1MB, 2)
+    "ProcessorTime" = $process.TotalProcessorTime.ToString()
+} | ConvertTo-Json
 ```
 
 ---
 
-## 🔧 Diagnostic Tools
+## 🛠 Diagnostic Tools
 
 ### Built-in Diagnostics
 
-#### Health Check Script
+#### System Information Collection
 ```powershell
-# ChromeConnect-HealthCheck.ps1
-Write-Host "=== ChromeConnect Health Check ===" -ForegroundColor Green
-
-# Check Chrome installation
-$chromePath = Get-Command chrome -ErrorAction SilentlyContinue
-if ($chromePath) {
-    Write-Host "✅ Chrome: Found at $($chromePath.Source)"
-} else {
-    Write-Host "❌ Chrome: Not found in PATH"
-}
-
-# Check directories
-@("logs", "screenshots") | ForEach-Object {
-    if (Test-Path $_) {
-        Write-Host "✅ Directory '$_': Exists"
-    } else {
-        Write-Host "⚠️ Directory '$_': Missing (will be created)"
-    }
-}
-
-# Check network connectivity
-try {
-    $response = Invoke-WebRequest -Uri "https://www.google.com" -TimeoutSec 10 -UseBasicParsing
-    Write-Host "✅ Internet: Connected (Status: $($response.StatusCode))"
-} catch {
-    Write-Host "❌ Internet: Connection failed"
-}
-
-# Check permissions
-try {
-    $testFile = ".\permission-test.tmp"
-    "test" | Out-File -FilePath $testFile
-    Remove-Item $testFile
-    Write-Host "✅ Permissions: Write access confirmed"
-} catch {
-    Write-Host "❌ Permissions: No write access"
-}
-
-Write-Host "=== Health Check Complete ===" -ForegroundColor Green
-```
-
-#### Configuration Validator
-```powershell
-# Validate-ChromeConnectConfig.ps1
-param(
-    [string]$ConfigPath = ".\appsettings.json"
-)
-
-if (Test-Path $ConfigPath) {
-    try {
-        $config = Get-Content $ConfigPath | ConvertFrom-Json
-        Write-Host "✅ Configuration: Valid JSON" -ForegroundColor Green
-        
-        # Validate required sections
-        if ($config.ChromeConnect) {
-            Write-Host "✅ ChromeConnect section: Found" -ForegroundColor Green
-        } else {
-            Write-Host "⚠️ ChromeConnect section: Missing" -ForegroundColor Yellow
+# Comprehensive system report
+function Get-WebConnectDiagnostics {
+    @{
+        "Timestamp" = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        "System" = @{
+            "OS" = (Get-ComputerInfo).WindowsProductName
+            "Version" = (Get-ComputerInfo).WindowsVersion
+            "Memory_GB" = [math]::Round((Get-WmiObject Win32_ComputerSystem).TotalPhysicalMemory/1GB, 2)
+            "Processor" = (Get-WmiObject Win32_Processor).Name
+            "Architecture" = (Get-WmiObject Win32_Processor).Architecture
         }
-        
-        # Validate timeout values
-        if ($config.ChromeConnect.DefaultTimeout -gt 0) {
-            Write-Host "✅ Timeout configuration: Valid" -ForegroundColor Green
-        } else {
-            Write-Host "⚠️ Timeout configuration: Invalid or missing" -ForegroundColor Yellow
+        "Software" = @{
+            "PowerShell" = $PSVersionTable.PSVersion.ToString()
+            "DotNet" = [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
+            "Chrome" = if ($chromePath = Get-ChildItem "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe" -ErrorAction SilentlyContinue) { 
+                & $chromePath.FullName --version 
+            } else { "Not Found" }
         }
-        
-    } catch {
-        Write-Host "❌ Configuration: Invalid JSON - $($_.Exception.Message)" -ForegroundColor Red
-    }
-} else {
-    Write-Host "⚠️ Configuration: File not found at $ConfigPath" -ForegroundColor Yellow
+        "Environment" = @{
+            "WorkingDirectory" = Get-Location
+            "TempDirectory" = $env:TEMP
+            "UserProfile" = $env:USERPROFILE
+            "ExecutionPolicy" = Get-ExecutionPolicy
+        }
+        "WebConnect" = @{
+            "ConfigExists" = Test-Path ".\appsettings.json"
+            "LogsDirectory" = if (Test-Path ".\logs") { (Get-ChildItem ".\logs").Count } else { "Not Found" }
+            "ScreenshotsDirectory" = if (Test-Path ".\screenshots") { (Get-ChildItem ".\screenshots").Count } else { "Not Found" }
+        }
+    } | ConvertTo-Json -Depth 3
 }
+
+# Save diagnostics report
+Get-WebConnectDiagnostics | Out-File "webconnect-diagnostics.json"
 ```
 
 ### External Tools
 
 #### Performance Monitoring
 ```powershell
-# Monitor ChromeConnect performance
+# Monitor WebConnect performance
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
-# Run ChromeConnect with timing
-$process = Start-Process -FilePath "ChromeConnect.exe" -ArgumentList @(
+# Run WebConnect with timing
+$process = Start-Process -FilePath "WebConnect.exe" -ArgumentList @(
     "--USR", "test",
     "--PSW", "test", 
     "--URL", "https://example.com",
@@ -513,7 +472,7 @@ Write-Host "Peak Memory: $([math]::Round($process.PeakWorkingSet64/1MB, 2)) MB"
 #### High-Performance Configuration
 ```json
 {
-  "ChromeConnect": {
+  "WebConnect": {
     "DefaultTimeout": 20,
     "MaxRetryAttempts": 2,
     "ScreenshotOnError": false,
@@ -538,7 +497,7 @@ Write-Host "Peak Memory: $([math]::Round($process.PeakWorkingSet64/1MB, 2)) MB"
 #### Memory Optimization
 ```json
 {
-  "ChromeConnect": {
+  "WebConnect": {
     "ScreenshotOnError": false,
     "LoggingLevel": "Warning",
     "BrowserOptions": {
@@ -577,7 +536,7 @@ Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
 #### Secure Configuration Template
 ```json
 {
-  "ChromeConnect": {
+  "WebConnect": {
     "ScreenshotOnError": false,
     "LoggingLevel": "Warning",
     "BrowserOptions": {
@@ -597,7 +556,7 @@ Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
 ```powershell
 # Use secure environment variable storage
 # Store sensitive configuration in User scope instead of Machine scope
-[Environment]::SetEnvironmentVariable("CHROMECONNECT_LOG_LEVEL", "Warning", "User")
+[Environment]::SetEnvironmentVariable("WEBCONNECT_LOG_LEVEL", "Warning", "User")
 
 # Clear sensitive variables after use
 Remove-Item Env:TEMP_PASSWORD -ErrorAction SilentlyContinue
@@ -613,7 +572,7 @@ Remove-Item Env:TEMP_PASSWORD -ErrorAction SilentlyContinue
       "Default": "Information",
       "Microsoft": "Warning",
       "System": "Warning",
-      "ChromeConnect.Services.LoginPerformer": "Warning"
+      "WebConnect.Services.LoginPerformer": "Warning"
     }
   }
 }
@@ -647,12 +606,12 @@ Remove-Item Env:TEMP_PASSWORD -ErrorAction SilentlyContinue
    } | ConvertTo-Json
    ```
 
-2. **ChromeConnect Configuration:**
+2. **WebConnect Configuration:**
    ```powershell
    # Gather configuration (remove sensitive data)
-   ChromeConnect.exe --help > config-help.txt
+   WebConnect.exe --help > config-help.txt
    Get-Content .\appsettings.json > config-file.txt
-   Get-ChildItem Env:CHROMECONNECT_* > config-env.txt
+   Get-ChildItem Env:WEBCONNECT_* > config-env.txt
    ```
 
 3. **Error Information:**
@@ -664,10 +623,10 @@ Remove-Item Env:TEMP_PASSWORD -ErrorAction SilentlyContinue
 
 ### Support Channels
 
-- **Documentation**: [ChromeConnect Documentation](../README.md)
-- **GitHub Issues**: [Report Issues](https://github.com/yourorg/chromeconnect/issues)
-- **Community**: [GitHub Discussions](https://github.com/yourorg/chromeconnect/discussions)
-- **Email Support**: support@chromeconnect.com
+- **Documentation**: [WebConnect Documentation](../README.md)
+- **GitHub Issues**: [Report Issues](https://github.com/MaskoFortwana/webconnect/issues)
+- **Community**: [GitHub Discussions](https://github.com/MaskoFortwana/webconnect/discussions)
+- **Email Support**: support@webconnect.com
 
 ### Self-Help Resources
 

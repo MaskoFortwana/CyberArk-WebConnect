@@ -1,11 +1,11 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Final Integration and Validation Script for ChromeConnect DLL Extraction Solution
+    Final Integration and Validation Script for WebConnect DLL Extraction Solution
 
 .DESCRIPTION
     This script performs comprehensive integration testing and validation of the entire
-    DLL extraction solution for ChromeConnect.
+    DLL extraction solution for WebConnect.
 
 .PARAMETER TestVersion
     Version to use for the integration test (default: 1.0.5-integration-test)
@@ -41,7 +41,7 @@ param (
 $ErrorActionPreference = "Continue"
 $IntegrationStartTime = Get-Date
 $ValidationResults = @()
-$ExpectedExtractionPath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+$ExpectedExtractionPath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
 $TestOutputDir = "./integration-test-results"
 $ReportFile = "$TestOutputDir/FinalIntegrationReport.md"
 
@@ -235,11 +235,11 @@ function Test-CleanBuildProcess {
             if (Test-Path "./publish") {
                 Remove-Item "./publish" -Recurse -Force -ErrorAction SilentlyContinue
             }
-            if (Test-Path "./src/ChromeConnect/bin") {
-                Remove-Item "./src/ChromeConnect/bin" -Recurse -Force -ErrorAction SilentlyContinue
+            if (Test-Path "./src/WebConnect/bin") {
+                Remove-Item "./src/WebConnect/bin" -Recurse -Force -ErrorAction SilentlyContinue
             }
-            if (Test-Path "./src/ChromeConnect/obj") {
-                Remove-Item "./src/ChromeConnect/obj" -Recurse -Force -ErrorAction SilentlyContinue
+            if (Test-Path "./src/WebConnect/obj") {
+                Remove-Item "./src/WebConnect/obj" -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
         
@@ -269,7 +269,7 @@ function Test-CleanBuildProcess {
         }
         
         # Verify build outputs
-        $executablePath = "./publish/ChromeConnect.exe"
+        $executablePath = "./publish/WebConnect.exe"
         $executableExists = Test-Path $executablePath
         Assert-ValidationCriteria $executableExists "Executable created successfully" "BuildProcess" "Path: $executablePath"
         
@@ -281,7 +281,7 @@ function Test-CleanBuildProcess {
         }
         
         # Verify ZIP package
-        $zipPath = "./ChromeConnect-$TestVersion-win-x64.zip"
+        $zipPath = "./WebConnect-$TestVersion-win-x64.zip"
         $zipExists = Test-Path $zipPath
         Assert-ValidationCriteria $zipExists "ZIP package created successfully" "BuildProcess" "Path: $zipPath"
         
@@ -328,7 +328,7 @@ function Test-DllExtractionProcess {
             Write-InfoMessage "Found $($preExtractionDirs.Count) existing directories in extraction path"
             
             # Test actual DLL extraction if executable exists
-            $executablePath = "./publish/ChromeConnect.exe"
+            $executablePath = "./publish/WebConnect.exe"
             if (Test-Path $executablePath) {
                 Write-InfoMessage "Testing DLL extraction with built executable..."
                 
@@ -404,7 +404,7 @@ function Test-DeploymentPackage {
         }
         
         # Check ZIP package includes ExtractedDLLs
-        $zipPath = "./ChromeConnect-$TestVersion-win-x64.zip"
+        $zipPath = "./WebConnect-$TestVersion-win-x64.zip"
         if (Test-Path $zipPath) {
             try {
                 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -434,7 +434,7 @@ function Test-ExistingFunctionality {
     
     try {
         # Test executable can run basic commands
-        $executablePath = "./publish/ChromeConnect.exe"
+        $executablePath = "./publish/WebConnect.exe"
         if (Test-Path $executablePath) {
             try {
                 # Test version command
@@ -511,7 +511,7 @@ function Generate-FinalReport {
         Write-InfoMessage "Generating final integration report..."
         
         $reportContent = @()
-        $reportContent += "# ChromeConnect DLL Extraction Solution - Final Integration Report"
+        $reportContent += "# WebConnect DLL Extraction Solution - Final Integration Report"
         $reportContent += ""
         $reportContent += "**Generated:** $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
         $reportContent += "**Test Version:** $TestVersion"
@@ -519,7 +519,7 @@ function Generate-FinalReport {
         $reportContent += ""
         $reportContent += "## Executive Summary"
         $reportContent += ""
-        $reportContent += "This report summarizes the final integration testing and validation of the ChromeConnect DLL extraction solution."
+        $reportContent += "This report summarizes the final integration testing and validation of the WebConnect DLL extraction solution."
         $reportContent += ""
         
         # Calculate overall statistics
@@ -564,7 +564,7 @@ function Generate-FinalReport {
         
         $dllExtractionResults = $ValidationResults | Where-Object { $_.Category -eq "DllExtraction" }
         $dllExtractionPassed = ($dllExtractionResults | Where-Object { $_.Passed }).Count -eq $dllExtractionResults.Count
-        $reportContent += "1. **DLLs extract to C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\**"
+        $reportContent += "1. **DLLs extract to C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\**"
         $reportContent += "   - Status: $(if ($dllExtractionPassed) { 'VALIDATED' } else { 'FAILED' })"
         $reportContent += ""
         
@@ -638,7 +638,7 @@ function Generate-FinalReport {
 
 # Main execution
 try {
-    Write-HeaderMessage "CHROMECONNECT DLL EXTRACTION SOLUTION - FINAL INTEGRATION VALIDATION"
+    Write-HeaderMessage "WEBCONNECT DLL EXTRACTION SOLUTION - FINAL INTEGRATION VALIDATION"
     Write-InfoMessage "Test Version: $TestVersion"
     Write-InfoMessage "Started: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
     Write-InfoMessage "Test Output Directory: $TestOutputDir"

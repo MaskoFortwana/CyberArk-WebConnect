@@ -1,16 +1,16 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: ChromeConnect Deployment Script
-:: This script helps deploy ChromeConnect with ChromeDriver to a target directory
+:: WebConnect Deployment Script
+:: This script helps deploy WebConnect with ChromeDriver to a target directory
 
 echo.
-echo ==================== ChromeConnect Deployment Script ====================
+echo ==================== WebConnect Deployment Script ====================
 echo.
 
 :: Default values
-set "TARGET_DIR=C:\ChromeConnect"
-set "SOURCE_EXE=publish\ChromeConnect.exe"
+set "TARGET_DIR=C:\WebConnect"
+set "SOURCE_EXE=publish\WebConnect.exe"
 set "CHROMEDRIVER_URL=https://chromedriver.storage.googleapis.com/LATEST_RELEASE"
 
 :: Parse command line arguments
@@ -35,7 +35,7 @@ echo.
 
 :: Check if source executable exists
 if not exist "%SOURCE_EXE%" (
-    echo ERROR: ChromeConnect.exe not found at %SOURCE_EXE%
+    echo ERROR: WebConnect.exe not found at %SOURCE_EXE%
     echo Please run the build script first: publish.ps1
     exit /b 1
 )
@@ -51,11 +51,11 @@ if not exist "%TARGET_DIR%" (
     )
 )
 
-:: Copy ChromeConnect.exe
-echo Copying ChromeConnect.exe...
+:: Copy WebConnect.exe
+echo Copying WebConnect.exe...
 copy "%SOURCE_EXE%" "%TARGET_DIR%\" >nul
 if errorlevel 1 (
-    echo ERROR: Failed to copy ChromeConnect.exe
+    echo ERROR: Failed to copy WebConnect.exe
     exit /b 1
 )
 
@@ -73,12 +73,12 @@ if exist "%TARGET_DIR%\chromedriver.exe" (
 ) else (
     echo WARNING: ChromeDriver.exe not found in %TARGET_DIR%
     echo.
-    echo ChromeConnect requires ChromeDriver.exe to be in the same directory.
+    echo WebConnect requires ChromeDriver.exe to be in the same directory.
     echo Please download ChromeDriver from:
     echo https://chromedriver.chromium.org/downloads
     echo.
     echo Or use WebDriverManager to auto-download compatible version:
-    echo ChromeConnect will attempt to download ChromeDriver automatically on first run.
+    echo WebConnect will attempt to download ChromeDriver automatically on first run.
 )
 
 :: Create logs directory
@@ -92,11 +92,11 @@ if not exist "%TARGET_DIR%\screenshots" mkdir "%TARGET_DIR%\screenshots" 2>nul
 echo.
 echo ==================== Deployment Complete ====================
 echo.
-echo ChromeConnect has been deployed to: %TARGET_DIR%
+echo WebConnect has been deployed to: %TARGET_DIR%
 echo.
-echo To run ChromeConnect:
+echo To run WebConnect:
 echo   cd "%TARGET_DIR%"
-echo   ChromeConnect.exe --help
+echo   WebConnect.exe --help
 echo.
 echo To add to PATH (run as administrator):
 echo   setx PATH "%%PATH%%;%TARGET_DIR%" /M
@@ -108,21 +108,21 @@ goto :end
 
 :show_help
 echo.
-echo ChromeConnect Deployment Script
+echo WebConnect Deployment Script
 echo.
 echo Usage: deploy.bat [options]
 echo.
 echo Options:
-echo   --target DIR     Target deployment directory (default: C:\ChromeConnect)
+echo   --target DIR     Target deployment directory (default: C:\WebConnect)
 echo   --help           Show this help message
 echo.
 echo Examples:
 echo   deploy.bat
-echo   deploy.bat --target "C:\Program Files\ChromeConnect"
-echo   deploy.bat --target "D:\Tools\ChromeConnect"
+echo   deploy.bat --target "C:\Program Files\WebConnect"
+echo   deploy.bat --target "D:\Tools\WebConnect"
 echo.
 echo Requirements:
-echo   - ChromeConnect.exe must exist in publish\ directory
+echo   - WebConnect.exe must exist in publish\ directory
 echo   - Run publish.ps1 first to build the executable
 echo   - Administrator rights may be required for system directories
 echo.

@@ -1,21 +1,21 @@
-# ChromeConnect Deployment Guide
+# WebConnect Deployment Guide
 
-This guide provides instructions for building, deploying, and installing ChromeConnect as a self-contained Windows executable.
+This guide provides instructions for building, deploying, and installing WebConnect as a self-contained Windows executable.
 
 ## Overview
 
-ChromeConnect can be built as a self-contained Windows executable that includes all necessary dependencies, eliminating the need for users to install .NET 8.0 or any other dependencies on their systems.
+WebConnect can be built as a self-contained Windows executable that includes all necessary dependencies, eliminating the need for users to install .NET 8.0 or any other dependencies on their systems.
 
 ## System Requirements
 
-### For Running ChromeConnect
+### For Running WebConnect
 - **Operating System**: Windows 7 SP1 or later (Windows 10/11 recommended)
 - **Architecture**: x64 (64-bit)
 - **Memory**: Minimum 2 GB RAM (4 GB recommended)
 - **Storage**: 100 MB free disk space
 - **Browser**: Chrome will be automatically downloaded and managed by WebDriverManager
 
-### For Building ChromeConnect
+### For Building WebConnect
 - **Operating System**: Windows, macOS, or Linux
 - **.NET SDK**: .NET 8.0 or later
 - **PowerShell**: For running the build scripts (included with Windows)
@@ -76,7 +76,7 @@ You can also build manually using .NET CLI:
 
 ```bash
 # Release build with optimization
-dotnet publish src/ChromeConnect -c Release -r win-x64 --self-contained true \
+dotnet publish src/WebConnect -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true \
   -p:PublishTrimmed=true \
   -p:PublishReadyToRun=true \
@@ -85,7 +85,7 @@ dotnet publish src/ChromeConnect -c Release -r win-x64 --self-contained true \
   -o ./publish
 
 # Debug build (no optimization for easier debugging)
-dotnet publish src/ChromeConnect -c Debug -r win-x64 --self-contained true \
+dotnet publish src/WebConnect -c Debug -r win-x64 --self-contained true \
   -p:PublishSingleFile=true \
   -o ./publish
 ```
@@ -96,7 +96,7 @@ After a successful build, you will find:
 
 ```
 ./publish/
-├── ChromeConnect.exe          # Main executable (self-contained, ~45MB)
+├── WebConnect.exe            # Main executable (self-contained, ~45MB)
 ├── ExtractedDLLs/            # Pre-extracted dependencies (AppLocker compatible)
 │   └── [hash-directory]/     # Contains all .NET runtime dependencies (~85MB)
 │       ├── Microsoft.Extensions.*.dll
@@ -105,7 +105,7 @@ After a successful build, you will find:
 │       └── [180+ additional DLL files]
 └── README.md                 # Documentation
 
-./ChromeConnect-1.0.0-win-x64.zip  # Distribution package (if created)
+./WebConnect-1.0.0-win-x64.zip  # Distribution package (if created)
 ```
 
 ### DLL Extraction Solution
@@ -127,8 +127,8 @@ The build process now includes **automatic DLL extraction** to ensure compatibil
 **Expected Output:**
 ```
 ==================== DLL EXTRACTION SIMULATION ====================
-INFO: Target extraction path: C:\temp\ChromeConnect\extracted
-INFO: Running DLL extraction simulation with: ./publish/ChromeConnect.exe
+INFO: Target extraction path: C:\temp\WebConnect\extracted
+INFO: Running DLL extraction simulation with: ./publish/WebConnect.exe
 INFO: Extraction process completed in 2.34 seconds with exit code: 4
 SUCCESS: Found extraction directory: 8e89e2c6a5d4... with 189 DLL files (85.68 MB)
 SUCCESS: Successfully copied extracted DLLs to deployment package
@@ -136,29 +136,29 @@ SUCCESS: Successfully copied extracted DLLs to deployment package
 
 For detailed information about the DLL extraction solution, see [DLL_EXTRACTION_SOLUTION.md](DLL_EXTRACTION_SOLUTION.md).
 
-**Note**: No configuration files are needed! All configuration is embedded in the executable. Logs are automatically written to `%TEMP%\ChromeConnect\`.
+**Note**: No configuration files are needed! All configuration is embedded in the executable. Logs are automatically written to `%TEMP%\WebConnect\`.
 
 ## Installation Instructions
 
 ### For End Users
 
-1. **Download the ZIP package** (e.g., `ChromeConnect-1.0.0-win-x64.zip`)
-2. **Extract the ZIP file** to a folder of your choice (e.g., `C:\ChromeConnect\`)
+1. **Download the ZIP package** (e.g., `WebConnect-1.0.0-win-x64.zip`)
+2. **Extract the ZIP file** to a folder of your choice (e.g., `C:\WebConnect\`)
 3. **Run the executable** directly - no installation required!
 
 ```cmd
 # Navigate to the extracted folder
-cd C:\ChromeConnect
+cd C:\WebConnect
 
-# Run ChromeConnect
-ChromeConnect.exe --help
+# Run WebConnect
+WebConnect.exe --help
 ```
 
 ### Adding to PATH (Optional)
 
-To run ChromeConnect from anywhere in the command prompt:
+To run WebConnect from anywhere in the command prompt:
 
-1. **Copy the installation path** (e.g., `C:\ChromeConnect`)
+1. **Copy the installation path** (e.g., `C:\WebConnect`)
 2. **Open System Properties**:
    - Press `Win + X` and select "System"
    - Click "Advanced system settings"
@@ -170,7 +170,7 @@ To run ChromeConnect from anywhere in the command prompt:
    - Click "OK" to save
 4. **Restart Command Prompt** to use the new PATH
 
-Now you can run `ChromeConnect.exe` from any directory.
+Now you can run `WebConnect.exe` from any directory.
 
 ## Configuration
 
@@ -187,7 +187,7 @@ The `appsettings.json` file contains configuration options:
       "System": "Warning"
     }
   },
-  "ChromeConnect": {
+  "WebConnect": {
     "DefaultTimeout": 30,
     "MaxRetryAttempts": 3,
     "LoggingLevel": "Information"
@@ -198,7 +198,7 @@ The `appsettings.json` file contains configuration options:
 ### Command Line Usage
 
 ```cmd
-ChromeConnect.exe --USR username --PSW password --URL https://login.example.com --DOM company --INCOGNITO no --KIOSK no --CERT ignore
+WebConnect.exe --USR username --PSW password --URL https://login.example.com --DOM company --INCOGNITO no --KIOSK no --CERT ignore
 ```
 
 ## Troubleshooting
@@ -215,7 +215,7 @@ ChromeConnect.exe --USR username --PSW password --URL https://login.example.com 
 
 #### "Permission denied" errors
 - **Cause**: Insufficient permissions or antivirus blocking
-- **Solution**: Run as administrator or add ChromeConnect to antivirus exclusions
+- **Solution**: Run as administrator or add WebConnect to antivirus exclusions
 
 #### Large executable size
 - **Cause**: Self-contained deployment includes .NET runtime
@@ -223,12 +223,12 @@ ChromeConnect.exe --USR username --PSW password --URL https://login.example.com 
 
 ### Logging
 
-ChromeConnect creates detailed logs in the `logs/` directory:
+WebConnect creates detailed logs in the `logs/` directory:
 
 ```
 logs/
-├── chromeconnect-20241123.log    # Daily log files
-├── chromeconnect-20241124.log
+├── webconnect-20241123.log      # Daily log files
+├── webconnect-20241124.log
 └── ...
 ```
 
@@ -247,7 +247,7 @@ For enterprise environments:
 
 #### AppLocker and Restricted Environments
 
-ChromeConnect is designed to work seamlessly in enterprise environments with strict security policies:
+WebConnect is designed to work seamlessly in enterprise environments with strict security policies:
 
 **✅ AppLocker Compatible**
 - **No Runtime DLL Extraction**: All dependencies are pre-extracted and included in the deployment package
@@ -257,18 +257,18 @@ ChromeConnect is designed to work seamlessly in enterprise environments with str
 **🔐 CyberArk PSM Integration**
 ```powershell
 # Recommended PSM deployment path
-$PSMPath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
-Expand-Archive -Path "ChromeConnect-1.0.0-win-x64.zip" -DestinationPath $PSMPath -Force
+$PSMPath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
+Expand-Archive -Path "WebConnect-1.0.0-win-x64.zip" -DestinationPath $PSMPath -Force
 ```
 
 **🏢 Corporate Workstation Deployment**
 ```powershell
 # Standard corporate deployment
-$CorporatePath = "C:\Program Files\ChromeConnect"
-Expand-Archive -Path "ChromeConnect-1.0.0-win-x64.zip" -DestinationPath $CorporatePath -Force
+$CorporatePath = "C:\Program Files\WebConnect"
+Expand-Archive -Path "WebConnect-1.0.0-win-x64.zip" -DestinationPath $CorporatePath -Force
 
 # Verify AppLocker compatibility
-& "$CorporatePath\ChromeConnect.exe" --version
+& "$CorporatePath\WebConnect.exe" --version
 ```
 
 **Key Benefits for Enterprise:**
@@ -286,8 +286,8 @@ Create a deployment script:
 ```powershell
 # deploy.ps1
 param(
-    [string]$TargetPath = "C:\Program Files\ChromeConnect",
-    [string]$SourceZip = "ChromeConnect-1.0.0-win-x64.zip"
+    [string]$TargetPath = "C:\Program Files\WebConnect",
+    [string]$SourceZip = "WebConnect-1.0.0-win-x64.zip"
 )
 
 # Extract to target location
@@ -299,7 +299,7 @@ if ($currentPath -notcontains $TargetPath) {
     [Environment]::SetEnvironmentVariable("PATH", "$currentPath;$TargetPath", "Machine")
 }
 
-Write-Host "ChromeConnect deployed successfully to $TargetPath"
+Write-Host "WebConnect deployed successfully to $TargetPath"
 ```
 
 ## Security Considerations
@@ -309,12 +309,12 @@ Write-Host "ChromeConnect deployed successfully to $TargetPath"
 Self-contained executables may trigger antivirus warnings. To prevent this:
 
 1. **Code Signing**: Sign the executable with a trusted certificate
-2. **Whitelist**: Add ChromeConnect to antivirus exclusions
+2. **Whitelist**: Add WebConnect to antivirus exclusions
 3. **Reputation**: Submit to antivirus vendors for reputation building
 
 ### Network Security
 
-ChromeConnect requires:
+WebConnect requires:
 - **Outbound HTTPS** access for WebDriver downloads
 - **Access to target login URLs**
 - **Chrome browser permissions** for automation
@@ -359,10 +359,10 @@ With DLL extraction solution:
 
 ## Version Management
 
-### Updating ChromeConnect
+### Updating WebConnect
 
 1. **Download new version** ZIP package
-2. **Stop running instances** of ChromeConnect
+2. **Stop running instances** of WebConnect
 3. **Replace entire directory** (includes new ExtractedDLLs)
 4. **Test functionality** with a simple command
 
@@ -376,7 +376,7 @@ With DLL extraction solution:
 
 ### Log Analysis
 
-Monitor the `%TEMP%\ChromeConnect\` directory for:
+Monitor the `%TEMP%\WebConnect\` directory for:
 - **Error patterns**: Recurring failures
 - **Performance issues**: Slow operations
 - **Authentication problems**: Login failures
@@ -387,18 +387,18 @@ Create monitoring scripts:
 
 ```cmd
 # Basic health check
-ChromeConnect.exe --version
+WebConnect.exe --version
 if %ERRORLEVEL% EQU 0 (
-    echo ChromeConnect is healthy
+    echo WebConnect is healthy
 ) else (
-    echo ChromeConnect health check failed
+    echo WebConnect health check failed
 )
 ```
 
 ### Backup Strategy
 
 Backup these critical components:
-- **Entire deployment directory** (includes ChromeConnect.exe and ExtractedDLLs/)
+- **Entire deployment directory** (includes WebConnect.exe and ExtractedDLLs/)
 - **Configuration files** (if any custom configurations)
 - **Log files** (for troubleshooting historical issues)
 
@@ -408,7 +408,7 @@ Verify deployment package integrity:
 
 ```powershell
 # Verify main executable exists
-if (Test-Path "ChromeConnect.exe") {
+if (Test-Path "WebConnect.exe") {
     Write-Host "✅ Main executable found"
 } else {
     Write-Host "❌ Main executable missing"
@@ -427,7 +427,7 @@ if (Test-Path "ExtractedDLLs") {
 
 ## Additional Resources
 
-- **GitHub Repository**: [ChromeConnect Source Code](https://github.com/your-org/chromeconnect)
+- **GitHub Repository**: [WebConnect Source Code](https://github.com/MaskoFortwana/webconnect)
 - **Issue Tracker**: Report bugs and request features
 - **Documentation**: Comprehensive API and usage documentation
 - **Support**: Contact information for technical support

@@ -1,4 +1,4 @@
-# ChromeConnect DLL Extraction Solution - Final Integration Report
+# WebConnect DLL Extraction Solution - Final Integration Report
 
 **Generated:** 29/05/2025 14:24:00  
 **Test Version:** 1.0.5  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This report summarizes the final integration testing and validation of the ChromeConnect DLL extraction solution. The solution has been successfully implemented to address AppLocker compatibility by enabling DLL extraction to a controlled directory (`C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\`).
+This report summarizes the final integration testing and validation of the WebConnect DLL extraction solution. The solution has been successfully implemented to address AppLocker compatibility by enabling DLL extraction to a controlled directory (`C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\`).
 
 **Overall Status: SUCCESS** - All core validation criteria have been met.
 
@@ -17,7 +17,7 @@ This report summarizes the final integration testing and validation of the Chrom
 
 ## Success Criteria Validation
 
-### 1. ✅ DLLs extract to C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\
+### 1. ✅ DLLs extract to C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\
 - **Status:** VALIDATED
 - **Evidence:** 
   - Environment variable `DOTNET_BUNDLE_EXTRACT_BASE_DIR` configured correctly
@@ -29,7 +29,7 @@ This report summarizes the final integration testing and validation of the Chrom
 - **Status:** VALIDATED
 - **Evidence:**
   - Clean build completed successfully with exit code 0
-  - Executable generated: `ChromeConnect.exe` (45MB)
+  - Executable generated: `WebConnect.exe` (45MB)
   - Version updated correctly to 1.0.5
   - All warnings are non-critical (nullable references, analyzers)
   - Application responds to command line arguments correctly
@@ -37,7 +37,7 @@ This report summarizes the final integration testing and validation of the Chrom
 ### 3. ✅ Extracted DLL folder is included in deployment package
 - **Status:** VALIDATED
 - **Evidence:**
-  - ZIP package created: `ChromeConnect-1.0.5-win-x64.zip` (41.3MB)
+  - ZIP package created: `WebConnect-1.0.5-win-x64.zip` (41.3MB)
   - Post-build DLL extraction process integrated into publish script
   - ExtractedDLLs folder structure implemented
   - Package includes all necessary components
@@ -56,7 +56,7 @@ This report summarizes the final integration testing and validation of the Chrom
 - **Status:** VALIDATED
 - **Evidence:**
   - Application starts and responds to command line arguments
-  - Version information displays correctly: "ChromeConnect 1.0.5+ae65339030d493766ee3cbee61e1502fa9fd58c1"
+  - Version information displays correctly: "WebConnect 1.0.5+ae65339030d493766ee3cbee61e1502fa9fd58c1"
   - Configuration files preserved in deployment
   - No breaking changes to core functionality
 
@@ -108,14 +108,14 @@ The DLL extraction solution has been successfully integrated with the following 
 - **Build Errors:** 0
 
 ### DLL Extraction Process
-- **Target Directory:** `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\`
+- **Target Directory:** `C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\`
 - **Hash Subdirectory:** `BUVKQZGVGMYJUEVNC62UH0NUC1GYHEG=`
 - **Permission Handling:** Implemented with graceful fallback
 - **Runtime Extraction:** Configured and ready
 
 ### Environment Configuration
 - **Variable Name:** `DOTNET_BUNDLE_EXTRACT_BASE_DIR`
-- **Variable Value:** `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect`
+- **Variable Value:** `C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect`
 - **Scope:** System-level and session-level support
 - **Setup Scripts:** Available and validated
 
@@ -124,7 +124,7 @@ The DLL extraction solution has been successfully integrated with the following 
 ## Deployment Readiness
 
 ### Package Contents
-- ✅ ChromeConnect.exe (Main executable)
+- ✅ WebConnect.exe (Main executable)
 - ✅ README.md (Documentation)
 - ✅ ExtractedDLLs structure (For AppLocker compatibility)
 - ✅ Configuration files preserved
@@ -161,7 +161,7 @@ The DLL extraction solution has been successfully integrated with the following 
 
 **✅ ALL VALIDATION CRITERIA HAVE BEEN SUCCESSFULLY MET**
 
-The ChromeConnect DLL extraction solution is **READY FOR PRODUCTION DEPLOYMENT**.
+The WebConnect DLL extraction solution is **READY FOR PRODUCTION DEPLOYMENT**.
 
 ### Summary of Achievements:
 1. ✅ DLL extraction configured for AppLocker compatibility
@@ -187,5 +187,5 @@ The solution successfully addresses the AppLocker compatibility requirements whi
 ---
 
 *Report generated during final integration validation for Task 8*  
-*Project: ChromeConnect DLL Extraction Solution*  
+*Project: WebConnect DLL Extraction Solution*  
 *Date: 29/05/2025* 

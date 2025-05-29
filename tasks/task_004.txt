@@ -1,0 +1,67 @@
+# Task ID: 4
+# Title: Implement Directory Structure Management
+# Status: done
+# Dependencies: 1, 2, 3
+# Priority: medium
+# Description: Create and manage the target directory for DLL extraction, including hash-based subdirectories.
+# Details:
+Successfully implemented directory structure management in both ExtractDlls.ps1 and publish.ps1 scripts with the following components:
+
+1. **Enhanced ExtractDlls.ps1 script** with directory structure management:
+   - Added `Cleanup-OldExtractions` function that removes extraction directories older than 7 days
+   - Added `Set-DirectoryPermissions` function to enable inheritance from parent directory 
+   - Added `Initialize-ExtractionDirectory` function to create base directory and hash-based subdirectories
+   - Replaced simple directory creation with comprehensive directory management
+   - Hash-based subdirectory name: 'BUVKQZGVGMYJUEVNC62UH0NUC1GYHEG=' (simulating .NET extraction behavior)
+
+2. **Enhanced publish.ps1 script** with the same directory management functions:
+   - Added the same three management functions (Cleanup-OldExtractions, Set-DirectoryPermissions, Initialize-ExtractionDirectory)
+   - Updated Simulate-DllExtraction to use Initialize-ExtractionDirectory instead of simple New-Item
+   - Comprehensive directory structure setup with permissions inheritance and cleanup
+
+Implementation details:
+- Directory structure management functions handle permission failures gracefully
+- Cleanup function removes extraction directories older than 7 days
+- Permissions inheritance is set up for AppLocker compatibility
+- Hash-based subdirectory creation simulates .NET extraction behavior
+
+# Test Strategy:
+1. Run the directory management script.
+2. Verify that the target directory and hash-based subdirectory are created.
+3. Check if permissions are correctly inherited from the parent folder (C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect).
+4. Verify that the inheritance settings are properly configured for AppLocker compatibility.
+5. Test the cleanup function with some dummy old folders.
+6. Verify that permission warnings for "C:\Program Files (x86)" directory are expected and handled gracefully.
+7. Confirm that both ExtractDlls.ps1 and publish.ps1 scripts implement the directory management functions consistently.
+
+# Subtasks:
+## 4.1. Implement Cleanup-OldExtractions function [completed]
+### Dependencies: None
+### Description: Created function to remove extraction directories older than 7 days in both ExtractDlls.ps1 and publish.ps1 scripts.
+### Details:
+
+
+## 4.2. Implement Set-DirectoryPermissions function [completed]
+### Dependencies: None
+### Description: Created function to enable inheritance from parent directory for the extraction directory and its subdirectories in both scripts.
+### Details:
+
+
+## 4.3. Implement Initialize-ExtractionDirectory function [completed]
+### Dependencies: None
+### Description: Created function to create base directory and hash-based subdirectories in both scripts.
+### Details:
+
+
+## 4.4. Update Simulate-DllExtraction in publish.ps1 [completed]
+### Dependencies: None
+### Description: Updated function to use Initialize-ExtractionDirectory instead of simple New-Item for comprehensive directory management.
+### Details:
+
+
+## 4.5. Add graceful error handling for permission issues [completed]
+### Dependencies: None
+### Description: Implemented error handling to gracefully continue when permission warnings occur for system directories.
+### Details:
+
+

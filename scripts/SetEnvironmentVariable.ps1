@@ -1,9 +1,9 @@
-# Set Environment Variable for ChromeConnect DLL Extraction
+# Set Environment Variable for WebConnect DLL Extraction
 # This script sets the DOTNET_BUNDLE_EXTRACT_BASE_DIR environment variable
 # to redirect .NET single-file DLL extraction from user temp to approved directory
 
 param(
-    [string]$ExtractPath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+    [string]$ExtractPath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
 )
 
 # Function to create directory if it doesn't exist
@@ -27,7 +27,7 @@ function Ensure-Directory {
 }
 
 # Main execution
-Write-Host "ChromeConnect DLL Extraction Environment Setup" -ForegroundColor Cyan
+Write-Host "WebConnect DLL Extraction Environment Setup" -ForegroundColor Cyan
 Write-Host "=============================================" -ForegroundColor Cyan
 
 # Validate and create the target directory
@@ -36,10 +36,23 @@ if (-not (Ensure-Directory -Path $ExtractPath)) {
     exit 1
 }
 
-# Set the environment variable for current session
 try {
+    # Set the environment variable for the current process
     $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = $ExtractPath
-    Write-Host "Environment variable DOTNET_BUNDLE_EXTRACT_BASE_DIR set to: $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR" -ForegroundColor Green
+    
+    # Set the environment variable for the current user (persistent)
+    [Environment]::SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", $ExtractPath, "User")
+    
+    Write-Host "Successfully set DOTNET_BUNDLE_EXTRACT_BASE_DIR to: $ExtractPath" -ForegroundColor Green
+    Write-Host "This variable is now set for the current process and current user." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "To set it system-wide (requires admin privileges), run:" -ForegroundColor Yellow
+    Write-Host "  [Environment]::SetEnvironmentVariable('DOTNET_BUNDLE_EXTRACT_BASE_DIR', '$ExtractPath', 'Machine')" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Current value:" -ForegroundColor White
+    Write-Host "  Current process: $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR" -ForegroundColor White
+    Write-Host "  Current user:    $([Environment]::GetEnvironmentVariable('DOTNET_BUNDLE_EXTRACT_BASE_DIR', 'User'))" -ForegroundColor White
+    Write-Host "  System-wide:     $([Environment]::GetEnvironmentVariable('DOTNET_BUNDLE_EXTRACT_BASE_DIR', 'Machine'))" -ForegroundColor White
 }
 catch {
     Write-Error "Failed to set environment variable: $($_.Exception.Message)"

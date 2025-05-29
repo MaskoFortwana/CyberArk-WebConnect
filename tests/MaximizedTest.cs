@@ -1,10 +1,11 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using WebConnect.Core;
 using Microsoft.Extensions.Logging;
-using ChromeConnect.Core;
+using System.Threading.Tasks;
 using System;
 using System.Linq;
 
-namespace ChromeConnect.Tests
+namespace WebConnect.Tests
 {
     [TestClass]
     public class MaximizedFlagTests

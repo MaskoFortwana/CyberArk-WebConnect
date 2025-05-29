@@ -1,13 +1,13 @@
-# ChromeConnect Login Implementation Guide
+# WebConnect Login Implementation Guide
 
-This guide provides technical implementation details and code examples for working with the ChromeConnect login detection and automation system.
+This guide provides technical implementation details and code examples for working with the WebConnect login detection and automation system.
 
 ## Architecture Overview
 
-The ChromeConnect login system uses a modular architecture with clear separation of concerns:
+The WebConnect login system uses a modular architecture with clear separation of concerns:
 
 ```
-ChromeConnectService
+WebConnectService
 ├── BrowserManager (Chrome lifecycle)
 ├── LoginDetector (Form detection)
 ├── CredentialManager (Credential entry)
@@ -196,7 +196,7 @@ private LoginFormElements DetectByXPath(IWebDriver driver)
 
 ```csharp
 // Create service with dependencies
-var logger = loggerFactory.CreateLogger<ChromeConnectService>();
+var logger = loggerFactory.CreateLogger<WebConnectService>();
 var browserManager = new BrowserManager(logger);
 var loginDetector = new LoginDetector(logger);
 var credentialManager = new CredentialManager(logger);
@@ -206,7 +206,7 @@ var errorHandler = new ErrorHandler(logger, screenshotCapture);
 var timeoutManager = new TimeoutManager(logger);
 var errorMonitor = new ErrorMonitor(logger);
 
-var service = new ChromeConnectService(
+var service = new WebConnectService(
     logger,
     browserManager,
     loginDetector,
@@ -274,13 +274,13 @@ var timeoutManager = new TimeoutManager(logger, timeoutSettings);
 [TestClass]
 public class LoginTests
 {
-    private ChromeConnectService _chromeConnectService;
+    private WebConnectService _webConnectService;
     
     [TestInitialize]
     public void SetUp()
     {
         // Initialize service with test configuration
-        _chromeConnectService = CreateTestService();
+        _webConnectService = CreateTestService();
     }
     
     private static IEnumerable<object[]> LoginTestData =>
@@ -304,7 +304,7 @@ public class LoginTests
             IgnoreCertErrors = true
         };
 
-        int exitCode = await _chromeConnectService.ExecuteAsync(options);
+        int exitCode = await _webConnectService.ExecuteAsync(options);
 
         if (expectSuccess)
         {
@@ -557,4 +557,4 @@ public class CustomLoginVerifier : LoginVerifier
 }
 ```
 
-This implementation guide provides the technical foundation for extending and customizing the ChromeConnect login automation system for specific use cases and environments. 
+This implementation guide provides the technical foundation for extending and customizing the WebConnect login automation system for specific use cases and environments. 

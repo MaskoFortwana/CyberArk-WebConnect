@@ -1,0 +1,128 @@
+# Task ID: 15
+# Title: Update Output and Distribution Artifacts for WebConnect Renaming
+# Status: done
+# Dependencies: 14
+# Priority: medium
+# Description: Update all build output artifacts to reflect the WebConnect renaming, including the main executable name, package naming conventions, log file patterns, and clean up old build artifacts.
+# Details:
+1. Rename Main Executable:
+   - Modify build configurations to change the output executable name from ChromeConnect.exe to WebConnect.exe
+   - Update the AssemblyName property in the main project's .csproj file
+   - Ensure the OutputType remains as "Exe"
+
+2. Update Package Naming Conventions:
+   - Modify packaging scripts to use the new naming pattern: WebConnect-X.X.X-win-x64.zip
+   - Update version extraction logic in build scripts to maintain semantic versioning
+   - Create a template for the new package naming format in CI/CD pipelines
+   - Example script modification:
+   ```powershell
+   # Old pattern
+   $packageName = "ChromeConnect-$version-$platform.zip"
+   
+   # New pattern
+   $packageName = "WebConnect-$version-$platform.zip"
+   ```
+
+3. Update Log File Naming Patterns:
+   - Identify all logging configuration files (e.g., NLog.config, log4net.config)
+   - Update log file path patterns from "ChromeConnect*.log" to "WebConnect*.log"
+   - Modify any hardcoded log paths in the codebase
+   - Update log rotation and archiving rules to use the new naming pattern
+   - Example configuration change:
+   ```xml
+   <!-- Old pattern -->
+   <target name="file" xsi:type="File" fileName="${specialfolder:folder=ApplicationData}/ChromeConnect/logs/ChromeConnect-${shortdate}.log" />
+   
+   <!-- New pattern -->
+   <target name="file" xsi:type="File" fileName="${specialfolder:folder=ApplicationData}/WebConnect/logs/WebConnect-${shortdate}.log" />
+   ```
+
+4. Clean Up Old Build Artifacts:
+   - Create a script to identify and remove old ChromeConnect build artifacts
+   - Scan build directories for outdated packages and executables
+   - Implement a retention policy for keeping a limited number of previous versions
+   - Example cleanup script:
+   ```powershell
+   # Clean up old ChromeConnect artifacts
+   $oldArtifacts = Get-ChildItem -Path $buildOutputDir -Filter "ChromeConnect*" -Recurse
+   foreach ($artifact in $oldArtifacts) {
+       Write-Host "Removing old artifact: $($artifact.FullName)"
+       Remove-Item $artifact.FullName -Force
+   }
+   ```
+
+5. Update Installer and Deployment Packages:
+   - Modify any installer scripts (MSI, NSIS, etc.) to use the new executable name
+   - Update installation paths from ChromeConnect to WebConnect
+   - Ensure uninstall/cleanup procedures handle both old and new naming patterns
+
+6. Update Build Pipeline Configurations:
+   - Modify CI/CD pipeline configurations to reference the new artifact names
+   - Update artifact publishing and storage paths
+   - Ensure build agents and deployment targets are configured for the new naming convention
+
+# Test Strategy:
+1. Verify Executable Renaming:
+   - Build the project and confirm the main executable is now named WebConnect.exe
+   - Verify the executable runs correctly with the new name
+   - Check that no references to ChromeConnect.exe remain in the build output
+
+2. Validate Package Naming:
+   - Generate a release package and verify it follows the new naming convention: WebConnect-X.X.X-win-x64.zip
+   - Extract the package and confirm all internal paths and references use the WebConnect naming
+   - Test the package on a clean system to ensure it installs and runs correctly
+
+3. Test Log File Generation:
+   - Run the application with logging enabled
+   - Verify logs are created with the new WebConnect naming pattern
+   - Confirm log rotation and archiving work correctly with the new names
+   - Check that no logs are being created with the old ChromeConnect naming
+
+4. Verify Artifact Cleanup:
+   - Run the cleanup script in a test environment
+   - Confirm all old ChromeConnect artifacts are properly removed
+   - Verify that WebConnect artifacts are preserved
+   - Check that the cleanup process doesn't affect system stability
+
+5. Integration Testing:
+   - Perform a complete deployment using the updated artifacts
+   - Verify all components work together correctly
+   - Test upgrading from the old ChromeConnect version to the new WebConnect version
+   - Ensure backward compatibility with existing configurations
+
+6. Automated Testing:
+   - Create automated tests to verify the correct naming patterns are used
+   - Add validation checks to the CI/CD pipeline to prevent reverting to old naming
+   - Implement a test that verifies no "ChromeConnect" strings appear in output artifacts
+
+# Subtasks:
+## 1. Update Main Executable Assembly Name to WebConnect.exe [done]
+### Dependencies: None
+### Description: Modify the main project's .csproj file to change the AssemblyName property from ChromeConnect to WebConnect, ensuring the output executable becomes WebConnect.exe
+### Details:
+Update the AssemblyName property in the main .csproj file and verify OutputType remains as 'Exe'. Check build configurations to ensure consistent naming across all build targets.
+
+## 2. Update Package Naming Conventions in Build Scripts [done]
+### Dependencies: 15.1
+### Description: Modify packaging scripts to use the new naming pattern WebConnect-X.X.X-win-x64.zip instead of ChromeConnect-X.X.X-win-x64.zip
+### Details:
+Update publish.ps1, deploy.ps1, and other build scripts to use WebConnect naming patterns. Ensure version extraction logic maintains semantic versioning compatibility.
+
+## 3. Update Log File Naming Patterns [done]
+### Dependencies: None
+### Description: Update logging configuration files to use WebConnect naming patterns instead of ChromeConnect for log files, directories, and rotation policies
+### Details:
+Find and update all logging configuration files (NLog.config, log4net.config, etc.) to change log file paths from ChromeConnect*.log to WebConnect*.log. Update log directory paths and archiving rules.
+
+## 4. Create Cleanup Script for Old ChromeConnect Artifacts [done]
+### Dependencies: 15.2
+### Description: Create a PowerShell script to identify and remove old ChromeConnect build artifacts while preserving WebConnect artifacts
+### Details:
+Develop a script that scans build directories for outdated ChromeConnect packages and executables, implements a retention policy, and safely removes old artifacts without affecting current WebConnect builds.
+
+## 5. Update Installer and Deployment Package Configurations [done]
+### Dependencies: 15.1, 15.4
+### Description: Modify installer scripts and deployment configurations to use WebConnect.exe and update installation paths from ChromeConnect to WebConnect
+### Details:
+Update any installer scripts (MSI, NSIS, etc.), deployment configurations, installation paths, and uninstall/cleanup procedures to handle both old and new naming patterns for smooth transitions.
+

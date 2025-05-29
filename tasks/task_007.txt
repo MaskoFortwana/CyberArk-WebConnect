@@ -1,0 +1,23 @@
+# Task ID: 7
+# Title: Update Project Documentation
+# Status: done
+# Dependencies: 1, 2, 3, 4, 5, 6
+# Priority: low
+# Description: Create and update documentation for the new deployment process and DLL extraction solution.
+# Details:
+1. Create a new markdown file named DLL_EXTRACTION_SOLUTION.md.
+2. Document the following sections:
+   a. Overview of the AppLocker DLL blocking issue
+   b. Solution implemented (Environment variable and extraction process)
+   c. Changes made to the build and deployment process
+   d. New directory structure for extracted DLLs
+   e. Testing procedures and validation steps
+3. Update the existing README.md file to reference the new DLL extraction solution.
+4. Create a DEPLOYMENT.md file with step-by-step instructions for the new deployment process.
+5. Update any existing documentation that mentions the old DLL extraction behavior.
+
+# Test Strategy:
+1. Perform a peer review of the documentation for accuracy and completeness.
+2. Verify all links and references within the documentation are correct.
+3. Have a team member follow the deployment instructions to ensure they are clear and accurate.
+4. Update the documentation based on feedback and any issues encountered during testing.

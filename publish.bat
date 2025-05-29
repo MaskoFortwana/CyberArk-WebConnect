@@ -1,5 +1,5 @@
 @echo off
-REM ChromeConnect Simple Build Script
+REM WebConnect Simple Build Script
 REM Usage: publish.bat [Version] [Configuration]
 REM Example: publish.bat 1.0.1 Release
 
@@ -11,12 +11,12 @@ set CONFIGURATION=%2
 if "%VERSION%"=="" set VERSION=1.0.0
 if "%CONFIGURATION%"=="" set CONFIGURATION=Release
 
-set PROJECT_PATH=src\ChromeConnect
+set PROJECT_PATH=src\WebConnect
 set OUTPUT_DIR=publish
 set RUNTIME_ID=win-x64
 
 echo.
-echo ==================== CHROMECONNECT BUILD SCRIPT ====================
+echo ==================== WEBCONNECT BUILD SCRIPT ====================
 echo Version: %VERSION%
 echo Configuration: %CONFIGURATION%
 echo Runtime: %RUNTIME_ID%
@@ -72,19 +72,19 @@ if exist "LICENSE" copy "LICENSE" "%OUTPUT_DIR%\" >nul
 REM Show results
 echo.
 echo ==================== BUILD SUMMARY ====================
-if exist "%OUTPUT_DIR%\ChromeConnect.exe" (
+if exist "%OUTPUT_DIR%\WebConnect.exe" (
     echo Status: SUCCESS
-    echo Executable: %OUTPUT_DIR%\ChromeConnect.exe
-    for %%A in ("%OUTPUT_DIR%\ChromeConnect.exe") do echo Size: %%~zA bytes
+    echo Executable: %OUTPUT_DIR%\WebConnect.exe
+    for %%A in ("%OUTPUT_DIR%\WebConnect.exe") do echo Size: %%~zA bytes
 ) else (
     echo Status: FAILED
 )
 echo ======================================================
 echo.
 
-if exist "%OUTPUT_DIR%\ChromeConnect.exe" (
+if exist "%OUTPUT_DIR%\WebConnect.exe" (
     echo SUCCESS: Build completed successfully!
-    echo Location: %OUTPUT_DIR%\ChromeConnect.exe
+    echo Location: %OUTPUT_DIR%\WebConnect.exe
 ) else (
     echo ERROR: Build failed - executable not found
     exit /b 1

@@ -1,9 +1,9 @@
-# Set System-Level Environment Variable for ChromeConnect DLL Extraction
+# Set System-Level Environment Variable for WebConnect DLL Extraction
 # This script sets the DOTNET_BUNDLE_EXTRACT_BASE_DIR environment variable at machine level
 # Requires administrative privileges to modify system environment variables
 
 param(
-    [string]$ExtractPath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+    [string]$ExtractPath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
 )
 
 # Check if running as administrator
@@ -34,7 +34,7 @@ function Ensure-Directory {
 }
 
 # Main execution
-Write-Host "ChromeConnect System Environment Variable Setup" -ForegroundColor Cyan
+Write-Host "WebConnect System Environment Variable Setup" -ForegroundColor Cyan
 Write-Host "===============================================" -ForegroundColor Cyan
 
 # Check administrative privileges

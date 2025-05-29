@@ -1,14 +1,14 @@
-# ChromeConnect Input Blocking Timeout Change
+# WebConnect Input Blocking Timeout Change
 
 ## Changes Made
 
 ### 1. Configuration Update
-- **File**: `src/ChromeConnect/Configuration/StaticConfiguration.cs`
+- **File**: `src/WebConnect/Configuration/StaticConfiguration.cs`
 - **Change**: Increased `InputBlockingTimeoutSeconds` from 60 to 150 seconds
 - **Line**: 74
 
 ### 2. Test Updates
-- **File**: `tests/ChromeConnect.Tests/Integration/InputBlockingIntegrationTests.cs`
+- **File**: `tests/WebConnect.Tests/Integration/InputBlockingIntegrationTests.cs`
 - **Changes**:
   - Updated default value test to expect 150 seconds instead of 60 (line 208)
   - Updated test cleanup to reset to 150 seconds instead of 60 (line 87)

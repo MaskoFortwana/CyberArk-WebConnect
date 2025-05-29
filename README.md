@@ -1,21 +1,21 @@
-# ChromeConnect
+# WebConnect
 
 <div align="center">
 
-![ChromeConnect Logo](docs/images/logo.png)
+![WebConnect Logo](docs/images/logo.png)
 
 **A powerful Windows automation tool for web portal authentication**
 
 [![.NET 8.0](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/8.0)
 [![Windows](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/yourorg/chromeconnect)](https://github.com/yourorg/chromeconnect/releases)
+[![Release](https://img.shields.io/github/v/release/MaskoFortwana/webconnect)](https://github.com/MaskoFortwana/webconnect/releases)
 
 </div>
 
 ## 🚀 Overview
 
-ChromeConnect is a Windows-based automation utility that streamlines web portal authentication using command-line parameters. Built with .NET 8.0 and Selenium WebDriver, it provides a reliable, secure, and user-friendly solution for automated login processes.
+WebConnect is a Windows-based automation utility that streamlines web portal authentication using command-line parameters. Built with .NET 8.0 and Selenium WebDriver, it provides a reliable, secure, and user-friendly solution for automated login processes.
 
 ### ✨ Key Features
 
@@ -35,21 +35,21 @@ ChromeConnect is a Windows-based automation utility that streamlines web portal 
 ### Option 1: Download Pre-built Executable (Recommended)
 
 1. **Download the latest release**
-   - Visit [Releases](https://github.com/yourorg/chromeconnect/releases)
-   - Download `ChromeConnect-X.X.X-win-x64.zip` (64-bit) or `ChromeConnect-X.X.X-win-x86.zip` (32-bit)
+   - Visit [Releases](https://github.com/MaskoFortwana/webconnect/releases)
+   - Download `WebConnect-X.X.X-win-x64.zip` (64-bit) or `WebConnect-X.X.X-win-x86.zip` (32-bit)
 
 2. **Extract and setup**
    ```powershell
    # Extract to your preferred location
-   Expand-Archive -Path ChromeConnect-X.X.X-win-x64.zip -DestinationPath C:\ChromeConnect
+   Expand-Archive -Path WebConnect-X.X.X-win-x64.zip -DestinationPath C:\WebConnect
    
    # (Optional) Add to PATH for global access
-   $env:PATH += ";C:\ChromeConnect"
+   $env:PATH += ";C:\WebConnect"
    ```
 
 3. **Verify installation**
    ```powershell
-   ChromeConnect.exe --version
+   WebConnect.exe --version
    ```
 
 ### Option 2: Build from Source
@@ -62,8 +62,8 @@ ChromeConnect is a Windows-based automation utility that streamlines web portal 
 #### Build Steps
 ```powershell
 # Clone the repository
-git clone https://github.com/yourorg/chromeconnect.git
-cd chromeconnect
+git clone https://github.com/MaskoFortwana/webconnect.git
+cd webconnect
 
 # Build using the provided script (PowerShell)
 ./publish.ps1 -Version "1.0.0" -Configuration Release -RuntimeIdentifier "win-x64"
@@ -72,7 +72,7 @@ cd chromeconnect
 ./publish.ps1 -Version "1.0.0" -Configuration Release -RuntimeIdentifier "win-x86"
 
 # Or build manually
-dotnet publish src/ChromeConnect -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+dotnet publish src/WebConnect -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
 ```
 
 ---
@@ -81,13 +81,13 @@ dotnet publish src/ChromeConnect -c Release -r win-x64 --self-contained true -p:
 
 ### Basic Usage
 ```powershell
-ChromeConnect.exe --USR alice --PSW s3cr3t --URL https://login.example.com --DOM mycompany --INCOGNITO no --KIOSK no --CERT ignore
+WebConnect.exe --USR alice --PSW s3cr3t --URL https://login.example.com --DOM mycompany --INCOGNITO no --KIOSK no --CERT ignore
 ```
 
 ### Real-world Example
 ```powershell
 # Corporate portal login
-ChromeConnect.exe --USR john.doe --PSW MySecurePass123! --URL https://portal.corporate.com/login --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore --debug
+WebConnect.exe --USR john.doe --PSW MySecurePass123! --URL https://portal.corporate.com/login --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore --debug
 ```
 
 ---
@@ -120,23 +120,23 @@ ChromeConnect.exe --USR john.doe --PSW MySecurePass123! --URL https://portal.cor
 
 ### Corporate Single Sign-On (SSO)
 ```powershell
-ChromeConnect.exe --USR employee.id --PSW CompanyPassword --URL https://sso.company.com --DOM COMPANY --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR employee.id --PSW CompanyPassword --URL https://sso.company.com --DOM COMPANY --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 ### Development Environment
 ```powershell
-ChromeConnect.exe --USR testuser --PSW devpass123 --URL https://dev.example.com/login --DOM DEV --INCOGNITO no --KIOSK no --CERT ignore --debug
+WebConnect.exe --USR testuser --PSW devpass123 --URL https://dev.example.com/login --DOM DEV --INCOGNITO no --KIOSK no --CERT ignore --debug
 ```
 
 ### Secure Production Environment
 ```powershell
-ChromeConnect.exe --USR prod.user --PSW SecureProductionPass --URL https://secure.production.com --DOM PROD --INCOGNITO yes --KIOSK yes --CERT enforce
+WebConnect.exe --USR prod.user --PSW SecureProductionPass --URL https://secure.production.com --DOM PROD --INCOGNITO yes --KIOSK yes --CERT enforce
 ```
 
 ### Automated Testing
 ```powershell
 # Create a batch script for automated testing
-ChromeConnect.exe --USR test.automation --PSW AutomationPass --URL https://test.portal.com --DOM TEST --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR test.automation --PSW AutomationPass --URL https://test.portal.com --DOM TEST --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 ---
@@ -145,13 +145,13 @@ ChromeConnect.exe --USR test.automation --PSW AutomationPass --URL https://test.
 
 ### Embedded Configuration
 
-ChromeConnect uses **embedded configuration** - no external configuration files are required! All settings are built into the executable with sensible defaults:
+WebConnect uses **embedded configuration** - no external configuration files are required! All settings are built into the executable with sensible defaults:
 
 - **Default Timeout**: 30 seconds
 - **Max Retry Attempts**: 3
 - **Screenshot on Error**: Enabled
 - **Logging Level**: Information (use `--debug` for detailed logging)
-- **Log Location**: Windows temp folder (`%TEMP%\ChromeConnect\`)
+- **Log Location**: Windows temp folder (`%TEMP%\WebConnect\`)
 
 ### Command-line Overrides
 
@@ -168,7 +168,7 @@ All configuration can be controlled via command-line parameters:
 
 ### AppLocker DLL Extraction Solution
 
-ChromeConnect includes a **specialized DLL extraction solution** designed for enterprise environments with AppLocker or similar security policies that restrict runtime DLL extraction.
+WebConnect includes a **specialized DLL extraction solution** designed for enterprise environments with AppLocker or similar security policies that restrict runtime DLL extraction.
 
 #### ✨ Key Features
 - **🛡️ AppLocker Compatible**: No runtime extraction to restricted directories
@@ -210,22 +210,22 @@ For detailed information, see [DLL_EXTRACTION_SOLUTION.md](DLL_EXTRACTION_SOLUTI
 ## 📸 Screenshots & Logging
 
 ### Automatic Screenshots
-ChromeConnect captures screenshots during failures for easy troubleshooting:
+WebConnect captures screenshots during failures for easy troubleshooting:
 
 | Scenario | Filename Pattern | Location |
 |----------|------------------|----------|
-| Login Failed | `LoginFailed_YYYYMMDD_HHMMSS.png` | `%TEMP%\ChromeConnect\screenshots\` |
-| Verification Error | `VerificationError_YYYYMMDD_HHMMSS.png` | `%TEMP%\ChromeConnect\screenshots\` |
-| Browser Error | `BrowserError_YYYYMMDD_HHMMSS.png` | `%TEMP%\ChromeConnect\screenshots\` |
-| Form Not Found | `FormNotFound_YYYYMMDD_HHMMSS.png` | `%TEMP%\ChromeConnect\screenshots\` |
+| Login Failed | `LoginFailed_YYYYMMDD_HHMMSS.png` | `%TEMP%\WebConnect\screenshots\` |
+| Verification Error | `VerificationError_YYYYMMDD_HHMMSS.png` | `%TEMP%\WebConnect\screenshots\` |
+| Browser Error | `BrowserError_YYYYMMDD_HHMMSS.png` | `%TEMP%\WebConnect\screenshots\` |
+| Form Not Found | `FormNotFound_YYYYMMDD_HHMMSS.png` | `%TEMP%\WebConnect\screenshots\` |
 
 ### Log Files
 Detailed logs are stored in the Windows temp folder:
 
 ```
-%TEMP%\ChromeConnect\
-├── chromeconnect-20241123.log    # Daily log files
-├── chromeconnect-20241124.log
+%TEMP%\WebConnect\
+├── webconnect-20241123.log    # Daily log files
+├── webconnect-20241124.log
 └── screenshots/                  # Error screenshots
     ├── LoginFailed_20241123_143022.png
     └── ...
@@ -246,15 +246,15 @@ Detailed logs are stored in the Windows temp folder:
 #### ❌ "Chrome driver not found"
 **Solution:**
 ```powershell
-# ChromeConnect automatically downloads ChromeDriver
+# WebConnect automatically downloads ChromeDriver
 # Ensure internet connectivity and check logs
-ChromeConnect.exe --debug --USR test --PSW test --URL https://example.com --DOM test --INCOGNITO no --KIOSK no --CERT ignore
+WebConnect.exe --debug --USR test --PSW test --URL https://example.com --DOM test --INCOGNITO no --KIOSK no --CERT ignore
 ```
 
 #### ❌ "Login form not detected"
 **Cause:** Website structure may have changed
 **Solution:**
-1. Check the screenshot in `%TEMP%\ChromeConnect\screenshots\`
+1. Check the screenshot in `%TEMP%\WebConnect\screenshots\`
 2. Verify the URL is correct
 3. Check if the site requires specific browser settings
 
@@ -262,7 +262,7 @@ ChromeConnect.exe --debug --USR test --PSW test --URL https://example.com --DOM 
 **Cause:** Insufficient permissions or antivirus blocking
 **Solution:**
 1. Run as administrator
-2. Add ChromeConnect to antivirus exclusions
+2. Add WebConnect to antivirus exclusions
 3. Check Windows Defender settings
 
 #### ❌ "Browser launch failed"
@@ -275,7 +275,7 @@ ChromeConnect.exe --debug --USR test --PSW test --URL https://example.com --DOM 
 ### Debug Mode
 Enable detailed logging for troubleshooting:
 ```powershell
-ChromeConnect.exe --debug --USR your.user --PSW your.password --URL https://your.site.com --DOM YOUR_DOMAIN --INCOGNITO no --KIOSK no --CERT ignore
+WebConnect.exe --debug --USR your.user --PSW your.password --URL https://your.site.com --DOM YOUR_DOMAIN --INCOGNITO no --KIOSK no --CERT ignore
 ```
 
 ---
@@ -292,16 +292,16 @@ ChromeConnect.exe --debug --USR your.user --PSW your.password --URL https://your
 
 ## 🏗️ Architecture
 
-ChromeConnect is built with a modular architecture:
+WebConnect is built with a modular architecture:
 
 ```
-ChromeConnect/
+WebConnect/
 ├── Core/
 │   ├── BrowserManager.cs          # Chrome automation
 │   ├── TimeoutManager.cs          # Timeout handling
 │   └── Constants.cs               # Application constants
 ├── Services/
-│   ├── ChromeConnectService.cs    # Main orchestration
+│   ├── WebConnectService.cs    # Main orchestration
 │   ├── LoginDetector.cs          # Form detection
 │   ├── LoginPerformer.cs         # Login execution
 │   ├── SessionManager.cs         # Session management
@@ -347,16 +347,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - 📚 **Documentation**: [Full Documentation](docs/)
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/yourorg/chromeconnect/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourorg/chromeconnect/discussions)
-- 📧 **Email**: support@chromeconnect.com
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/MaskoFortwana/webconnect/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/MaskoFortwana/webconnect/discussions)
+- 📧 **Email**: support@webconnect.com
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by the ChromeConnect Team**
+**Made with ❤️ by the WebConnect Team**
 
-[⭐ Star this repo](https://github.com/yourorg/chromeconnect) | [🐛 Report Bug](https://github.com/yourorg/chromeconnect/issues) | [🚀 Request Feature](https://github.com/yourorg/chromeconnect/issues)
+[⭐ Star this repo](https://github.com/MaskoFortwana/webconnect) | [🐛 Report Bug](https://github.com/MaskoFortwana/webconnect/issues) | [🚀 Request Feature](https://github.com/MaskoFortwana/webconnect/issues)
 
 </div>

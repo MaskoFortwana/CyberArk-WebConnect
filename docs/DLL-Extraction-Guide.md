@@ -1,10 +1,10 @@
-# ChromeConnect DLL Extraction Guide
+# WebConnect DLL Extraction Guide
 
 > **📋 Note**: This document provides technical details for the DLL extraction feature. For the complete solution overview including implementation details, testing procedures, and enterprise deployment guidance, see the main [DLL_EXTRACTION_SOLUTION.md](../DLL_EXTRACTION_SOLUTION.md) document.
 
 ## Overview
 
-The ChromeConnect application includes a specialized DLL extraction feature designed to address AppLocker compatibility issues in enterprise environments. This feature simulates the .NET runtime's DLL extraction process during the build phase, ensuring that extracted dependencies are pre-included in deployment packages.
+The WebConnect application includes a specialized DLL extraction feature designed to address AppLocker compatibility issues in enterprise environments. This feature simulates the .NET runtime's DLL extraction behavior, allowing verification that DLLs will extract to the intended directory before deployment.
 
 ## Table of Contents
 
@@ -35,7 +35,7 @@ In enterprise environments with AppLocker enabled, .NET applications published a
 
 ## Solution Overview
 
-ChromeConnect addresses these issues by:
+WebConnect addresses these issues by:
 
 1. **Pre-extracting DLLs**: Simulating the extraction process during build time
 2. **Controlled Extraction Path**: Using a configurable, AppLocker-friendly extraction directory
@@ -50,13 +50,13 @@ The DLL extraction feature relies on the `DOTNET_BUNDLE_EXTRACT_BASE_DIR` enviro
 
 ```powershell
 # Set the environment variable (adjust path as needed)
-$env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "C:\temp\ChromeConnect\extracted"
+$env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "C:\temp\WebConnect\extracted"
 
 # For persistent configuration (system-wide)
-[Environment]::SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", "C:\temp\ChromeConnect\extracted", "Machine")
+[Environment]::SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", "C:\temp\WebConnect\extracted", "Machine")
 
 # For persistent configuration (user-specific)
-[Environment]::SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", "C:\temp\ChromeConnect\extracted", "User")
+[Environment]::SetEnvironmentVariable("DOTNET_BUNDLE_EXTRACT_BASE_DIR", "C:\temp\WebConnect\extracted", "User")
 ```
 
 ### Choosing the Extraction Path
@@ -72,10 +72,10 @@ Consider these factors when selecting an extraction path:
 
 | Environment | Recommended Path | Notes |
 |-------------|------------------|-------|
-| Development | `C:\temp\ChromeConnect\extracted` | Easy to access and debug |
-| Production (CyberArk PSM) | `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect` | Standard PSM component location |
-| Generic Enterprise | `C:\ProgramData\ChromeConnect\extracted` | Accessible to all users |
-| User-specific | `%LOCALAPPDATA%\ChromeConnect\extracted` | Per-user isolation |
+| Development | `C:\temp\WebConnect\extracted` | Easy to access and debug |
+| Production (CyberArk PSM) | `C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect` | Standard PSM component location |
+| Generic Enterprise | `C:\ProgramData\WebConnect\extracted` | Accessible to all users |
+| User-specific | `%LOCALAPPDATA%\WebConnect\extracted` | Per-user isolation |
 
 ## Usage Instructions
 
@@ -106,8 +106,8 @@ The script provides detailed output during execution:
 
 ```
 ==================== DLL EXTRACTION SIMULATION ====================
-INFO: Target extraction path: C:\temp\ChromeConnect\extracted
-INFO: Running DLL extraction simulation with: ./publish/ChromeConnect.exe
+INFO: Target extraction path: C:\temp\WebConnect\extracted
+INFO: Running DLL extraction simulation with: ./publish/WebConnect.exe
 INFO: Extraction process completed in 2.34 seconds with exit code: 4
 SUCCESS: Found extraction directory: 8e89e2c6a5d4... with 189 DLL files (85.68 MB)
 SUCCESS: Successfully copied extracted DLLs to deployment package
@@ -131,7 +131,7 @@ After successful extraction, the deployment package includes:
 
 ```
 publish/
-├── ChromeConnect.exe                 # Main executable
+├── WebConnect.exe                 # Main executable
 ├── ExtractedDLLs/                   # Extracted dependencies
 │   └── 8e89e2c6a5d4.../            # Hash-based directory name
 │       ├── Microsoft.Extensions.*.dll
@@ -163,14 +163,14 @@ ERROR: Failed to create extraction directory: Access to the path 'C:\Program Fil
 **Solutions:**
 1. **Change Extraction Path**: Use a writable directory
    ```powershell
-   $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "C:\temp\ChromeConnect\extracted"
+   $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "C:\temp\WebConnect\extracted"
    ```
 
 2. **Run with Elevated Permissions**: Run PowerShell as Administrator
 
 3. **Use Alternative Path**: Choose a path with appropriate permissions
    ```powershell
-   $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "$env:LOCALAPPDATA\ChromeConnect\extracted"
+   $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = "$env:LOCALAPPDATA\WebConnect\extracted"
    ```
 
 #### Issue: "No DLL extraction directories found"
@@ -224,7 +224,7 @@ The script provides comprehensive diagnostic information:
 ==================== DLL EXTRACTION SUMMARY ====================
 Status:             SUCCESS
 Duration:           8.86 seconds
-Extraction Path:    C:\temp\ChromeConnect\extracted
+Extraction Path:    C:\temp\WebConnect\extracted
 Directories Found:  1
 Total DLLs Found:   189
 Errors:             0
@@ -242,7 +242,7 @@ Version:        1.0.3
 Configuration:  Release
 Runtime:        win-x64
 Output Dir:     ./publish
-Executable:     ChromeConnect.exe (127.45 MB)
+Executable:     WebConnect.exe (127.45 MB)
 Status:         SUCCESS
 =======================================================
 ```

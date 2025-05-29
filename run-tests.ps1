@@ -1,5 +1,5 @@
 # run-tests.ps1
-# Wrapper script to run ChromeConnect testing procedures with predefined configurations
+# Wrapper script to run WebConnect testing procedures with predefined configurations
 
 param(
     [ValidateSet("Quick", "Full", "BuildOnly", "EnvironmentOnly")]

@@ -1,0 +1,68 @@
+# Task ID: 5
+# Title: Update PowerShell Deployment Scripts
+# Status: done
+# Dependencies: 1, 2, 3, 4
+# Priority: medium
+# Description: Modify deployment scripts to include DLL extraction simulation and environment variable setup.
+# Details:
+The task has been completed with the following implementation:
+
+1. **Created new PowerShell deployment script** (`deploy.ps1`) with comprehensive features:
+   - **Environment Variable Setup**: Implemented `Set-ExtractionEnvironmentVariable` function that sets `DOTNET_BUNDLE_EXTRACT_BASE_DIR` at machine level using `[Environment]::SetEnvironmentVariable()`
+   - **DLL Extraction Simulation**: Added `Invoke-DllExtractionSimulation` function that calls `ExtractDlls.ps1`
+   - **Extracted DLL Structure Copy**: Implemented `Copy-ExtractedDllStructure` function that copies from `$env:DOTNET_BUNDLE_EXTRACT_BASE_DIR\*` to `$deploymentPackagePath\ExtractedDlls`
+   - **Validation Function**: Added `Validate-Extraction` function that checks for the hash-based directory `BUVKQZGVGMYJUEVNC62UH0NUC1GYHEG=`
+
+2. **Additional deployment features implemented**:
+   - Prerequisites validation with clear error messages
+   - Comprehensive deployment of ChromeConnect executable and supporting files
+   - Directory structure creation (logs, screenshots, ExtractedDlls)
+   - Environment testing and validation
+   - Detailed deployment summary with status reporting
+   - Parameter-driven configuration (can disable features for testing)
+
+# Test Strategy:
+The script has been tested successfully with the following validations:
+
+1. Deployment works with and without DLL extraction simulation
+2. Environment variable setup (requires admin privileges for machine-level)
+3. All validation functions working correctly
+4. Extracted DLL structure copying implemented and tested
+5. Complete deployment package created with proper directory structure
+
+Additional testing recommendations:
+1. Test in various environments to ensure consistent behavior
+2. Verify performance with large deployment packages
+3. Test error handling and recovery mechanisms
+
+# Subtasks:
+## 5.1. Create Set-ExtractionEnvironmentVariable function [completed]
+### Dependencies: None
+### Description: Implemented function to set DOTNET_BUNDLE_EXTRACT_BASE_DIR environment variable at machine level
+### Details:
+
+
+## 5.2. Implement Invoke-DllExtractionSimulation function [completed]
+### Dependencies: None
+### Description: Created function to call ExtractDlls.ps1 for DLL extraction simulation
+### Details:
+
+
+## 5.3. Develop Copy-ExtractedDllStructure function [completed]
+### Dependencies: None
+### Description: Implemented function to copy extracted DLL structure to deployment package
+### Details:
+
+
+## 5.4. Create Validate-Extraction function [completed]
+### Dependencies: None
+### Description: Added validation function to verify successful DLL extraction
+### Details:
+
+
+## 5.5. Implement additional deployment features [completed]
+### Dependencies: None
+### Description: Added prerequisites validation, directory structure creation, environment testing, and parameter-driven configuration
+### Details:
+
+

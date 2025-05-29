@@ -1,9 +1,9 @@
-# PowerShell script to verify the ChromeConnect build
+# PowerShell script to verify the WebConnect build
 
 # Navigate to the project directory
-Push-Location -Path "src/ChromeConnect"
+Push-Location -Path "src/WebConnect"
 
-Write-Host "Attempting to build ChromeConnect project (Release configuration)..."
+Write-Host "Attempting to build WebConnect project (Release configuration)..."
 
 # Run dotnet build
 dotnet build --configuration Release

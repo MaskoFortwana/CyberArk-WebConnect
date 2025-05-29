@@ -1,5 +1,5 @@
 # Test-BuildAndExtraction.ps1
-# Comprehensive testing procedures for ChromeConnect build process and DLL extraction
+# Comprehensive testing procedures for WebConnect build process and DLL extraction
 # This script tests environment setup, build process, and DLL extraction functionality
 
 param(
@@ -15,7 +15,7 @@ param(
 $ErrorActionPreference = "Continue"  # Continue on errors to collect all test results
 $TestResults = @()
 $TestStartTime = Get-Date
-$ExpectedExtractionPath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+$ExpectedExtractionPath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
 $ExpectedHashDir = "BUVKQZGVGMYJUEVNC62UH0NUC1GYHEG="
 
 # Colors for output
@@ -178,11 +178,11 @@ function Test-RequiredScripts {
         $deployScript = "./deploy.ps1"
         Assert-Condition (Test-Path $deployScript) "Deploy script exists: $deployScript" "RequiredScripts"
         
-        $extractScript = "./src/ChromeConnect/ExtractDlls.ps1"
+        $extractScript = "./src/WebConnect/ExtractDlls.ps1"
         Assert-Condition (Test-Path $extractScript) "ExtractDlls script exists: $extractScript" "RequiredScripts"
         
         # Test 2: Project file exists
-        $projectFile = "./src/ChromeConnect/ChromeConnect.csproj"
+        $projectFile = "./src/WebConnect/WebConnect.csproj"
         Assert-Condition (Test-Path $projectFile) "Project file exists: $projectFile" "RequiredScripts"
         
         # Test 3: Environment setup scripts exist
@@ -231,7 +231,7 @@ function Test-DotnetEnvironment {
         # Test 3: Project can be restored
         try {
             Write-InfoMessage "Testing NuGet package restoration..."
-            $restoreOutput = dotnet restore "./src/ChromeConnect" --verbosity quiet 2>&1
+            $restoreOutput = dotnet restore "./src/WebConnect" --verbosity quiet 2>&1
             $restoreSuccess = $LASTEXITCODE -eq 0
             Assert-Condition $restoreSuccess "NuGet packages can be restored successfully" "DotnetEnvironment"
         }
@@ -292,9 +292,9 @@ function Test-BuildProcess {
         }
         
         # Test 2: Output executable exists
-        $executablePath = Join-Path $testBuildDir "ChromeConnect.exe"
+        $executablePath = Join-Path $testBuildDir "WebConnect.exe"
         $executableExists = Test-Path $executablePath
-        Assert-Condition $executableExists "Build output executable exists: ChromeConnect.exe" "BuildProcess"
+        Assert-Condition $executableExists "Build output executable exists: WebConnect.exe" "BuildProcess"
         
         # Test 3: Executable properties
         if ($executableExists) {
@@ -348,7 +348,7 @@ function Test-DllExtractionSimulation {
         # Test 1: ExtractDlls script execution
         Write-InfoMessage "Testing DLL extraction script..."
         try {
-            $extractScript = "./src/ChromeConnect/ExtractDlls.ps1"
+            $extractScript = "./src/WebConnect/ExtractDlls.ps1"
             $extractArgs = @(
                 "-OutputPath", (Join-Path $TestOutputDir "dll-test"),
                 "-Configuration", $Configuration
@@ -426,7 +426,7 @@ function Test-CleanMachineSimulation {
             $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR = $null
             
             # Test script behavior without environment variable
-            $extractScript = "./src/ChromeConnect/ExtractDlls.ps1"
+            $extractScript = "./src/WebConnect/ExtractDlls.ps1"
             $extractOutput = & $extractScript -OutputPath "dummy" 2>&1
             $extractSuccess = $LASTEXITCODE -eq 0
             
@@ -464,7 +464,7 @@ function Generate-TestReport {
     
     # Create report content
     $reportContent = @"
-# ChromeConnect Build and Extraction Test Report
+# WebConnect Build and Extraction Test Report
 Generated: $($testEndTime.ToString('yyyy-MM-dd HH:mm:ss'))
 Duration: $($testDuration.ToString('hh\:mm\:ss'))
 
@@ -568,7 +568,7 @@ function Cleanup-TestResources {
 try {
     Write-Host "`n" -NoNewline
     Write-Host "=" * 60 -ForegroundColor Gray
-    Write-Host "CHROMECONNECT BUILD & EXTRACTION TESTING" -ForegroundColor $TestColor
+    Write-Host "WEBCONNECT BUILD & EXTRACTION TESTING" -ForegroundColor $TestColor
     Write-Host "=" * 60 -ForegroundColor Gray
     Write-InfoMessage "Starting comprehensive testing at $($TestStartTime.ToString('yyyy-MM-dd HH:mm:ss'))"
     Write-InfoMessage "Test output directory: $TestOutputDir"

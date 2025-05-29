@@ -1,10 +1,10 @@
-# ChromeConnect Application Startup Wrapper
+# WebConnect Application Startup Wrapper
 # This script ensures the DOTNET_BUNDLE_EXTRACT_BASE_DIR environment variable is set
-# before launching the ChromeConnect application
+# before launching the WebConnect application
 
 param(
-    [string]$ApplicationPath,
-    [string]$ExtractPath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect",
+    [string]$ApplicationPath = "",
+    [string]$ExtractPath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect",
     [string[]]$Arguments = @(),
     [switch]$Wait = $false,
     [switch]$NoWindow = $false
@@ -28,17 +28,16 @@ function Ensure-Directory {
     return $true
 }
 
-# Function to find ChromeConnect executable
-function Find-ChromeConnectExecutable {
-    # Check common locations
-    $possiblePaths = @(
-        ".\publish\ChromeConnect.exe",
-        ".\ChromeConnect.exe",
-        ".\bin\Release\net8.0\ChromeConnect.exe",
-        ".\bin\Debug\net8.0\ChromeConnect.exe"
+# Function to find WebConnect executable
+function Find-WebConnectExecutable {
+    $searchPaths = @(
+        ".\publish\WebConnect.exe",
+        ".\WebConnect.exe",
+        ".\bin\Release\net8.0\WebConnect.exe",
+        ".\bin\Debug\net8.0\WebConnect.exe"
     )
     
-    foreach ($path in $possiblePaths) {
+    foreach ($path in $searchPaths) {
         if (Test-Path $path) {
             return (Resolve-Path $path).Path
         }
@@ -48,30 +47,22 @@ function Find-ChromeConnectExecutable {
 }
 
 # Main execution
-Write-Host "ChromeConnect Application Launcher" -ForegroundColor Cyan
-Write-Host "===================================" -ForegroundColor Cyan
+Write-Host "WebConnect Application Launcher" -ForegroundColor Cyan
+Write-Host "===============================" -ForegroundColor Cyan
 
-# Determine application path if not provided
-if (-not $ApplicationPath) {
-    $ApplicationPath = Find-ChromeConnectExecutable
-    if (-not $ApplicationPath) {
-        Write-Error "ChromeConnect executable not found. Please specify the path using -ApplicationPath parameter."
-        Write-Host "Expected locations checked:" -ForegroundColor Yellow
-        Write-Host "  - .\publish\ChromeConnect.exe" -ForegroundColor Yellow
-        Write-Host "  - .\ChromeConnect.exe" -ForegroundColor Yellow
-        Write-Host "  - .\bin\Release\net8.0\ChromeConnect.exe" -ForegroundColor Yellow
-        Write-Host "  - .\bin\Debug\net8.0\ChromeConnect.exe" -ForegroundColor Yellow
-        exit 1
-    }
-    Write-Host "Found ChromeConnect executable: $ApplicationPath" -ForegroundColor Green
+# Find executable if not provided
+$ApplicationPath = Find-WebConnectExecutable
+if (-not $ApplicationPath -or -not (Test-Path $ApplicationPath)) {
+    Write-Error "WebConnect executable not found. Please specify the path using -ApplicationPath parameter."
+    Write-Host "Searched locations:" -ForegroundColor Yellow
+    Write-Host "  - .\publish\WebConnect.exe" -ForegroundColor Yellow
+    Write-Host "  - .\WebConnect.exe" -ForegroundColor Yellow
+    Write-Host "  - .\bin\Release\net8.0\WebConnect.exe" -ForegroundColor Yellow
+    Write-Host "  - .\bin\Debug\net8.0\WebConnect.exe" -ForegroundColor Yellow
+    exit 1
 }
-else {
-    if (-not (Test-Path $ApplicationPath)) {
-        Write-Error "Application path not found: $ApplicationPath"
-        exit 1
-    }
-    Write-Host "Using specified application path: $ApplicationPath" -ForegroundColor Green
-}
+
+Write-Host "Found WebConnect executable: $ApplicationPath" -ForegroundColor Green
 
 # Ensure extraction directory exists
 Write-Host "Checking extraction directory..." -ForegroundColor Yellow
@@ -117,7 +108,7 @@ if ($NoWindow) {
 }
 
 # Launch the application
-Write-Host "`nLaunching ChromeConnect..." -ForegroundColor Green
+Write-Host "`nLaunching WebConnect..." -ForegroundColor Green
 Write-Host "Application: $ApplicationPath" -ForegroundColor White
 Write-Host "DLL Extraction Path: $ExtractPath" -ForegroundColor White
 
@@ -125,7 +116,7 @@ try {
     $process = Start-Process @processParams
     
     if ($process) {
-        Write-Host "[SUCCESS] ChromeConnect launched successfully" -ForegroundColor Green
+        Write-Host "[SUCCESS] WebConnect launched successfully" -ForegroundColor Green
         Write-Host "Process ID: $($process.Id)" -ForegroundColor White
         
         if ($Wait) {

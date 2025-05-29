@@ -1,6 +1,6 @@
-# ChromeConnect Error Handling System
+# WebConnect Error Handling System
 
-This document provides an overview of the error handling system in ChromeConnect, including exception hierarchy, error handlers, and best practices for error management.
+This document provides an overview of the error handling system in WebConnect, including exception hierarchy, error handlers, and best practices for error management.
 
 ## Table of Contents
 
@@ -15,10 +15,10 @@ This document provides an overview of the error handling system in ChromeConnect
 
 ## Exception Hierarchy
 
-ChromeConnect uses a structured exception hierarchy to categorize and handle different types of errors:
+WebConnect uses a structured exception hierarchy to categorize and handle different types of errors:
 
 ```
-ChromeConnectException (Base)
+WebConnectException (Base)
 ├── BrowserException
 │   ├── BrowserInitializationException
 │   ├── BrowserNavigationException
@@ -41,7 +41,7 @@ ChromeConnectException (Base)
 
 ### Common Properties
 
-All ChromeConnect exceptions include these common properties:
+All WebConnect exceptions include these common properties:
 
 - `Timestamp`: When the exception occurred (UTC)
 - `ErrorCode`: A unique identifier for the error type
@@ -107,7 +107,7 @@ var errorHandler = new ErrorHandler(logger, screenshotCapture, settings);
 
 ## Screenshot Capture
 
-ChromeConnect captures screenshots automatically when errors occur to aid in troubleshooting:
+WebConnect captures screenshots automatically when errors occur to aid in troubleshooting:
 
 ### IScreenshotCapture Interface
 
@@ -165,7 +165,7 @@ var timeoutManager = new TimeoutManager(logger, settings);
 
 ## Retry Strategies
 
-ChromeConnect includes a flexible retry system for handling transient failures:
+WebConnect includes a flexible retry system for handling transient failures:
 
 ### Exponential Backoff with Jitter
 
@@ -348,4 +348,4 @@ catch
 
 ## Conclusion
 
-The ChromeConnect error handling system provides robust mechanisms for detecting, reporting, and recovering from failures. Following these guidelines will help ensure a resilient and maintainable application. 
+The WebConnect error handling system provides robust mechanisms for detecting, reporting, and recovering from failures. Following these guidelines will help ensure a resilient and maintainable application that gracefully handles the complexities of automated web authentication. 

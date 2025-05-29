@@ -1,4 +1,4 @@
-# ChromeConnect Publish Script Changes - Technical Changelog
+# WebConnect Publish Script Changes - Technical Changelog
 
 ## Overview
 
@@ -51,7 +51,7 @@ $extractionSummary = @{
 ```powershell
 $extractBasePath = $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR
 if (-not $extractBasePath) {
-    $extractBasePath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+    $extractBasePath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
     Write-WarningMessage "DOTNET_BUNDLE_EXTRACT_BASE_DIR not set, using default: $extractBasePath"
     $extractionSummary.WarningsEncountered += "Environment variable DOTNET_BUNDLE_EXTRACT_BASE_DIR not set"
 }
@@ -373,7 +373,7 @@ Simulate-DllExtraction
 **New Directory Structure**:
 ```
 publish/
-├── ChromeConnect.exe
+├── WebConnect.exe
 ├── ExtractedDLLs/          # NEW: Contains extracted dependencies
 │   └── [hash-directories]/ # NEW: Hash-based directory names from .NET runtime
 └── [existing files]

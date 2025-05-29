@@ -1,10 +1,10 @@
-# ChromeConnect - Main Application Flow
+# WebConnect - Main Application Flow
 
-This document describes how all components of ChromeConnect are integrated into the main application flow.
+This document describes how all components of WebConnect are integrated into the main application flow.
 
 ## Overview
 
-ChromeConnect is a modular console application that automates the process of logging into web applications using Chrome browser automation. The application follows a clean architecture with separate components for each responsibility, all orchestrated by the main `ChromeConnectService` class.
+WebConnect is a modular console application that automates the process of logging into web applications using Chrome browser automation. The application follows a clean architecture with separate components for each responsibility, all orchestrated by the main `WebConnectService` class.
 
 ## Component Integration
 
@@ -18,7 +18,7 @@ The following diagram illustrates how the components are integrated:
          │
          ▼
 ┌─────────────────┐
-│ChromeConnectSvc │◄────┐
+│WebConnectSvc │◄────┐
 │  (Orchestrator) │     │
 └────────┬────────┘     │
          │              │
@@ -61,7 +61,7 @@ The main application flow follows these steps:
    - A host builder is created and configured
    - Configuration is loaded from appsettings.json
    - Services are registered with dependency injection
-   - The `ChromeConnectService` is resolved and executed
+   - The `WebConnectService` is resolved and executed
 
 2. **Browser Launch**:
    - The `BrowserManager` launches Chrome with appropriate settings
@@ -109,7 +109,7 @@ These settings are bound from appsettings.json and provided to services through 
 Error handling is a central part of the application flow:
 
 1. **Exception Hierarchy**:
-   - `ChromeConnectException`: Base exception class
+   - `WebConnectException`: Base exception class
    - `BrowserException`: Browser-related issues
    - `LoginException`: Login-related issues
    - `NetworkException`: Network connectivity issues
@@ -143,7 +143,7 @@ The application includes tests for both individual components and integrated wor
 - **Integration Tests**: Test how components work together
 - **Mock Objects**: Used to simulate dependencies and test error scenarios
 
-See the test files in the `tests/ChromeConnect.Tests` directory for examples.
+See the test files in the `tests/WebConnect.Tests` directory for examples.
 
 ## Command-Line Interface
 
@@ -163,7 +163,7 @@ Optional parameters:
 
 Example:
 ```
-ChromeConnect --USR=myuser --PSW=mypassword --URL=https://example.com/login --DOM=mydomain --INCOGNITO=yes --KIOSK=no --CERT=enforce
+WebConnect --USR=myuser --PSW=mypassword --URL=https://example.com/login --DOM=mydomain --INCOGNITO=yes --KIOSK=no --CERT=enforce
 ```
 
 ## Extending the Application

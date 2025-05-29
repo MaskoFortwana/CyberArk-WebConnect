@@ -1,10 +1,10 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    ChromeConnect Deployment Script
+    WebConnect Deployment Script
 
 .DESCRIPTION
-    Automates the build and packaging process for ChromeConnect as a self-contained Windows executable.
+    Automates the build and packaging process for WebConnect as a self-contained Windows executable.
     Supports version management, cleanup, optimization, and ZIP package creation.
 
 .PARAMETER Version
@@ -51,12 +51,12 @@ param (
 )
 
 # Script configuration
-$ProjectPath = "./src/ChromeConnect"
-$LauncherProjectPath = "./src/ChromeConnect.Launcher"
-$ProjectFile = "$ProjectPath/ChromeConnect.csproj"
-$LauncherProjectFile = "$LauncherProjectPath/ChromeConnect.Launcher.csproj"
-$ExecutableName = "ChromeConnect.exe"
-$MainAppSubdir = "ChromeConnect"
+$ProjectPath = "./src/WebConnect"
+$LauncherProjectPath = "./src/WebConnect.Launcher"
+$ProjectFile = "$ProjectPath/WebConnect.csproj"
+$LauncherProjectFile = "$LauncherProjectPath/WebConnect.Launcher.csproj"
+$ExecutableName = "WebConnect.exe"
+$MainAppSubdir = "WebConnect"
 
 # Colors for output
 $ErrorColor = "Red"
@@ -339,7 +339,7 @@ function Create-ZipPackage {
         return
     }
     
-    $zipFileName = "ChromeConnect-$Version-$RuntimeIdentifier.zip"
+    $zipFileName = "WebConnect-$Version-$RuntimeIdentifier.zip"
     $zipPath = "./$zipFileName"
     
     Write-InfoMessage "Creating ZIP package: $zipFileName"
@@ -362,7 +362,7 @@ function Create-ZipPackage {
 # Main execution
 try {
     Write-Host ""
-    Write-Host "==================== CHROMECONNECT BUILD SCRIPT ====================" -ForegroundColor $InfoColor
+    Write-Host "==================== WEBCONNECT BUILD SCRIPT ====================" -ForegroundColor $InfoColor
     Write-Host "Starting build process..." -ForegroundColor White
     Write-Host ""
     
@@ -400,7 +400,7 @@ try {
     Write-InfoMessage "Main application: $OutputDir/$MainAppSubdir/$ExecutableName"
     
     if ($CreateZip) {
-        Write-InfoMessage "ZIP package: ChromeConnect-$Version-$RuntimeIdentifier.zip"
+        Write-InfoMessage "ZIP package: WebConnect-$Version-$RuntimeIdentifier.zip"
     }
     
 } catch {

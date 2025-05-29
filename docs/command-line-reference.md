@@ -1,6 +1,6 @@
-# ChromeConnect Command-line Reference
+# WebConnect Command-line Reference
 
-This document provides comprehensive reference information for all ChromeConnect command-line options and usage patterns.
+This document provides comprehensive reference information for all WebConnect command-line options and usage patterns.
 
 ## 📋 Table of Contents
 
@@ -18,11 +18,11 @@ This document provides comprehensive reference information for all ChromeConnect
 
 ## 🔍 Overview
 
-ChromeConnect is invoked from the command line with a set of parameters that control its behavior. All required parameters must be provided for the application to function correctly.
+WebConnect is invoked from the command line with a set of parameters that control its behavior. All required parameters must be provided for the application to function correctly.
 
 **Basic Syntax:**
 ```powershell
-ChromeConnect.exe [OPTIONS] --USR username --PSW password --URL target_url --DOM domain --INCOGNITO yes|no --KIOSK yes|no --CERT ignore|enforce
+WebConnect.exe [OPTIONS] --USR username --PSW password --URL target_url --DOM domain --INCOGNITO yes|no --KIOSK yes|no --CERT ignore|enforce
 ```
 
 ---
@@ -30,7 +30,7 @@ ChromeConnect.exe [OPTIONS] --USR username --PSW password --URL target_url --DOM
 ## 📝 Syntax
 
 ### Parameter Format
-ChromeConnect supports double-dash (`--`) parameter style:
+WebConnect supports double-dash (`--`) parameter style:
 
 ```powershell
 --PARAMETER_NAME value
@@ -114,12 +114,12 @@ All of the following parameters are **mandatory** and must be provided:
 
 ### `--INCOGNITO` (Incognito Mode)
 - **Type**: Boolean
-- **Description**: Enable Chrome incognito mode
+- **Description**: Enable WebConnect incognito mode
 - **Values**: `yes`/`no` or `true`/`false`
 - **Example**: `--INCOGNITO yes`
 - **Behavior**:
-  - `yes`: Launches Chrome with `--incognito` flag
-  - `no`: Uses normal Chrome session
+  - `yes`: Launches WebConnect with `--incognito` flag
+  - `no`: Uses normal WebConnect session
 
 **Examples:**
 ```powershell
@@ -129,11 +129,11 @@ All of the following parameters are **mandatory** and must be provided:
 
 ### `--KIOSK` (Kiosk Mode)
 - **Type**: Boolean
-- **Description**: Enable Chrome kiosk mode (fullscreen)
+- **Description**: Enable WebConnect kiosk mode (fullscreen)
 - **Values**: `yes`/`no` or `true`/`false`
 - **Example**: `--KIOSK no`
 - **Behavior**:
-  - `yes`: Launches Chrome in fullscreen kiosk mode
+  - `yes`: Launches WebConnect in fullscreen kiosk mode
   - `no`: Uses normal windowed mode
 
 **Examples:**
@@ -161,7 +161,7 @@ All of the following parameters are **mandatory** and must be provided:
 
 ## ⚙️ Optional Parameters
 
-These parameters modify ChromeConnect's behavior but are not required:
+These parameters modify WebConnect's behavior but are not required:
 
 ### `--debug`
 - **Type**: Flag (no value)
@@ -188,25 +188,25 @@ These parameters modify ChromeConnect's behavior but are not required:
 
 ## 🌍 Environment Variables
 
-ChromeConnect respects certain environment variables for configuration:
+WebConnect respects certain environment variables for configuration:
 
-### `CHROMECONNECT_LOG_LEVEL`
+### `WEBCONNECT_LOG_LEVEL`
 - **Description**: Override default logging level
 - **Values**: `Debug`, `Information`, `Warning`, `Error`
 - **Default**: `Information`
-- **Example**: `set CHROMECONNECT_LOG_LEVEL=Debug`
+- **Example**: `set WEBCONNECT_LOG_LEVEL=Debug`
 
-### `CHROMECONNECT_TIMEOUT`
+### `WEBCONNECT_TIMEOUT`
 - **Description**: Default operation timeout in seconds
 - **Values**: Positive integer
 - **Default**: `30`
-- **Example**: `set CHROMECONNECT_TIMEOUT=60`
+- **Example**: `set WEBCONNECT_TIMEOUT=60`
 
-### `CHROMECONNECT_SCREENSHOT_DIR`
+### `WEBCONNECT_SCREENSHOT_DIR`
 - **Description**: Custom directory for screenshots
 - **Values**: Valid directory path
 - **Default**: `./screenshots`
-- **Example**: `set CHROMECONNECT_SCREENSHOT_DIR=C:\Logs\Screenshots`
+- **Example**: `set WEBCONNECT_SCREENSHOT_DIR=C:\Logs\Screenshots`
 
 ---
 
@@ -214,29 +214,29 @@ ChromeConnect respects certain environment variables for configuration:
 
 ### Standard Corporate Login
 ```powershell
-ChromeConnect.exe --USR john.doe --PSW CompanyPass123 --URL https://portal.company.com --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR john.doe --PSW CompanyPass123 --URL https://portal.company.com --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 ### Development Environment
 ```powershell
-ChromeConnect.exe --USR testuser --PSW devpass --URL https://dev-portal.local --DOM DEV --INCOGNITO no --KIOSK no --CERT ignore --debug
+WebConnect.exe --USR testuser --PSW devpass --URL https://dev-portal.local --DOM DEV --INCOGNITO no --KIOSK no --CERT ignore --debug
 ```
 
 ### Secure Production
 ```powershell
-ChromeConnect.exe --USR prod.user --PSW SecurePass --URL https://secure-portal.com --DOM PROD --INCOGNITO yes --KIOSK yes --CERT enforce
+WebConnect.exe --USR prod.user --PSW SecurePass --URL https://secure-portal.com --DOM PROD --INCOGNITO yes --KIOSK yes --CERT enforce
 ```
 
 ### Automated Testing
 ```powershell
-ChromeConnect.exe --USR automation --PSW AutoPass --URL https://test.portal.com --DOM TEST --INCOGNITO yes --KIOSK no --CERT ignore --debug
+WebConnect.exe --USR automation --PSW AutoPass --URL https://test.portal.com --DOM TEST --INCOGNITO yes --KIOSK no --CERT ignore --debug
 ```
 
 ---
 
 ## 🔄 Exit Codes
 
-ChromeConnect returns specific exit codes to indicate execution results:
+WebConnect returns specific exit codes to indicate execution results:
 
 | Code | Status | Description | Common Causes |
 |------|--------|-------------|---------------|
@@ -251,7 +251,7 @@ ChromeConnect returns specific exit codes to indicate execution results:
 **Batch Script:**
 ```batch
 @echo off
-ChromeConnect.exe --USR user --PSW pass --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR user --PSW pass --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore
 if %ERRORLEVEL% EQU 0 (
     echo Login successful
 ) else (
@@ -261,7 +261,7 @@ if %ERRORLEVEL% EQU 0 (
 
 **PowerShell Script:**
 ```powershell
-$result = & ChromeConnect.exe --USR user --PSW pass --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore
+$result = & WebConnect.exe --USR user --PSW pass --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore
 switch ($LASTEXITCODE) {
     0 { Write-Host "Login successful" -ForegroundColor Green }
     1 { Write-Host "Login failed" -ForegroundColor Red }
@@ -276,7 +276,7 @@ switch ($LASTEXITCODE) {
 
 ### Example 1: Basic Corporate Portal
 ```powershell
-ChromeConnect.exe ^
+WebConnect.exe ^
   --USR john.doe ^
   --PSW MySecretPassword ^
   --URL https://portal.company.com/login ^
@@ -288,7 +288,7 @@ ChromeConnect.exe ^
 
 ### Example 2: Multi-line for Readability (PowerShell)
 ```powershell
-ChromeConnect.exe `
+WebConnect.exe `
   --USR "john.doe@company.com" `
   --PSW "Complex Password 123!" `
   --URL "https://sso.company.com/auth/login" `
@@ -307,7 +307,7 @@ set PASSWORD=AutomationPass123
 set TARGET_URL=https://test-portal.example.com
 set DOMAIN=TEST
 
-ChromeConnect.exe --USR %USERNAME% --PSW %PASSWORD% --URL %TARGET_URL% --DOM %DOMAIN% --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --USR %USERNAME% --PSW %PASSWORD% --URL %TARGET_URL% --DOM %DOMAIN% --INCOGNITO yes --KIOSK no --CERT ignore
 
 if %ERRORLEVEL% EQU 0 (
     echo Authentication successful - Continue with automation
@@ -333,7 +333,7 @@ param(
     [string]$Domain = "DEFAULT"
 )
 
-# Convert SecureString to plain text for ChromeConnect
+# Convert SecureString to plain text for WebConnect
 $PlainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
     [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
 )
@@ -341,7 +341,7 @@ $PlainPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
 try {
     Write-Host "Attempting login..." -ForegroundColor Yellow
     
-    $process = Start-Process -FilePath "ChromeConnect.exe" -ArgumentList @(
+    $process = Start-Process -FilePath "WebConnect.exe" -ArgumentList @(
         "--USR", $Username,
         "--PSW", $PlainPassword,
         "--URL", $Url,
@@ -401,7 +401,7 @@ finally {
 
 To validate your parameters before execution, use:
 ```powershell
-ChromeConnect.exe --help
+WebConnect.exe --help
 ```
 
 This displays the current parameter format and requirements.
@@ -409,7 +409,7 @@ This displays the current parameter format and requirements.
 ### Debug Mode
 For detailed troubleshooting, always use the `--debug` flag:
 ```powershell
-ChromeConnect.exe --debug --USR user --PSW pass --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore
+WebConnect.exe --debug --USR user --PSW pass --URL https://site.com --DOM domain --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 This provides detailed logging that can help identify configuration issues.
@@ -420,9 +420,9 @@ This provides detailed logging that can help identify configuration issues.
 
 For additional help with command-line usage:
 
-- **Help Command**: `ChromeConnect.exe --help`
+- **Help Command**: `WebConnect.exe --help`
 - **Documentation**: [Full Documentation](../README.md)
-- **Issues**: [GitHub Issues](https://github.com/yourorg/chromeconnect/issues)
+- **Issues**: [GitHub Issues](https://github.com/MaskoFortwana/webconnect/issues)
 - **Examples**: [Usage Examples](usage-examples.md)
 
 ---

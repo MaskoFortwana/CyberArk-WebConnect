@@ -1,6 +1,6 @@
-# ChromeConnect Testing Procedures
+# WebConnect Testing Procedures
 
-This document describes the comprehensive testing procedures for the ChromeConnect build process and DLL extraction functionality.
+This document describes the comprehensive testing procedures for the WebConnect build process and DLL extraction functionality.
 
 ## Overview
 
@@ -164,7 +164,7 @@ A successful test run should show:
 **Symptoms**: Build process tests fail
 **Solution**: 
 1. Check .NET installation: `dotnet --version`
-2. Restore packages: `dotnet restore .\src\ChromeConnect`
+2. Restore packages: `dotnet restore .\src\WebConnect`
 3. Check for compilation errors
 
 #### Permission Issues
@@ -247,7 +247,7 @@ If automated tests fail, manually verify:
 
 2. **Directory Permissions**:
    ```powershell
-   Get-Acl "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+   Get-Acl "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
    ```
 
 3. **Build Process**:
@@ -274,4 +274,4 @@ For issues with the testing procedures:
 
 ---
 
-*This testing system ensures the reliability and robustness of the ChromeConnect build and deployment process.* 
+*This testing system ensures the reliability and robustness of the WebConnect build and deployment process.* 

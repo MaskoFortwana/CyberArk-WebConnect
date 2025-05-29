@@ -1,19 +1,19 @@
-# ChromeConnect DLL Extraction Environment Setup
+# WebConnect DLL Extraction Environment Setup
 
 ## Overview
 
-This documentation explains how to configure the environment variable `DOTNET_BUNDLE_EXTRACT_BASE_DIR` to resolve AppLocker DLL blocking issues with ChromeConnect application.
+This documentation explains how to configure the environment variable `DOTNET_BUNDLE_EXTRACT_BASE_DIR` to resolve AppLocker DLL blocking issues with WebConnect application.
 
 ## Problem Background
 
-ChromeConnect uses .NET single-file deployment which extracts DLLs to user temp folders during runtime:
-- Default location: `%OSDRIVE%\USERS\USERNAME\APPDATA\LOCAL\TEMP\.NET\CHROMECONNECT\`
+WebConnect uses .NET single-file deployment which extracts DLLs to user temp folders during runtime:
+- Default location: `%OSDRIVE%\USERS\USERNAME\APPDATA\LOCAL\TEMP\.NET\WEBCONNECT\`
 - **Issue**: AppLocker blocks DLL execution from user temp folders in production environments
 - **Solution**: Redirect DLL extraction to approved directory using environment variable
 
 ## Target Directory
 
-**Approved extraction directory**: `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\`
+**Approved extraction directory**: `C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\`
 
 This directory is whitelisted in AppLocker policies and allows DLL execution.
 
@@ -53,11 +53,8 @@ PowerShell -ExecutionPolicy Bypass -File "scripts\SetSystemEnvironmentVariable.p
 Use the wrapper script to ensure environment variable is set before each application launch:
 
 ```powershell
-# Launch ChromeConnect with environment setup
-PowerShell -ExecutionPolicy Bypass -File "scripts\StartApplication.ps1"
-
-# Or with custom path
-PowerShell -ExecutionPolicy Bypass -File "scripts\StartApplication.ps1" -ApplicationPath "C:\path\to\ChromeConnect.exe"
+# Launch WebConnect with environment setup
+PowerShell -ExecutionPolicy Bypass -File "scripts\StartApplication.ps1" -ApplicationPath "C:\path\to\WebConnect.exe"
 
 # Launch and wait for completion
 PowerShell -ExecutionPolicy Bypass -File "scripts\StartApplication.ps1" -Wait
@@ -78,22 +75,22 @@ echo $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR
 [System.Environment]::GetEnvironmentVariable('DOTNET_BUNDLE_EXTRACT_BASE_DIR', [System.EnvironmentVariableTarget]::Machine)
 ```
 
-**Expected output:** `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect`
+**Expected output:** `C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect`
 
 ### 2. Verify Directory Exists
 
 ```powershell
-Test-Path "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+Test-Path "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
 ```
 
 **Expected output:** `True`
 
 ### 3. Test DLL Extraction
 
-1. Launch ChromeConnect with environment variable set
+1. Launch WebConnect with environment variable set
 2. Check for DLL extraction in target directory:
    ```powershell
-   Get-ChildItem "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect" -Recurse
+   Get-ChildItem "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect" -Recurse
    ```
 3. Look for subdirectory with hash name (e.g., `BUVKQZGVGMYJUEVNC62UH0NUC1GYHEG=`)
 4. Verify DLL files are extracted to this location
@@ -132,7 +129,7 @@ Test-Path "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
 1. Verify environment variable: `echo $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR`
 2. Clear existing temp extractions:
    ```powershell
-   Remove-Item "$env:TEMP\.NET\ChromeConnect" -Recurse -Force -ErrorAction SilentlyContinue
+   Remove-Item "$env:TEMP\.NET\WebConnect" -Recurse -Force -ErrorAction SilentlyContinue
    ```
 3. Use startup wrapper script to ensure variable is set before launch
 
@@ -149,7 +146,7 @@ Test-Path "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
 ### Recommended Setup Process
 
 1. **Pre-deployment:**
-   - Create target directory: `C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\`
+   - Create target directory: `C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\`
    - Set appropriate permissions for CyberArk PSM service account
 
 2. **Environment Configuration:**
@@ -157,7 +154,7 @@ Test-Path "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
    - Verify system environment variable is set
 
 3. **Application Deployment:**
-   - Deploy ChromeConnect.exe to target location
+   - Deploy WebConnect.exe to target location
    - Include all PowerShell scripts for future maintenance
    - Test application launch with DLL extraction verification
 
@@ -171,8 +168,8 @@ Test-Path "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
 Ensure AppLocker rule allows DLL execution from extraction directory:
 
 ```xml
-<FilePathRule Id="[GUID]" Name="ChromeConnect Components" Description="" UserOrGroupSid="S-1-1-0" Action="Allow">
-  <FilePath Path="C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\*" />
+<FilePathRule Id="[GUID]" Name="WebConnect Components" Description="" UserOrGroupSid="S-1-1-0" Action="Allow">
+  <FilePath Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\*" />
 </FilePathRule>
 ```
 
@@ -181,10 +178,10 @@ Ensure AppLocker rule allows DLL execution from extraction directory:
 After successful setup, you should have:
 
 ```
-C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect\
+C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\
 ├── [HASH_DIRECTORY]\           # Hash-based subdirectory created by .NET runtime
 │   ├── System.Private.CoreLib.dll
-│   ├── ChromeConnect.dll
+│   ├── WebConnect.dll
 │   ├── Selenium.WebDriver.dll
 │   └── ... (other extracted DLLs)
 ```

@@ -1,6 +1,6 @@
-# ChromeConnect Architecture Overview
+# WebConnect Architecture Overview
 
-This document provides a comprehensive overview of ChromeConnect's architecture, design patterns, and technical implementation.
+This document provides a comprehensive overview of WebConnect's architecture, design patterns, and technical implementation.
 
 ## 📋 Table of Contents
 
@@ -21,7 +21,7 @@ This document provides a comprehensive overview of ChromeConnect's architecture,
 
 ## 🔍 System Overview
 
-ChromeConnect is a console application built on .NET 8.0 that automates web browser interactions for authentication purposes. The application uses a modular, service-oriented architecture with clear separation of concerns.
+WebConnect is a console application built on .NET 8.0 that automates web browser interactions for authentication purposes. The application uses a modular, service-oriented architecture with clear separation of concerns.
 
 ### Design Principles
 
@@ -38,7 +38,7 @@ ChromeConnect is a console application built on .NET 8.0 that automates web brow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        ChromeConnect                            │
+│                        WebConnect                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                     Presentation Layer                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐  │
@@ -48,7 +48,7 @@ ChromeConnect is a console application built on .NET 8.0 that automates web brow
 ├─────────────────────────────────────────────────────────────────┤
 │                    Service Layer                               │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐  │
-│  │ ChromeConnect   │  │ Login Detector  │  │ Login Performer│  │
+│  │ WebConnect   │  │ Login Detector  │  │ Login Performer│  │
 │  │ Service         │  │ Service         │  │ Service        │  │
 │  └─────────────────┘  └─────────────────┘  └────────────────┘  │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐  │
@@ -115,7 +115,7 @@ public class Program
 - `SetupChromeDriver()`: Configures WebDriverManager
 - `CloseBrowser()`: Proper browser cleanup
 
-### ChromeConnectService.cs
+### WebConnectService.cs
 **Purpose**: Main orchestration service
 **Responsibilities**:
 - Overall workflow coordination
@@ -157,7 +157,7 @@ graph TD
     A[Command Line Input] --> B[Argument Parser]
     B --> C[Configuration Validation]
     C --> D[DI Container Setup]
-    D --> E[ChromeConnect Service]
+    D --> E[WebConnect Service]
     
     E --> F[Browser Manager]
     F --> G[Chrome Browser Launch]
@@ -190,7 +190,7 @@ graph TD
 
 ### Core Services
 
-#### ChromeConnectService
+#### WebConnectService
 **Role**: Main orchestration and workflow management
 **Dependencies**: All other services
 **Key Responsibilities**:
@@ -324,16 +324,16 @@ The application includes sophisticated models for:
 ### Exception Hierarchy
 
 ```csharp
-public class ChromeConnectException : Exception
+public class WebConnectException : Exception
 {
     public string? ScreenshotPath { get; set; }
     public string? Url { get; set; }
 }
 
-public class LoginFormNotFoundException : ChromeConnectException { }
-public class LoginFailedException : ChromeConnectException { }
-public class BrowserLaunchException : ChromeConnectException { }
-public class NavigationException : ChromeConnectException { }
+public class LoginFormNotFoundException : WebConnectException { }
+public class LoginFailedException : WebConnectException { }
+public class BrowserLaunchException : WebConnectException { }
+public class NavigationException : WebConnectException { }
 ```
 
 ### Error Handling Strategy
@@ -366,7 +366,7 @@ public class NavigationException : ChromeConnectException { }
       "System": "Warning"
     }
   },
-  "ChromeConnect": {
+  "WebConnect": {
     "DefaultTimeout": 30,
     "MaxRetryAttempts": 3,
     "ScreenshotOnError": true,
@@ -444,7 +444,7 @@ public class NavigationException : ChromeConnectException { }
 
 ### Plugin Architecture
 
-ChromeConnect supports extensions through:
+WebConnect supports extensions through:
 
 1. **Custom Login Detectors**: Implement `ILoginDetector`
 2. **Authentication Strategies**: Implement `ILoginPerformer`
@@ -542,11 +542,11 @@ services.AddScoped<ILoginDetector, CustomLoginDetector>();
 
 ## 📞 Developer Resources
 
-- **Source Code**: [GitHub Repository](https://github.com/yourorg/chromeconnect)
+- **Source Code**: [GitHub Repository](https://github.com/MaskoFortwana/webconnect)
 - **API Documentation**: [API Reference](api-reference.md)
 - **Development Guide**: [Contributing Guide](../CONTRIBUTING.md)
 - **Architecture Decisions**: [ADR Documents](../docs/adr/)
 
 ---
 
-*This architecture documentation is maintained as part of the ChromeConnect project. Last updated: November 2024* 
+*This architecture documentation is maintained as part of the WebConnect project. Last updated: November 2024* 

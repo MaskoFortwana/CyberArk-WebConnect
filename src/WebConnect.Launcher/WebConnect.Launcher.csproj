@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    
+    <!-- Self-contained, small launcher -->
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    
+    <!-- Assembly information -->
+    <AssemblyTitle>WebConnect Launcher</AssemblyTitle>
+    <AssemblyDescription>Launcher for WebConnect Application</AssemblyDescription>
+    <AssemblyCompany>WebConnect</AssemblyCompany>
+    <AssemblyProduct>WebConnect</AssemblyProduct>
+    <Copyright>Copyright © 2024 WebConnect</Copyright>
+    
+    <!-- Output file name -->
+    <AssemblyName>WebConnect</AssemblyName>
+    
+    <!-- Optimization settings -->
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+</Project> 

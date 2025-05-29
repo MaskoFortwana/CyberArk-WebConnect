@@ -1,8 +1,8 @@
-# ChromeConnect Environment Setup Verification Script
+# WebConnect Environment Setup Verification Script
 # This script verifies that the DOTNET_BUNDLE_EXTRACT_BASE_DIR environment setup is working correctly
 
 param(
-    [string]$ExtractPath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect",
+    [string]$ExtractPath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect",
     [switch]$Detailed = $false
 )
 
@@ -32,7 +32,7 @@ function Write-StatusLine {
 }
 
 # Header
-Write-Host "ChromeConnect Environment Setup Verification" -ForegroundColor Cyan
+Write-Host "WebConnect Environment Setup Verification" -ForegroundColor Cyan
 Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host "Target extraction path: $ExtractPath" -ForegroundColor White
 Write-Host ""
@@ -191,7 +191,7 @@ else {
 Write-Host "`nNext Steps:" -ForegroundColor Cyan
 Write-Host "-----------" -ForegroundColor Cyan
 if ($readyForProduction -or $readyForDevelopment) {
-    Write-Host "1. Launch ChromeConnect using:" -ForegroundColor White
+    Write-Host "1. Launch WebConnect using:" -ForegroundColor White
     Write-Host "   PowerShell -ExecutionPolicy Bypass -File 'scripts\StartApplication.ps1'" -ForegroundColor Gray
     Write-Host "2. Verify DLL extraction location after application starts" -ForegroundColor White
     Write-Host "3. Check AppLocker logs for any remaining DLL blocking issues" -ForegroundColor White

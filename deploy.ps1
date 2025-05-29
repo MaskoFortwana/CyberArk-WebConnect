@@ -1,14 +1,14 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    ChromeConnect PowerShell Deployment Script
+    WebConnect PowerShell Deployment Script
 
 .DESCRIPTION
-    Deploys ChromeConnect with DLL extraction simulation and environment variable setup.
+    Deploys WebConnect with DLL extraction simulation and environment variable setup.
     Includes AppLocker compatibility features and comprehensive validation.
 
 .PARAMETER TargetDir
-    Target deployment directory (default: C:\ChromeConnect)
+    Target deployment directory (default: C:\WebConnect)
 
 .PARAMETER SourceDir
     Source directory containing built files (default: ./publish)
@@ -23,14 +23,14 @@
     Whether to copy extracted DLL structure to deployment package (default: true)
 
 .EXAMPLE
-    ./deploy.ps1 -TargetDir "C:\Program Files\ChromeConnect"
+    ./deploy.ps1 -TargetDir "C:\Program Files\WebConnect"
     
 .EXAMPLE
-    ./deploy.ps1 -TargetDir "D:\Tools\ChromeConnect" -SetupEnvironment $false
+    ./deploy.ps1 -TargetDir "D:\Tools\WebConnect" -SetupEnvironment $false
 #>
 
 param (
-    [string]$TargetDir = "C:\ChromeConnect",
+    [string]$TargetDir = "C:\WebConnect",
     [string]$SourceDir = "./publish",
     [bool]$SetupEnvironment = $true,
     [bool]$RunExtraction = $true,
@@ -38,9 +38,9 @@ param (
 )
 
 # Script configuration
-$SourceExecutable = "$SourceDir/ChromeConnect.exe"
-$ExtractDllsScript = "src/ChromeConnect/ExtractDlls.ps1"
-$ExtractionBasePath = "C:\Program Files (x86)\CyberArk\PSM\Components\ChromeConnect"
+$SourceExecutable = "$SourceDir/WebConnect.exe"
+$ExtractDllsScript = "src/WebConnect/ExtractDlls.ps1"
+$ExtractionBasePath = "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect"
 
 # Colors for output
 $ErrorColor = "Red"
@@ -131,7 +131,7 @@ function Invoke-DllExtractionSimulation {
     try {
         # Run the extraction script with the deployment output path
         Write-InfoMessage "Executing: & '$ExtractDllsScript' -OutputPath '$OutputPath'"
-        & $ExtractDllsScript -OutputPath $OutputPath -ProjectDir "src/ChromeConnect"
+        & $ExtractDllsScript -OutputPath $OutputPath -ProjectDir "src/WebConnect"
         
         if ($LASTEXITCODE -eq 0) {
             Write-SuccessMessage "DLL extraction simulation completed successfully"
@@ -244,7 +244,7 @@ function Test-Prerequisites {
     
     # Check if source executable exists
     if (-not (Test-Path $SourceExecutable)) {
-        Write-ErrorMessage "ChromeConnect.exe not found at: $SourceExecutable"
+        Write-ErrorMessage "WebConnect.exe not found at: $SourceExecutable"
         Write-ErrorMessage "Please run the build script first: publish.ps1"
         return $false
     }
@@ -259,10 +259,10 @@ function Test-Prerequisites {
     return $true
 }
 
-function Deploy-ChromeConnect {
+function Deploy-WebConnect {
     param([string]$Target)
     
-    Write-InfoMessage "Deploying ChromeConnect to: $Target"
+    Write-InfoMessage "Deploying WebConnect to: $Target"
     
     try {
         # Create target directory
@@ -272,8 +272,8 @@ function Deploy-ChromeConnect {
         }
         
         # Copy main executable
-        Write-InfoMessage "Copying ChromeConnect.exe..."
-        Copy-Item -Path $SourceExecutable -Destination "$Target\ChromeConnect.exe" -Force
+        Write-InfoMessage "Copying WebConnect.exe..."
+        Copy-Item -Path $SourceExecutable -Destination "$Target\WebConnect.exe" -Force
         
         # Copy additional files from source directory
         $additionalFiles = @("README.md", "LICENSE")
@@ -303,7 +303,7 @@ function Deploy-ChromeConnect {
             }
         }
         
-        Write-SuccessMessage "ChromeConnect deployment completed"
+        Write-SuccessMessage "WebConnect deployment completed"
         return $true
     }
     catch {
@@ -325,15 +325,15 @@ function Show-DeploymentSummary {
         Write-Host "SUCCESS" -ForegroundColor $SuccessColor
         
         # Show deployed files
-        if (Test-Path "$Target\ChromeConnect.exe") {
-            $size = [math]::Round((Get-Item "$Target\ChromeConnect.exe").Length / 1MB, 2)
-            Write-Host "Executable:         ChromeConnect.exe ($size MB)" -ForegroundColor White
+        if (Test-Path "$Target\WebConnect.exe") {
+            $size = [math]::Round((Get-Item "$Target\WebConnect.exe").Length / 1MB, 2)
+            Write-Host "Executable:         WebConnect.exe ($size MB)" -ForegroundColor White
         }
         
         Write-Host ""
-        Write-Host "To run ChromeConnect:" -ForegroundColor White
+        Write-Host "To run WebConnect:" -ForegroundColor White
         Write-Host "  cd `"$Target`"" -ForegroundColor White
-        Write-Host "  .\ChromeConnect.exe --help" -ForegroundColor White
+        Write-Host "  .\WebConnect.exe --help" -ForegroundColor White
         Write-Host ""
         
         # Environment variable information
@@ -353,7 +353,7 @@ function Show-DeploymentSummary {
 # Main execution
 try {
     Write-Host ""
-    Write-Host "==================== CHROMECONNECT DEPLOYMENT SCRIPT ====================" -ForegroundColor $InfoColor
+    Write-Host "==================== WEBCONNECT DEPLOYMENT SCRIPT ====================" -ForegroundColor $InfoColor
     Write-Host "Starting deployment process..." -ForegroundColor White
     Write-Host ""
     
@@ -385,8 +385,8 @@ try {
         Write-InfoMessage "Skipping DLL extraction simulation (RunExtraction=$RunExtraction)"
     }
     
-    # Deploy ChromeConnect
-    if (-not (Deploy-ChromeConnect -Target $TargetDir)) {
+    # Deploy WebConnect
+    if (-not (Deploy-WebConnect -Target $TargetDir)) {
         $deploymentSuccess = $false
     }
     
