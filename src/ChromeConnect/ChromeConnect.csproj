@@ -6,23 +6,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     
-    <!-- Single executable deployment configuration -->
-    <PublishSingleFile>true</PublishSingleFile>
+    <!-- Multi-file deployment configuration -->
     <SelfContained>true</SelfContained>
     <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
     <PublishReadyToRun>true</PublishReadyToRun>
-    <PublishTrimmed>true</PublishTrimmed>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    
-    <!-- Additional single executable optimizations -->
-    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <UseAppHost>true</UseAppHost>
     
     <!-- Assembly and version information -->
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.8.0</AssemblyVersion>
+    <FileVersion>1.0.8.0</FileVersion>
+    <Version>1.0.8</Version>
     <AssemblyTitle>ChromeConnect</AssemblyTitle>
     <AssemblyDescription>Web Portal Authentication Automation Tool</AssemblyDescription>
     <AssemblyCompany>ChromeConnect</AssemblyCompany>
@@ -37,8 +30,6 @@
     <DebugType>embedded</DebugType>
     <DebugSymbols>true</DebugSymbols>
     <Optimize>true</Optimize>
-    <TrimMode>partial</TrimMode>
-    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
   </PropertyGroup>
 
   <ItemGroup>
@@ -65,18 +56,5 @@
     <PackageReference Include="Polly" Version="8.2.0" />
     <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
   </ItemGroup>
-
-  <!-- Post-build target for DLL extraction simulation -->
-  <Target Name="PostBuildDllExtraction" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">
-    <Message Text="Starting post-build DLL extraction for AppLocker compatibility..." Importance="high" />
-    <PropertyGroup>
-      <ExtractDllsScript>$(ProjectDir)ExtractDlls.ps1</ExtractDllsScript>
-      <PowerShellCommand>powershell -ExecutionPolicy Bypass -Command "&amp; { &amp; '$(ExtractDllsScript)' -OutputPath '$(PublishDir.TrimEnd('\'))' -ProjectDir '$(ProjectDir.TrimEnd('\'))' -Configuration '$(Configuration)' }"</PowerShellCommand>
-    </PropertyGroup>
-    <Exec Command="$(PowerShellCommand)" 
-          ContinueOnError="true" 
-          IgnoreExitCode="true" />
-    <Message Text="Post-build DLL extraction completed." Importance="high" />
-  </Target>
 
 </Project>

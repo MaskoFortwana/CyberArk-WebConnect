@@ -51,16 +51,11 @@ REM Build application
 echo INFO: Building application...
 if /i "%CONFIGURATION%"=="Release" (
     dotnet publish "%PROJECT_PATH%" -c %CONFIGURATION% -r %RUNTIME_ID% --self-contained true ^
-        -p:PublishSingleFile=true ^
-        -p:PublishTrimmed=true ^
         -p:PublishReadyToRun=true ^
-        -p:EnableCompressionInSingleFile=true ^
-        -p:IncludeNativeLibrariesForSelfExtract=true ^
         -o "%OUTPUT_DIR%" ^
         --verbosity minimal
 ) else (
     dotnet publish "%PROJECT_PATH%" -c %CONFIGURATION% -r %RUNTIME_ID% --self-contained true ^
-        -p:PublishSingleFile=true ^
         -o "%OUTPUT_DIR%" ^
         --verbosity minimal
 )
