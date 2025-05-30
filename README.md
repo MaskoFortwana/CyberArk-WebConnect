@@ -35,7 +35,7 @@ WebConnect is a Windows-based automation utility that streamlines web portal aut
 ### Option 1: Download Pre-built Executable (Recommended)
 
 1. **Download the latest release**
-   - Visit [Releases](https://github.com/MaskoFortwana/webconnect/releases)
+   - Visit [Releases](https://github.com/MaskoFortwana/CyberArk-WebConnect/releases)
    - Download `WebConnect-X.X.X-win-x64.zip` (64-bit) or `WebConnect-X.X.X-win-x86.zip` (32-bit)
 
 2. **Extract and setup**
