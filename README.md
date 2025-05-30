@@ -22,11 +22,11 @@ WebConnect is a specialized **CyberArk connection component** designed to provid
 - **🎯 Zero WebFormFields Configuration**: Eliminates the need to manually specify login field selectors for each website
 - **🔍 Intelligent Field Detection**: Automatically identifies username, password, and domain fields using advanced algorithms  
 - **✅ Automatic Login Verification**: Confirms successful authentication without manual success criteria configuration
-- **⏱️ Consistent Timeouts**: All logins complete within 30-60 seconds with proper timeout handling
-- **🛡️ Enterprise Security**: Full compliance with CyberArk security standards and AppLocker policies
+- **⏱️ Consistent Timeouts**: All logins complete within 20-60 seconds with proper timeout handling
+- **🛡️ Enterprise Security**: Compatible with CyberArk security standards and AppLocker policies
 - **📊 Comprehensive Logging**: Detailed audit trails stored in PSM shadow user locations
 
-This connection component **transforms web authentication management** by removing the complexity of custom field mapping, allowing administrators to focus on access policies rather than technical implementation details.
+This connection component **transforms web authentication management** by removing the complexity of custom field mapping, allowing administrators to focus on drinking coffee than technical implementation details.
 
 ---
 
@@ -38,22 +38,22 @@ This connection component **transforms web authentication management** by removi
 - **Domain Handling**: Supports both username/password and username/domain/password scenarios
 - **Dropdown Support**: Handles username and domain dropdown menus automatically
 
-<<<<<<< HEAD
+
 ### CyberArk Integration
 - **Seamless PSM Integration**: Works directly with CyberArk's session management infrastructure
 - **Credential Injection**: Receives credentials securely from CyberArk Password Vault
 - **Session Logging**: All actions are logged through CyberArk's audit framework
 - **Shadow User Support**: Operates within PSM shadow user context
-=======
+
 1. **Download the latest release**
    - Visit [Releases](https://github.com/MaskoFortwana/CyberArk-WebConnect/releases)
-   - Download `WebConnect-X.X.X-win-x64.zip` (64-bit) or `WebConnect-X.X.X-win-x86.zip` (32-bit)
->>>>>>> ea071e2c1f5ab9c00faa350caac0b4e6f45be3ee
+   - Download `WebConnect-X.X.X-win-x64.zip`
+
 
 ### Enterprise Compliance
-- **AppLocker Compatible**: Includes required AppLocker rules for enterprise deployment
+- **AppLocker Compatible**: Includes required AppLocker rules for deployment
 - **Chrome Management**: Integrates with ChromeDriver for consistent browser automation
-- **Timeout Management**: Enforces 30-60 second login completion windows
+- **Timeout Management**: Enforces 20-60 second login completion windows
 - **Error Handling**: Graceful failure management with detailed logging
 
 ---
@@ -61,14 +61,12 @@ This connection component **transforms web authentication management** by removi
 ## 🖥️ System Requirements
 
 ### Prerequisites
-- **Operating System**: Windows Server 2016/2019/2022 or Windows 10/11
 - **CyberArk Components**: 
-  - CyberArk PSM Server (v12.0 or later recommended)
-  - CyberArk Password Vault integration
+  - CyberArk PSM Server (v13.0 or later recommended)
 - **Browser Requirements**:
   - Google Chrome (latest stable version)
   - ChromeDriver v136+ (matching Chrome version)
-- **Runtime**: .NET 8.0 Runtime (included in deployment)
+- **Runtime**: .NET 8.0 Runtime (included in deployment, no need to install on PSM server)
 
 ### Supported Environments
 - **Primary**: CyberArk PSM (Privileged Session Management)
@@ -95,11 +93,11 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
 ├── WebConnect-Wrapper.au3           # AutoIt source
 └── WebConnect\                       # Dependencies directory
     └── WebConnect\
-        └── XaOenUHfxubjqknQD9EJKfKYvVkfgYI=\
-            ├── selenium-manager\
-            │   └── windows\
-            │       └── selenium-manager.exe
-            └── *.dll                 # .NET runtime assemblies
+	    ├── *.dll
+        └──selenium-manager\
+            └── windows\
+	             └── selenium-manager.exe
+
 ```
 
 ### 2. AppLocker Configuration
@@ -108,17 +106,33 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
 
 #### EXE Files
 ```xml
+<!-- WebConnect START -->
 <Application Name="WebConnect" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect.exe" Method="Hash" />
 <Application Name="WebConnect-Wrapper" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect-Wrapper.exe" Method="Hash" />
-<Application Name="WebConnect-Manager" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\WebConnect\XaOenUHfxubjqknQD9EJKfKYvVkfgYI=\selenium-manager\windows\selenium-manager.exe" Method="Hash" />
+<Application Name="WebConnect2" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\WebConnect.exe" Method="Hash" />
+<Application Name="ChromeDriver2" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\chromedriver.exe" Method="Hash" />
+<Application Name="WebConnect-Manager" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\selenium-manager\windows\selenium-manager.exe" Method="Hash" />
+<!-- WebConnect END -->
 ```
 
 #### DLL Files
 ```xml
-<Libraries Name="WebConnect-DLLs" Type="Dll" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\WebConnect\XaOenUHfxubjqknQD9EJKfKYvVkfgYI=\*" Method="Path" />
+<Libraries Name="WebConnect-DLLs" Type="Dll" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\*" Method="Path" />
 ```
 
-### 3. Platform Configuration
+### 3. AutoIT wrapper Configuration
+
+AutoIT script is being used as "middle-man" between WebConnect and CyberArk, can be found in CyberArk-Files folder of the release .zip file.
+Its only purpose is to execute the WebConnect.exe correctly, using the parameters from Comment parameter that is explained below in point 5.
+
+Copy WebConnect-wrapper.exe to Components folder
+
+### 4. Connection Component Configuration
+
+Connection component to import can be found in CyberArk-Files folder of the release .zip file.
+Can be imported using psPAS or any other way you are used to import connection components to CyberArk
+
+### 5. Platform Configuration
 
 #### Comment Parameter Configuration
 
@@ -126,9 +140,6 @@ WebConnect uses CyberArk's **Comment parameter** for configuration. This paramet
 
 **Parameter Setup:**
 - **Name**: `Comment`
-- **Type**: Optional or Required (recommended: Required for consistency)
-- **Usage**: Contains pipe-separated configuration options
-
 #### Comment Parameter Format
 
 Configure the Comment field with the following format:
@@ -137,6 +148,7 @@ Configure the Comment field with the following format:
 o1=https://|o2=/PasswordVault/v10/logon/ldap|o3=443|o4=none|o5=yes|o6=no|o7=ignore
 ```
 
+This format is parsed by WebConnect-wrapper.exe and passed correctly to WebConnect.exe
 #### Configuration Options Reference
 
 | Option | Parameter | Description | Common Values | Example |
@@ -179,6 +191,7 @@ o1=http://|o2=/dev/login|o3=8080|o4=none|o5=yes|o6=no|o7=ignore
 - Windows machine with Chrome installed
 - ChromeDriver v136+ matching your Chrome version
 - WebConnect.exe and dependencies
+- Testing with production passwords is NOT RECOMMENDED, as those are exposed in clear text
 
 ### Basic Test Command
 ```powershell
