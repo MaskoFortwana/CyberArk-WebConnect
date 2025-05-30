@@ -53,13 +53,6 @@ This connection component **transforms web authentication management** by removi
    - Visit [Releases](https://github.com/MaskoFortwana/CyberArk-WebConnect/releases)
    - Download `WebConnect-X.X.X-win-x64.zip`
 
-
-### Enterprise Compliance
-- **AppLocker Compatible**: Includes required AppLocker rules for deployment
-- **Chrome Management**: Integrates with ChromeDriver for consistent browser automation
-- **Timeout Management**: Enforces 20-60 second login completion windows
-- **Error Handling**: Graceful failure management with detailed logging
-
 ---
 
 ## 🖥️ System Requirements
@@ -99,7 +92,7 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
     ├── *.dll
     └──selenium-manager\
         └── windows\
-        ├──selenium-manager.exe
+	        └──selenium-manager.exe
 
 ```
 
