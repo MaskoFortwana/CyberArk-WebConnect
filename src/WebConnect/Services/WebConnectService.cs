@@ -5,7 +5,6 @@ using OpenQA.Selenium;
 using WebConnect.Core;
 using WebConnect.Models;
 using WebConnect.Exceptions;
-using WebConnect.Utilities;
 using WebConnect.Configuration;
 using System.Collections.Generic;
 using System.Threading;
@@ -78,23 +77,12 @@ namespace WebConnect.Services
         {
             _logger.LogInformation("WebConnect starting");
             IWebDriver driver = null;
-            InputBlocker? inputBlocker = null;
 
             // Log options (masking sensitive fields)
             LogCommandLineOptions(options);
 
             try
             {
-                // Initialize input blocking if enabled
-                if (StaticConfiguration.InputBlockingEnabled)
-                {
-                    _logger.LogInformation("Input blocking is enabled - initializing InputBlocker with {TimeoutSeconds}s timeout", StaticConfiguration.InputBlockingTimeoutSeconds);
-                    
-                    // Create logger for InputBlocker
-                    var inputBlockerLogger = _logger as ILogger<InputBlocker>;
-                    inputBlocker = new InputBlocker(StaticConfiguration.InputBlockingTimeoutSeconds * 1000, inputBlockerLogger);
-                }
-
                 // Launch the browser with error handling
                 driver = await _errorHandler.ExecuteWithErrorHandlingAsync(async () =>
                 {
@@ -110,20 +98,6 @@ namespace WebConnect.Services
                 {
                     _logger.LogError("Failed to launch browser");
                     return 1;
-                }
-
-                // Start input blocking if enabled
-                if (inputBlocker != null)
-                {
-                    bool blockingStarted = inputBlocker.StartBlocking();
-                    if (blockingStarted)
-                    {
-                        _logger.LogInformation("System-wide input blocking is now active");
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to start input blocking - continuing without input protection");
-                    }
                 }
 
                 // Perform the login process with error handling and retry for transient issues
@@ -384,24 +358,6 @@ namespace WebConnect.Services
             }
             finally
             {
-                // Ensure input blocking is stopped before cleanup
-                if (inputBlocker != null)
-                {
-                    try
-                    {
-                        inputBlocker.StopBlocking();
-                        _logger.LogInformation("Input blocking deactivated in cleanup");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error stopping input blocking during cleanup");
-                    }
-                    finally
-                    {
-                        inputBlocker.Dispose();
-                    }
-                }
-
                 // Clean up resources if needed
                 CleanupResources(driver);
             }

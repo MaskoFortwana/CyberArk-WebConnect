@@ -6,7 +6,6 @@ using WebConnect.Core;
 using WebConnect.Services;
 using WebConnect.Models;
 using WebConnect.Configuration;
-using WebConnect.Utilities;
 using Serilog;
 using Microsoft.Extensions.Configuration;
 
@@ -166,13 +165,6 @@ namespace WebConnect.Services
                 };
             });
             services.AddSingleton<SessionManager>();
-
-            // Register input blocking utility
-            services.AddTransient<InputBlocker>(provider =>
-            {
-                var logger = provider.GetService<ILogger<InputBlocker>>();
-                return new InputBlocker(StaticConfiguration.InputBlockingTimeoutSeconds * 1000, logger);
-            });
 
             // Register main application service
             services.AddSingleton<WebConnectService>();

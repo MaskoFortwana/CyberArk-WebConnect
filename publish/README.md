@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![WebConnect Logo](docs/images/logo.png)
+![WebConnect Logo](docs/images/logo-light.png)
 
 **CyberArk Connection Component for Automated Web Authentication**
 
@@ -16,6 +16,13 @@
 ## 🚀 Overview
 
 WebConnect is a specialized **CyberArk connection component** designed to provide automated access to web applications through CyberArk's Privileged Session Management (PSM). Unlike traditional connection components that require manual WebFormFields configuration for each target website, WebConnect **automatically detects login fields and verifies login success**, dramatically reducing administrative overhead and saving significant configuration time.
+
+**Please note**
+* The whole code was completely written by AI using Cursor.
+* Code security is being verified on every change by using Snyk
+* It is meant to be a open-source community project, it is not related to CyberArk company anyhow
+* Use at own risk, no guarantees
+* Feel free to reach out for any questions
 
 ### Key Benefits for CyberArk Administrators
 
@@ -48,13 +55,6 @@ This connection component **transforms web authentication management** by removi
 1. **Download the latest release**
    - Visit [Releases](https://github.com/MaskoFortwana/CyberArk-WebConnect/releases)
    - Download `WebConnect-X.X.X-win-x64.zip`
-
-
-### Enterprise Compliance
-- **AppLocker Compatible**: Includes required AppLocker rules for deployment
-- **Chrome Management**: Integrates with ChromeDriver for consistent browser automation
-- **Timeout Management**: Enforces 20-60 second login completion windows
-- **Error Handling**: Graceful failure management with detailed logging
 
 ---
 
@@ -92,11 +92,10 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
 ├── WebConnect-Wrapper.exe           # AutoIt wrapper script
 ├── WebConnect-Wrapper.au3           # AutoIt source
 └── WebConnect\                       # Dependencies directory
-    └── WebConnect\
-	    ├── *.dll
-        └──selenium-manager\
-            └── windows\
-	             └── selenium-manager.exe
+    ├── *.dll
+    └──selenium-manager\
+        └── windows\
+	        └──selenium-manager.exe
 
 ```
 
@@ -151,15 +150,15 @@ o1=https://|o2=/PasswordVault/v10/logon/ldap|o3=443|o4=none|o5=yes|o6=no|o7=igno
 This format is parsed by WebConnect-wrapper.exe and passed correctly to WebConnect.exe
 #### Configuration Options Reference
 
-| Option | Parameter | Description | Common Values | Example |
-|--------|-----------|-------------|---------------|---------|
-| `o1` | WebPrefix | Protocol prefix for URL construction | `https://`, `http://` | `o1=https://` |
-| `o2` | WebSuffix | Path suffix appended to hostname | `/login.htm`, `/auth`, `/signin` | `o2=/login.htm` |
-| `o3` | WebPort | TCP port for web connection | `443` (HTTPS), `80` (HTTP), `8080` | `o3=443` |
-| `o4` | WebDomain | Domain for authentication (if applicable) | `acme.corp`, `none` | `o4=acme.corp` |
-| `o5` | WebIncognitoMode | Enable Chrome incognito mode | `yes`, `no` | `o5=yes` |
-| `o6` | WebKioskMode | Enable Chrome kiosk (fullscreen) mode | `yes`, `no` | `o6=no` |
-| `o7` | WebCertificate | SSL certificate validation mode | `enforce`, `ignore` | `o7=ignore` |
+| Option | Parameter        | Description                          | Common Values                      | Example         |
+| ------ | ---------------- | ------------------------------------ | ---------------------------------- | --------------- |
+| `o1`   | WebPrefix        | Protocol prefix for URL construction | `https://`, `http://`              | `o1=https://`   |
+| `o2`   | WebSuffix        | Path suffix appended to hostname     | `/login.htm`, `/auth`, `/signin`   | `o2=/login.htm` |
+| `o3`   | WebPort          | TCP port for web connection          | `443` (HTTPS), `80` (HTTP), `8080` | `o3=443`        |
+| `o4`   | WebDomain        | Domain for authentication            | `acme.corp`, `none`                | `o4=acme.corp`  |
+| `o5`   | WebIncognitoMode | Enable Chrome incognito mode         | `yes`, `no`                        | `o5=yes`        |
+| `o6`   | WebKioskMode     | Enable Chrome kiosk mode             | `yes`, `no`                        | `o6=no`         |
+| `o7`   | WebCertificate   | SSL certificate validation mode      | `enforce`, `ignore`                | `o7=ignore`     |
 
 #### Configuration Examples
 
@@ -182,6 +181,7 @@ o1=http://|o2=/dev/login|o3=8080|o4=none|o5=yes|o6=no|o7=ignore
 - **All 7 options (o1-o7) must have values** - even if unused (use `none` for unused domain/port)
 - **Recommended Practice**: Configure Comment parameter as **Required** and set at platform level
 - **Admin Control**: Prevent users from editing account properties to maintain configuration consistency
+- **Check for Known Bugs section
 
 ---
 
@@ -304,6 +304,16 @@ Logs include detailed information about:
 ---
 
 ## 🛠️ Troubleshooting & Common Issues
+
+### ❌ Known Bugs & Issues
+1. chromedriver.exe and webconenct.exe has to be placed in 2 locations currently and also allow both paths in applocker
+	* C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect
+	* C:\Program Files (x86)\CyberArk\PSM\Components\
+		* Fix planned for version 1.0.2
+2. Not working on websites with cookie notification that is not skippable.
+3. 2FA websites not supported
+4. Basic authentication not supported yet
+	* Fix planned for version 1.0.3
 
 ### Login Field Detection Issues
 
@@ -456,11 +466,3 @@ CyberArk PSM
 - **Audit Trail**: Complete logging of all authentication activities
 
 ---
-
-<div align="center">
-
-**WebConnect - Streamlining CyberArk Web Authentication**
-
-Built for CyberArk PSM Environments | Automatic Field Detection | Zero Configuration Required
-
-</div> 

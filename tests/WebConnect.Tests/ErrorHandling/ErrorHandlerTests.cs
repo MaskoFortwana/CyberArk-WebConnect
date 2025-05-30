@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Extensions.Logging;
 using Moq;
+using OpenQA.Selenium;
 using System;
 using System.Threading.Tasks;
 using WebConnect.Exceptions;

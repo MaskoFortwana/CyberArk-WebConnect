@@ -62,20 +62,6 @@ public static class StaticConfiguration
 
     #endregion
 
-    #region Input Blocking Configuration
-
-    /// <summary>
-    /// Whether to enable system-wide input blocking during automation (true)
-    /// </summary>
-    public static bool InputBlockingEnabled { get; set; } = true;
-
-    /// <summary>
-    /// Timeout for input blocking in seconds before automatic restoration (150)
-    /// </summary>
-    public static int InputBlockingTimeoutSeconds { get; set; } = 150;
-
-    #endregion
-
     #region Timeout Configuration
 
     /// <summary>
