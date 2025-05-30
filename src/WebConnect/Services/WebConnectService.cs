@@ -107,7 +107,7 @@ namespace WebConnect.Services
                     var loginForm = await _timeoutManager.ExecuteWithTimeoutAsync<LoginFormElements>(async (CancellationToken tokenFromManager) =>
                     {
                         _logger.LogInformation("Detecting login form");
-                        return await _loginDetector.DetectLoginFormAsync(driver);
+                        return await _loginDetector.DetectLoginFormAsync(driver, options.Domain);
                     }, operationName: "DetectLoginForm");
 
                     if (loginForm == null)
@@ -389,7 +389,7 @@ namespace WebConnect.Services
         }
 
         /// <summary>
-        /// Logs command-line options, masking sensitive information.
+        /// Logs the command-line options for debugging and audit purposes (sensitive fields are masked).
         /// </summary>
         private void LogCommandLineOptions(CommandLineOptions options)
         {
@@ -400,6 +400,12 @@ namespace WebConnect.Services
             _logger.LogInformation("Incognito: {Incognito}", options.Incognito ? "yes" : "no");
             _logger.LogInformation("Kiosk: {Kiosk}", options.Kiosk ? "yes" : "no");
             _logger.LogInformation("Certificate Validation: {CertVal}", options.IgnoreCertErrors ? "ignore" : "enforce");
+            
+            // Log performance optimization notice for domain="none"
+            if (string.Equals(options.Domain, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Domain optimization enabled - domain field detection and processing will be bypassed for improved performance");
+            }
         }
 
         /// <summary>

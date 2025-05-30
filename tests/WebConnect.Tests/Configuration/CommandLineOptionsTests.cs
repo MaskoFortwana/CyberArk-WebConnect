@@ -265,4 +265,91 @@ public class CommandLineOptionsTests
         Assert.AreEqual("no", options.IncognitoString, "IncognitoString should default to 'no'");
         Assert.AreEqual("enforce", options.CertString, "CertString should default to 'enforce'");
     }
+
+    [TestMethod]
+    public void ShouldSkipDomainDetection_WhenDomainIsNone_ShouldReturnTrue()
+    {
+        // Arrange
+        var options = new CommandLineOptions { Domain = "none" };
+
+        // Act
+        var result = options.ShouldSkipDomainDetection();
+
+        // Assert
+        Assert.IsTrue(result, "ShouldSkipDomainDetection should return true when Domain is 'none'");
+    }
+
+    [TestMethod]
+    public void ShouldSkipDomainDetection_WhenDomainIsNoneCaseInsensitive_ShouldReturnTrue()
+    {
+        // Arrange & Act & Assert - Test various case combinations
+        var testCases = new[] { "none", "NONE", "None", "NoNe", "nOnE" };
+        
+        foreach (var testCase in testCases)
+        {
+            var options = new CommandLineOptions { Domain = testCase };
+            Assert.IsTrue(options.ShouldSkipDomainDetection(), 
+                $"ShouldSkipDomainDetection should return true for '{testCase}' (case-insensitive)");
+        }
+    }
+
+    [TestMethod]
+    public void ShouldSkipDomainDetection_WhenDomainIsNotNone_ShouldReturnFalse()
+    {
+        // Arrange & Act & Assert - Test various non-"none" values
+        var testCases = new[] { "example", "domain", "test", "company", "", " ", "null", "None123", "nonexample" };
+        
+        foreach (var testCase in testCases)
+        {
+            var options = new CommandLineOptions { Domain = testCase };
+            Assert.IsFalse(options.ShouldSkipDomainDetection(), 
+                $"ShouldSkipDomainDetection should return false for '{testCase}'");
+        }
+    }
+
+    [TestMethod]
+    public void ShouldSkipDomainDetection_WhenDomainIsNull_ShouldReturnFalse()
+    {
+        // Arrange
+        var options = new CommandLineOptions { Domain = null };
+
+        // Act
+        var result = options.ShouldSkipDomainDetection();
+
+        // Assert
+        Assert.IsFalse(result, "ShouldSkipDomainDetection should return false when Domain is null");
+    }
+
+    [TestMethod]
+    public void DomainParameter_ShouldAcceptNoneAsValidValue()
+    {
+        // Arrange
+        var options = new CommandLineOptions();
+
+        // Act
+        options.Domain = "none";
+
+        // Assert
+        Assert.AreEqual("none", options.Domain, "Domain should accept 'none' as a valid value");
+        Assert.IsTrue(options.ShouldSkipDomainDetection(), "ShouldSkipDomainDetection should return true when Domain is 'none'");
+    }
+
+    [TestMethod]
+    public void DomainParameter_ShouldAcceptRegularDomainValues()
+    {
+        // Arrange
+        var options = new CommandLineOptions();
+        var testValues = new[] { "example.com", "company", "tenant", "domain123" };
+
+        foreach (var testValue in testValues)
+        {
+            // Act
+            options.Domain = testValue;
+
+            // Assert
+            Assert.AreEqual(testValue, options.Domain, $"Domain should accept '{testValue}' as a valid value");
+            Assert.IsFalse(options.ShouldSkipDomainDetection(), 
+                $"ShouldSkipDomainDetection should return false for regular domain value '{testValue}'");
+        }
+    }
 } 

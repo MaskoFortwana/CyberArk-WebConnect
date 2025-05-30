@@ -34,9 +34,9 @@ public class CommandLineOptions
     public string Url { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the domain or tenant identifier.
+    /// Gets or sets the domain or tenant identifier. Use "none" to skip domain field detection.
     /// </summary>
-    [Option("DOM", Required = true, HelpText = "Domain or tenant identifier")]
+    [Option("DOM", Required = true, HelpText = "Domain or tenant identifier. Use 'none' to skip domain field detection.")]
     [Required(ErrorMessage = "Domain is required")]
     public string Domain { get; set; } = string.Empty;
 
@@ -119,6 +119,13 @@ public class CommandLineOptions
     public void SetCert(string value) => _ignoreCertErrors = value?.ToLower() == "ignore";
 
     /// <summary>
+    /// Determines whether domain field detection should be skipped based on the domain value.
+    /// </summary>
+    /// <returns>True if domain field detection should be skipped, false otherwise.</returns>
+    public bool ShouldSkipDomainDetection() => 
+        string.Equals(Domain, "none", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Gets or sets a value indicating whether to display version information.
     /// </summary>
     [Option("version", HelpText = "Display version information and deployment requirements")]
@@ -149,7 +156,7 @@ REQUIRED PARAMETERS:
   --USR <username>     Username for login form (supports domain\user format)
   --PSW <password>     Password for authentication (masked in logs)
   --URL <url>          Target login page URL (must include https://)
-  --DOM <domain>       Domain or tenant identifier
+  --DOM <domain>       Domain or tenant identifier. Use 'none' to skip domain field detection.
   --INCOGNITO <yes|no> Use incognito/private browsing mode
   --KIOSK <yes|no>     Use kiosk mode (fullscreen, no UI)
   --CERT <ignore|enforce> Certificate validation handling
@@ -161,6 +168,7 @@ OPTIONAL PARAMETERS:
 EXAMPLES:
   WebConnect.exe --USR john.doe --PSW mypass123 --URL https://login.company.com --DOM company --INCOGNITO no --KIOSK no --CERT enforce
   WebConnect.exe --USR admin@domain.com --PSW secret --URL https://portal.example.com --DOM example --INCOGNITO yes --KIOSK yes --CERT ignore --debug
+  WebConnect.exe --USR testuser --PSW testpass --URL https://login.example.com --DOM none --INCOGNITO yes --KIOSK no --CERT ignore
 
 LOG LOCATION:
   Logs are written to: %TEMP%\WebConnect\
@@ -199,6 +207,7 @@ For more information, visit: https://github.com/MaskoFortwana/webconnect
 
         if (string.IsNullOrWhiteSpace(Domain))
             errors.Add("Domain (--DOM) is required and cannot be empty");
+        // Note: "none" is explicitly allowed as a valid domain value to skip domain field detection
 
         return errors;
     }

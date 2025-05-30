@@ -89,6 +89,12 @@ namespace WebConnect.Models
         /// <returns>The configuration if found, null otherwise.</returns>
         public static LoginPageConfiguration? GetConfigurationForUrl(string url)
         {
+            // Guard against null URL
+            if (string.IsNullOrEmpty(url))
+            {
+                return null;
+            }
+
             foreach (var config in _configurations.OrderByDescending(c => c.Priority))
             {
                 if (url.Contains(config.UrlPattern, StringComparison.OrdinalIgnoreCase))

@@ -64,7 +64,10 @@ public class LoginDetector
     /// <summary>
     /// Performance-optimized login form detection with batched DOM queries and intelligent waiting
     /// </summary>
-    public virtual async Task<LoginFormElements?> DetectLoginFormAsync(IWebDriver driver)
+    /// <param name="driver">The web driver instance</param>
+    /// <param name="domain">The domain value from command line options. When "none", domain field detection is skipped.</param>
+    /// <returns>Detected login form elements or null if detection fails</returns>
+    public virtual async Task<LoginFormElements?> DetectLoginFormAsync(IWebDriver driver, string? domain = null)
     {
         _logger.LogInformation("Starting optimized login form detection");
         
@@ -80,7 +83,7 @@ public class LoginDetector
             }
 
             // **NEW: IMMEDIATE FAST-PATH DETECTION - Try to detect common login forms instantly**
-            var fastPathResult = await TryFastPathDetectionAsync(driver);
+            var fastPathResult = await TryFastPathDetectionAsync(driver, domain);
             if (IsValidLoginForm(fastPathResult))
             {
                 _logger.LogInformation("Login form detected using FAST-PATH detection in minimal time");
@@ -137,19 +140,19 @@ public class LoginDetector
                     switch (method)
                     {
                         case DetectionMethod.UrlSpecific when config != null:
-                            detectedForm = await DetectByConfigurationOptimizedAsync(driver, config);
+                            detectedForm = await DetectByConfigurationOptimizedAsync(driver, config, domain);
                             confidence = CalculateConfigurationConfidence(detectedForm, config);
                             break;
                         case DetectionMethod.CommonAttributes:
-                            detectedForm = await DetectByCommonAttributesOptimizedAsync(driver);
+                            detectedForm = await DetectByCommonAttributesOptimizedAsync(driver, domain);
                             confidence = CalculateCommonAttributesConfidence(detectedForm);
                             break;
                         case DetectionMethod.XPath:
-                            detectedForm = await DetectByXPathOptimizedAsync(driver);
+                            detectedForm = await DetectByXPathOptimizedAsync(driver, domain);
                             confidence = CalculateXPathConfidence(detectedForm);
                             break;
                         case DetectionMethod.ShadowDOM:
-                            detectedForm = await DetectWithShadowDOMOptimizedAsync(driver);
+                            detectedForm = await DetectWithShadowDOMOptimizedAsync(driver, domain);
                             confidence = CalculateShadowDOMConfidence(detectedForm, driver);
                             break;
                     }
@@ -201,7 +204,10 @@ public class LoginDetector
     /// **NEW: Ultra-fast detection for common login forms - completes in under 500ms**
     /// This method tries the most common login form patterns immediately without waiting for full page load
     /// </summary>
-    private async Task<LoginFormElements?> TryFastPathDetectionAsync(IWebDriver driver)
+    /// <param name="driver">The web driver instance</param>
+    /// <param name="domain">The domain value from command line options. When "none", domain field detection is skipped.</param>
+    /// <returns>Detected login form elements or null if detection fails</returns>
+    private async Task<LoginFormElements?> TryFastPathDetectionAsync(IWebDriver driver, string? domain = null)
     {
         try
         {
@@ -259,49 +265,58 @@ public class LoginDetector
             }
 
             // **STRATEGY 2.5: OPTIMIZED Domain field detection**
-            // Only look for domain fields if there's evidence they might exist - this saves significant time on simple forms
-            // Quick pre-check: Are there ANY potential domain elements on the page?
-            var quickDomainCheck = driver.FindElements(By.CssSelector(
-                "select[name*='domain' i], select[id*='domain' i], " +
-                "input[name*='domain' i], input[id*='domain' i]"));
-            
-            if (quickDomainCheck.Count > 0)
+            // Skip domain field detection if domain is set to "none" for improved performance
+            if (string.Equals(domain, "none", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogDebug($"FAST-PATH: Found {quickDomainCheck.Count} potential domain elements, checking further");
+                _logger.LogInformation("Domain field detection skipped - domain parameter set to 'none'");
+                loginForm.DomainField = null;
+            }
+            else
+            {
+                // Only look for domain fields if there's evidence they might exist - this saves significant time on simple forms
+                // Quick pre-check: Are there ANY potential domain elements on the page?
+                var quickDomainCheck = driver.FindElements(By.CssSelector(
+                    "select[name*='domain' i], select[id*='domain' i], " +
+                    "input[name*='domain' i], input[id*='domain' i]"));
                 
-                // Only do full domain detection if quick check found elements
-                    var domainElements = driver.FindElements(By.CssSelector(
-                        "select[name*='domain'], select[id*='domain'], select[name*='realm'], select[id*='realm'], " +
-                        "select[name*='tenant'], select[id*='tenant'], select[name*='org'], select[id*='org'], " +
-                        "select[name*='company'], select[id*='company'], select[name*='authority'], select[id*='authority'], " +
-                        "input[name*='domain'], input[id*='domain'], input[name*='realm'], input[id*='realm'], " +
-                        "input[name*='tenant'], input[id*='tenant'], input[name*='org'], input[id*='org'], " +
-                        "input[name*='company'], input[id*='company'], input[name*='authority'], input[id*='authority'], " +
-                        "select[class*='domain'], input[class*='domain'], " +
-                        "select[placeholder*='domain' i], input[placeholder*='domain' i], " +
-                        "select[aria-label*='domain' i], input[aria-label*='domain' i]"));
+                if (quickDomainCheck.Count > 0)
+                {
+                    _logger.LogDebug($"FAST-PATH: Found {quickDomainCheck.Count} potential domain elements, checking further");
                     
-                    var domainField = domainElements
-                        .Where(element => !AreSameElement(element, loginForm.UsernameField)) // Exclude already detected username field
-                        .Where(element => element.TagName.ToLower() == "select" ? IsLikelyDomainDropdownOptimized(element) : IsLikelyDomainInput(element))
-                        .OrderByDescending(element => IsElementVisible(element) ? 1 : 0) // Prefer visible elements
-                        .ThenByDescending(element => CalculateFastPathDomainScore(element)) // Score by relevance
-                        .FirstOrDefault();
-                    
-                    if (domainField != null)
-                    {
-                        _logger.LogDebug($"FAST-PATH: Found domain field - Tag: {domainField.TagName}, ID: {GetAttributeLower(domainField, "id")}, Name: {GetAttributeLower(domainField, "name")}");
-                        loginForm.DomainField = domainField;
+                    // Only do full domain detection if quick check found elements
+                        var domainElements = driver.FindElements(By.CssSelector(
+                            "select[name*='domain'], select[id*='domain'], select[name*='realm'], select[id*='realm'], " +
+                            "select[name*='tenant'], select[id*='tenant'], select[name*='org'], select[id*='org'], " +
+                            "select[name*='company'], select[id*='company'], select[name*='authority'], select[id*='authority'], " +
+                            "input[name*='domain'], input[id*='domain'], input[name*='realm'], input[id*='realm'], " +
+                            "input[name*='tenant'], input[id*='tenant'], input[name*='org'], input[id*='org'], " +
+                            "input[name*='company'], input[id*='company'], input[name*='authority'], input[id*='authority'], " +
+                            "select[class*='domain'], input[class*='domain'], " +
+                            "select[placeholder*='domain' i], input[placeholder*='domain' i], " +
+                            "select[aria-label*='domain' i], input[aria-label*='domain' i]"));
+                        
+                        var domainField = domainElements
+                            .Where(element => !AreSameElement(element, loginForm.UsernameField)) // Exclude already detected username field
+                            .Where(element => element.TagName.ToLower() == "select" ? IsLikelyDomainDropdownOptimized(element) : IsLikelyDomainInput(element))
+                            .OrderByDescending(element => IsElementVisible(element) ? 1 : 0) // Prefer visible elements
+                            .ThenByDescending(element => CalculateFastPathDomainScore(element)) // Score by relevance
+                            .FirstOrDefault();
+                        
+                        if (domainField != null)
+                        {
+                            _logger.LogDebug($"FAST-PATH: Found domain field - Tag: {domainField.TagName}, ID: {GetAttributeLower(domainField, "id")}, Name: {GetAttributeLower(domainField, "name")}");
+                            loginForm.DomainField = domainField;
+                        }
+                        else
+                        {
+                            _logger.LogDebug("FAST-PATH: No suitable domain field found after detailed check");
+                        }
                     }
                     else
                     {
-                        _logger.LogDebug("FAST-PATH: No suitable domain field found after detailed check");
+                        _logger.LogDebug("FAST-PATH: No potential domain elements found on page, skipping domain detection");
                     }
-                }
-                else
-                {
-                    _logger.LogDebug("FAST-PATH: No potential domain elements found on page, skipping domain detection");
-                }
+            }
 
             // **STRATEGY 3: Find submit button**
             // Use optimized query for submit buttons
@@ -2967,7 +2982,7 @@ public class LoginDetector
     /// <summary>
     /// Performance-optimized configuration-based detection using cached elements
     /// </summary>
-    private async Task<LoginFormElements> DetectByConfigurationOptimizedAsync(IWebDriver driver, LoginPageConfiguration config)
+    private async Task<LoginFormElements> DetectByConfigurationOptimizedAsync(IWebDriver driver, LoginPageConfiguration config, string? domain = null)
     {
         _logger.LogDebug($"Starting optimized configuration-based detection: {config.DisplayName}");
         
@@ -2988,8 +3003,17 @@ public class LoginDetector
             loginForm.PasswordField = await FindElementBySelectorsOptimizedAsync(inputElements, config.PasswordSelectors, "password");
 
             // Try to find domain field using config selectors (optional)
-            var domainElements = inputElements.Concat(selectElements).ToList();
-            loginForm.DomainField = await FindElementBySelectorsOptimizedAsync(domainElements, config.DomainSelectors, "domain");
+            // Skip domain field detection if domain is set to "none" for improved performance
+            if (string.Equals(domain, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Domain field detection skipped in configuration-based detection - domain parameter set to 'none'");
+                loginForm.DomainField = null;
+            }
+            else
+            {
+                var domainElements = inputElements.Concat(selectElements).ToList();
+                loginForm.DomainField = await FindElementBySelectorsOptimizedAsync(domainElements, config.DomainSelectors, "domain");
+            }
 
             // Try to find submit button using config selectors
             var submitElements = buttonElements.Concat(linkElements).Concat(inputElements.Where(i => 
@@ -3051,7 +3075,7 @@ public class LoginDetector
     /// <summary>
     /// Performance-optimized common attributes detection using cached elements
     /// </summary>
-    private async Task<LoginFormElements> DetectByCommonAttributesOptimizedAsync(IWebDriver driver)
+    private async Task<LoginFormElements> DetectByCommonAttributesOptimizedAsync(IWebDriver driver, string? domain = null)
     {
         _logger.LogDebug("Starting optimized common attributes detection");
         
@@ -3064,7 +3088,16 @@ public class LoginDetector
             loginForm.PasswordField = await FindBestElementByScoreOptimizedAsync(ElementType.Password);
             
             // For domain field, we need to manually exclude already detected fields since the optimized method doesn't support exclusion
-            loginForm.DomainField = await FindBestElementByScoreOptimizedAsyncWithExclusion(ElementType.Domain, new List<IWebElement?> { loginForm.UsernameField, loginForm.PasswordField });
+            // Skip domain field detection if domain is set to "none" for improved performance
+            if (string.Equals(domain, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Domain field detection skipped in common attributes detection - domain parameter set to 'none'");
+                loginForm.DomainField = null;
+            }
+            else
+            {
+                loginForm.DomainField = await FindBestElementByScoreOptimizedAsyncWithExclusion(ElementType.Domain, new List<IWebElement?> { loginForm.UsernameField, loginForm.PasswordField });
+            }
             
             loginForm.SubmitButton = await FindBestElementByScoreOptimizedAsync(ElementType.SubmitButton);
 
@@ -3080,7 +3113,7 @@ public class LoginDetector
     /// <summary>
     /// Performance-optimized XPath detection using cached elements and smart XPath strategies
     /// </summary>
-    private async Task<LoginFormElements> DetectByXPathOptimizedAsync(IWebDriver driver)
+    private async Task<LoginFormElements> DetectByXPathOptimizedAsync(IWebDriver driver, string? domain = null)
     {
         _logger.LogDebug("Starting optimized XPath-based detection");
         
@@ -3115,6 +3148,26 @@ public class LoginDetector
             // Use optimized XPath execution with early termination
             loginForm.UsernameField = await FindElementByXPathsOptimizedAsync(driver, usernameXPaths, "username");
             loginForm.PasswordField = await FindElementByXPathsOptimizedAsync(driver, passwordXPaths, "password");
+            
+            // Skip domain field detection if domain is set to "none" for improved performance
+            if (string.Equals(domain, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Domain field detection skipped in XPath detection - domain parameter set to 'none'");
+                loginForm.DomainField = null;
+            }
+            else
+            {
+                // Domain field XPath detection (optional)
+                var domainXPaths = new[]
+                {
+                    "//select[contains(@name,'domain') or contains(@id,'domain')]",
+                    "//input[contains(@name,'domain') or contains(@id,'domain')]",
+                    "//select[contains(@class,'domain')]",
+                    "//input[contains(@class,'domain')]"
+                };
+                loginForm.DomainField = await FindElementByXPathsOptimizedAsync(driver, domainXPaths, "domain");
+            }
+            
             loginForm.SubmitButton = await FindElementByXPathsOptimizedAsync(driver, submitXPaths, "submit");
 
             return loginForm;
@@ -3129,7 +3182,7 @@ public class LoginDetector
     /// <summary>
     /// Performance-optimized Shadow DOM detection using cached elements and intelligent traversal
     /// </summary>
-    private async Task<LoginFormElements> DetectWithShadowDOMOptimizedAsync(IWebDriver driver)
+    private async Task<LoginFormElements> DetectWithShadowDOMOptimizedAsync(IWebDriver driver, string? domain = null)
     {
         _logger.LogDebug("Starting optimized Shadow DOM detection");
         
@@ -3189,6 +3242,29 @@ public class LoginDetector
                 if (bestPassword != null)
                 {
                     loginForm.PasswordField = bestPassword;
+                }
+
+                // Find domain field in shadow DOM
+                // Skip domain field detection if domain is set to "none" for improved performance
+                if (string.Equals(domain, "none", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Domain field detection skipped in Shadow DOM detection - domain parameter set to 'none'");
+                    loginForm.DomainField = null;
+                }
+                else
+                {
+                    candidates.Clear();
+                    foreach (var element in shadowElements)
+                    {
+                        var score = ScoreElementForType(element, ElementType.Domain);
+                        if (score > 0) candidates[element] = score + 500;
+                    }
+
+                    var bestDomain = candidates.OrderByDescending(kvp => kvp.Value).FirstOrDefault().Key;
+                    if (bestDomain != null)
+                    {
+                        loginForm.DomainField = bestDomain;
+                    }
                 }
             }
 

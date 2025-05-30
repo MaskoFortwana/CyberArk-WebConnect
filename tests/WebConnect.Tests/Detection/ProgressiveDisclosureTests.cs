@@ -281,6 +281,21 @@ namespace WebConnect.Tests.Detection
             domainFieldAfterPassword.Setup(e => e.Enabled).Returns(true);
             domainFieldAfterPassword.Setup(e => e.TagName).Returns("input");
 
+            // Setup domain field to support enhanced text entry with value verification
+            var domainCurrentValue = "";
+            domainFieldAfterPassword.Setup(e => e.GetAttribute("value"))
+                .Returns(() => domainCurrentValue);
+            
+            domainFieldAfterPassword.Setup(e => e.SendKeys(It.IsAny<string>()))
+                .Callback<string>(text => {
+                    domainCurrentValue += text; // Simulate text accumulation
+                });
+
+            domainFieldAfterPassword.Setup(e => e.Clear())
+                .Callback(() => {
+                    domainCurrentValue = ""; // Reset value on clear
+                });
+
             var submitButtonAfterDomain = new Mock<IWebElement>();
             submitButtonAfterDomain.Setup(e => e.Displayed).Returns(true);
             submitButtonAfterDomain.Setup(e => e.Enabled).Returns(true);
@@ -328,8 +343,13 @@ namespace WebConnect.Tests.Detection
             _mockUsernameElement.Verify(e => e.SendKeys("user"), Times.AtLeastOnce);
             passwordFieldAfterUsername.Verify(e => e.SendKeys("test"), Times.AtLeastOnce);
             passwordFieldAfterUsername.Verify(e => e.SendKeys("pass"), Times.AtLeastOnce);
-            domainFieldAfterPassword.Verify(e => e.SendKeys("testd"), Times.AtLeastOnce);
-            domainFieldAfterPassword.Verify(e => e.SendKeys("omain"), Times.AtLeastOnce);
+            
+            // For domain field, just verify that SendKeys was called (since implementation uses enhanced text entry)
+            domainFieldAfterPassword.Verify(e => e.SendKeys(It.IsAny<string>()), Times.AtLeastOnce);
+            
+            // Verify the final accumulated value is correct
+            Assert.AreEqual("testdomain", domainCurrentValue, "Final domain value should match expected domain");
+            
             submitButtonAfterDomain.Verify(e => e.Click(), Times.AtLeastOnce);
         }
 

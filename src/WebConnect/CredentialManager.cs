@@ -106,8 +106,13 @@ public class CredentialManager
             });
 
             var domainTime = TimeSpan.Zero;
+            // Skip domain entry if domain is explicitly set to "none" (skips domain field detection)
+            if (string.Equals(domain, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Domain entry skipped - domain parameter set to 'none' (domain field detection was bypassed)");
+            }
             // Enter domain ONLY if a dedicated domain field exists AND domain value is provided
-            if (loginForm.DomainField != null && !string.IsNullOrEmpty(domain))
+            else if (loginForm.DomainField != null && !string.IsNullOrEmpty(domain))
             {
                 // Additional validation to ensure the domain field is different from username/password fields
                 bool isDomainFieldValid = ValidateDomainField(loginForm);
