@@ -888,6 +888,139 @@
           "testStrategy": "Use performance benchmarking tools to compare metrics. Create final verification report documenting all test results and confirming the rename is complete."
         }
       ]
+    },
+    {
+      "id": 18,
+      "title": "Update README.md for WebConnect as CyberArk Connection Component",
+      "description": "Restructure the README.md file to focus on WebConnect as a CyberArk connection component that automatically detects login fields and verifies login success, eliminating the need for custom WebFormFields configuration.",
+      "details": "1. Create a new structure for the README.md with the following sections:\n   - Introduction to WebConnect as a CyberArk connection component\n   - Key features highlighting automatic field detection and login verification\n   - System requirements and prerequisites\n   - Installation and deployment instructions\n   - Configuration parameters with detailed explanations\n   - AppLocker rules and security considerations\n   - Troubleshooting and common issues\n   - Support and contact information\n\n2. Update the introduction to clearly position WebConnect as a CyberArk connection component:\n   ```markdown\n   # WebConnect\n   \n   WebConnect is a specialized connection component for CyberArk Password Vault that enables secure, automated access to web applications. Unlike traditional connection components, WebConnect automatically detects login fields and verifies successful authentication without requiring custom WebFormFields configuration.\n   ```\n\n3. Add a detailed section on key features:\n   ```markdown\n   ## Key Features\n   \n   - **Automatic Field Detection**: Intelligently identifies username and password fields without manual configuration\n   - **Login Success Verification**: Automatically verifies successful authentication\n   - **Seamless CyberArk Integration**: Works with CyberArk PSM infrastructure\n   - **No Custom WebFormFields**: Eliminates the need for complex WebFormFields configuration\n   - **Enhanced Security**: Follows CyberArk security best practices\n   ```\n\n4. Create a comprehensive configuration parameters section:\n   ```markdown\n   ## Configuration Parameters\n   \n   | Parameter | Description | Default | Required |\n   |-----------|-------------|---------|----------|\n   | AutoDetectFields | Enables automatic detection of login fields | true | Yes |\n   | VerifyLoginSuccess | Enables verification of successful login | true | Yes |\n   | LoginTimeout | Maximum time (seconds) to wait for login completion | 30 | No |\n   | FieldDetectionStrategy | Algorithm used for field detection (Basic/Advanced) | Advanced | No |\n   | CustomSelectors | JSON object with custom CSS selectors for special cases | {} | No |\n   ```\n\n5. Add a detailed section on AppLocker rules:\n   ```markdown\n   ## AppLocker Rules\n   \n   WebConnect requires specific AppLocker rules to function properly in restricted environments. The following rules should be configured:\n\n   ### Executable Rules\n   ```xml\n   <FilePathRule Id=\"...\" Name=\"Allow WebConnect\" Description=\"...\" UserOrGroupSid=\"...\" Action=\"Allow\">\n     <Conditions>\n       <FilePathCondition Path=\"C:\\Program Files (x86)\\CyberArk\\PSM\\Components\\WebConnect\\*\" />\n     </Conditions>\n   </FilePathRule>\n   ```\n\n   ### DLL Rules\n   ```xml\n   <FilePathRule Id=\"...\" Name=\"Allow WebConnect DLLs\" Description=\"...\" UserOrGroupSid=\"...\" Action=\"Allow\">\n     <Conditions>\n       <FilePathCondition Path=\"C:\\Program Files (x86)\\CyberArk\\PSM\\Components\\WebConnect\\*\" />\n     </Conditions>\n   </FilePathRule>\n   ```\n   ```\n\n6. Remove all outdated sections that no longer apply to the WebConnect functionality, including:\n   - Any references to ChromeConnect\n   - Manual WebFormFields configuration instructions\n   - Legacy deployment methods\n   - Deprecated features\n\n7. Update all code examples, configuration snippets, and command references to reflect the current WebConnect naming and functionality.\n\n8. Add a section explaining the transition from manual configuration to automatic detection:\n   ```markdown\n   ## Automatic Field Detection vs. Manual Configuration\n   \n   WebConnect eliminates the need for manual WebFormFields configuration by implementing advanced field detection algorithms. This section explains how the automatic detection works and when you might need to use custom selectors for edge cases.\n   ```\n\n9. Include troubleshooting guidance specific to the automatic field detection and login verification features.",
+      "testStrategy": "1. Perform a comprehensive review of the updated README.md:\n   - Verify all sections are present and properly formatted\n   - Ensure all references to ChromeConnect have been replaced with WebConnect\n   - Confirm the document clearly explains WebConnect as a CyberArk connection component\n   - Validate that the automatic field detection and login verification features are prominently highlighted\n\n2. Technical validation:\n   - Verify all configuration parameters are accurately documented\n   - Ensure AppLocker rule examples are correct and follow best practices\n   - Confirm all paths and file references match the actual deployment structure\n\n3. Usability testing:\n   - Have a team member unfamiliar with the project read the README and verify they understand:\n     - What WebConnect does\n     - How it integrates with CyberArk\n     - The benefits of automatic field detection\n     - How to configure and deploy the component\n\n4. Documentation consistency check:\n   - Cross-reference with other project documentation to ensure consistency\n   - Verify that terminology is used consistently throughout all documents\n   - Ensure all links to other documentation or external resources are working\n\n5. Markdown rendering test:\n   - Preview the README.md in GitHub to ensure proper rendering of:\n     - Tables\n     - Code blocks\n     - Headers and formatting\n     - Links\n\n6. Final validation:\n   - Have a CyberArk integration specialist review the document for technical accuracy\n   - Ensure the document meets documentation standards for the project",
+      "status": "done",
+      "dependencies": [
+        7,
+        14,
+        15
+      ],
+      "priority": "high",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Update Introduction Section",
+          "description": "Rewrite the introduction section to clearly position WebConnect as a CyberArk connection component with automatic field detection capabilities.",
+          "dependencies": [],
+          "details": "Create a new introduction that emphasizes WebConnect as a specialized connection component for CyberArk Password Vault. Highlight its ability to automatically detect login fields and verify successful authentication without requiring custom WebFormFields configuration. Include a brief overview of what makes it different from traditional connection components.",
+          "status": "done",
+          "testStrategy": "Review the introduction for clarity, accuracy, and alignment with the new positioning."
+        },
+        {
+          "id": 2,
+          "title": "Revise Key Features Section",
+          "description": "Update the Key Features section to highlight automatic field detection, login verification, and CyberArk integration.",
+          "dependencies": [
+            1
+          ],
+          "details": "Create a bulleted list of key features including: Automatic Field Detection, Login Success Verification, Seamless CyberArk Integration, No Custom WebFormFields requirement, and Enhanced Security. For each feature, provide a brief explanation of its benefit. Remove any outdated features that no longer apply.",
+          "status": "done",
+          "testStrategy": "Ensure all listed features are current and accurately reflect WebConnect's capabilities."
+        },
+        {
+          "id": 3,
+          "title": "Create System Requirements Section",
+          "description": "Develop a comprehensive System Requirements and Prerequisites section.",
+          "dependencies": [
+            1
+          ],
+          "details": "List all system requirements including: supported operating systems, minimum hardware specifications, required CyberArk components and versions, Chrome/ChromeDriver version compatibility, and any other dependencies. Organize this information in a clear, scannable format using tables or bulleted lists where appropriate.",
+          "status": "done",
+          "testStrategy": "Verify all requirements are accurate and up-to-date with the current version of WebConnect."
+        },
+        {
+          "id": 4,
+          "title": "Update Installation and Deployment Instructions",
+          "description": "Revise the installation and deployment instructions for WebConnect as a CyberArk component.",
+          "dependencies": [
+            3
+          ],
+          "details": "Provide step-by-step instructions for installing WebConnect in a CyberArk environment. Include command examples, file paths, and verification steps. Remove any legacy deployment methods or references to ChromeConnect. Update all paths to reflect the PSM shadow user location.",
+          "status": "done",
+          "testStrategy": "Test the installation steps in a test environment to ensure accuracy."
+        },
+        {
+          "id": 5,
+          "title": "Rewrite Configuration Parameters Section",
+          "description": "Create a comprehensive configuration parameters section with detailed explanations.",
+          "dependencies": [
+            4
+          ],
+          "details": "Develop a table listing all configuration parameters with columns for Parameter name, Description, Default value, and Required status. Include parameters such as AutoDetectFields, VerifyLoginSuccess, LoginTimeout, FieldDetectionStrategy, and CustomSelectors. For each parameter, provide a detailed explanation of its purpose and usage. Specify timeout recommendations (30-60 seconds).",
+          "status": "done",
+          "testStrategy": "Review parameters against the actual code implementation to ensure accuracy."
+        },
+        {
+          "id": 6,
+          "title": "Add Automatic Field Detection Explanation",
+          "description": "Create a new section explaining how automatic field detection works compared to manual configuration.",
+          "dependencies": [
+            5
+          ],
+          "details": "Develop content that explains the technology behind WebConnect's automatic field detection. Compare it to the previous manual WebFormFields configuration approach. Include information on when custom selectors might still be needed for edge cases and how to implement them.",
+          "status": "done",
+          "testStrategy": "Have a technical reviewer verify the accuracy of the field detection explanation."
+        },
+        {
+          "id": 7,
+          "title": "Develop AppLocker Rules Section",
+          "description": "Create a detailed section on AppLocker rules required for WebConnect.",
+          "dependencies": [
+            4
+          ],
+          "details": "Document the specific AppLocker rules needed for WebConnect to function in restricted environments. Include XML examples for both Executable Rules and DLL Rules with proper paths. Explain why these rules are necessary and how to implement them in an enterprise environment.",
+          "status": "done",
+          "testStrategy": "Validate the AppLocker rules in a test environment with AppLocker enabled."
+        },
+        {
+          "id": 8,
+          "title": "Update Testing Outside CyberArk Section",
+          "description": "Rename and revise the Quick Start section to focus on testing WebConnect outside of CyberArk.",
+          "dependencies": [
+            4,
+            5
+          ],
+          "details": "Rename the 'Quick Start' section to 'Testing Outside of CyberArk'. Update the content to provide instructions for testing WebConnect functionality in a non-production environment. Include command-line examples, expected outputs, and verification steps.",
+          "status": "done",
+          "testStrategy": "Follow the testing instructions to verify they work as documented."
+        },
+        {
+          "id": 9,
+          "title": "Create Troubleshooting Guide for Automatic Features",
+          "description": "Develop troubleshooting guidance specific to automatic field detection and login verification.",
+          "dependencies": [
+            6
+          ],
+          "details": "Create a troubleshooting section that addresses common issues with the automatic field detection and login verification features. Include problem descriptions, potential causes, and step-by-step resolution instructions. Add information about log file locations and how to interpret relevant log entries.",
+          "status": "done",
+          "testStrategy": "Review with support team to ensure common issues are adequately addressed."
+        },
+        {
+          "id": 10,
+          "title": "Remove Outdated Content and Final Review",
+          "description": "Remove all outdated sections and perform a comprehensive review of the README.",
+          "dependencies": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "details": "Remove all outdated sections including references to ChromeConnect, manual WebFormFields configuration instructions, legacy deployment methods, and deprecated features. Ensure consistent terminology throughout the document. Update all code examples, configuration snippets, and command references to reflect current WebConnect naming and functionality. Perform a final review for accuracy, completeness, and clarity.",
+          "status": "done",
+          "testStrategy": "Have multiple stakeholders review the final document for technical accuracy and usability."
+        }
+      ]
     }
   ]
 }

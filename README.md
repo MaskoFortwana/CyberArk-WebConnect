@@ -4,359 +4,444 @@
 
 ![WebConnect Logo](docs/images/logo.png)
 
-**A powerful Windows automation tool for web portal authentication**
+**CyberArk Connection Component for Automated Web Authentication**
 
 [![.NET 8.0](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/download/dotnet/8.0)
 [![Windows](https://img.shields.io/badge/Platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
+[![CyberArk PSM](https://img.shields.io/badge/CyberArk-PSM-green.svg)](https://www.cyberark.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/MaskoFortwana/webconnect)](https://github.com/MaskoFortwana/webconnect/releases)
 
 </div>
 
 ## 🚀 Overview
 
-WebConnect is a Windows-based automation utility that streamlines web portal authentication using command-line parameters. Built with .NET 8.0 and Selenium WebDriver, it provides a reliable, secure, and user-friendly solution for automated login processes.
+WebConnect is a specialized **CyberArk connection component** designed to provide automated access to web applications through CyberArk's Privileged Session Management (PSM). Unlike traditional connection components that require manual WebFormFields configuration for each target website, WebConnect **automatically detects login fields and verifies login success**, dramatically reducing administrative overhead and saving significant configuration time.
 
-### ✨ Key Features
+### Key Benefits for CyberArk Administrators
 
-- **🔒 Secure Authentication**: Safe credential handling with masked password logging
-- **🎯 Smart Detection**: Multiple login field detection strategies for diverse web portals
-- **📸 Auto Screenshots**: Captures screenshots during failed logins for easy troubleshooting
-- **⌨️ Human-like Typing**: Simulates natural typing patterns to avoid detection
-- **🖥️ Self-contained**: Standalone Windows executable - no additional dependencies required
-- **📊 Comprehensive Logging**: Detailed logs for monitoring and debugging
-- **🌐 Chrome Integration**: Seamless integration with Google Chrome browser
-- **⚡ High Performance**: Fast execution with .NET 8.0 runtime
+- **🎯 Zero WebFormFields Configuration**: Eliminates the need to manually specify login field selectors for each website
+- **🔍 Intelligent Field Detection**: Automatically identifies username, password, and domain fields using advanced algorithms  
+- **✅ Automatic Login Verification**: Confirms successful authentication without manual success criteria configuration
+- **⏱️ Consistent Timeouts**: All logins complete within 30-60 seconds with proper timeout handling
+- **🛡️ Enterprise Security**: Full compliance with CyberArk security standards and AppLocker policies
+- **📊 Comprehensive Logging**: Detailed audit trails stored in PSM shadow user locations
+
+This connection component **transforms web authentication management** by removing the complexity of custom field mapping, allowing administrators to focus on access policies rather than technical implementation details.
 
 ---
 
-## 📦 Installation
+## ✨ Key Features
 
-### Option 1: Download Pre-built Executable (Recommended)
+### Automatic Authentication
+- **Smart Field Detection**: Intelligently identifies login form elements without configuration
+- **Success Verification**: Automatically determines when login has completed successfully
+- **Domain Handling**: Supports both username/password and username/domain/password scenarios
+- **Dropdown Support**: Handles username and domain dropdown menus automatically
 
-1. **Download the latest release**
-   - Visit [Releases](https://github.com/MaskoFortwana/webconnect/releases)
-   - Download `WebConnect-X.X.X-win-x64.zip` (64-bit) or `WebConnect-X.X.X-win-x86.zip` (32-bit)
+### CyberArk Integration
+- **Seamless PSM Integration**: Works directly with CyberArk's session management infrastructure
+- **Credential Injection**: Receives credentials securely from CyberArk Password Vault
+- **Session Logging**: All actions are logged through CyberArk's audit framework
+- **Shadow User Support**: Operates within PSM shadow user context
 
-2. **Extract and setup**
-   ```powershell
-   # Extract to your preferred location
-   Expand-Archive -Path WebConnect-X.X.X-win-x64.zip -DestinationPath C:\WebConnect
-   
-   # (Optional) Add to PATH for global access
-   $env:PATH += ";C:\WebConnect"
-   ```
+### Enterprise Compliance
+- **AppLocker Compatible**: Includes required AppLocker rules for enterprise deployment
+- **Chrome Management**: Integrates with ChromeDriver for consistent browser automation
+- **Timeout Management**: Enforces 30-60 second login completion windows
+- **Error Handling**: Graceful failure management with detailed logging
 
-3. **Verify installation**
-   ```powershell
-   WebConnect.exe --version
-   ```
+---
 
-### Option 2: Build from Source
+## 🖥️ System Requirements
 
-#### Prerequisites
-- [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) or later
-- [Git](https://git-scm.com/downloads)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/) (optional)
+### Prerequisites
+- **Operating System**: Windows Server 2016/2019/2022 or Windows 10/11
+- **CyberArk Components**: 
+  - CyberArk PSM Server (v12.0 or later recommended)
+  - CyberArk Password Vault integration
+- **Browser Requirements**:
+  - Google Chrome (latest stable version)
+  - ChromeDriver v136+ (matching Chrome version)
+- **Runtime**: .NET 8.0 Runtime (included in deployment)
 
-#### Build Steps
+### Supported Environments
+- **Primary**: CyberArk PSM (Privileged Session Management)
+- **Testing**: Standalone testing outside CyberArk environment
+
+### Browser Version Compatibility
+- **Tested and Working**: Chrome v136 with ChromeDriver v136
+- **Requirement**: Chrome and ChromeDriver versions **must match exactly**
+
+⚠️ **Important**: Ensure Chrome and ChromeDriver versions are synchronized. Version mismatches will cause connection failures.
+
+---
+
+## 📦 CyberArk Installation & Configuration
+
+### 1. Component Deployment
+
+Deploy WebConnect to your PSM server in the standard CyberArk components directory:
+
+```
+C:\Program Files (x86)\CyberArk\PSM\Components\
+├── WebConnect.exe                    # Main executable
+├── WebConnect-Wrapper.exe           # AutoIt wrapper script
+├── WebConnect-Wrapper.au3           # AutoIt source
+└── WebConnect\                       # Dependencies directory
+    └── WebConnect\
+        └── XaOenUHfxubjqknQD9EJKfKYvVkfgYI=\
+            ├── selenium-manager\
+            │   └── windows\
+            │       └── selenium-manager.exe
+            └── *.dll                 # .NET runtime assemblies
+```
+
+### 2. AppLocker Configuration
+
+**Critical**: The following AppLocker rules are **required** for WebConnect to function:
+
+#### EXE Files
+```xml
+<Application Name="WebConnect" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect.exe" Method="Hash" />
+<Application Name="WebConnect-Wrapper" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect-Wrapper.exe" Method="Hash" />
+<Application Name="WebConnect-Manager" Type="Exe" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\WebConnect\XaOenUHfxubjqknQD9EJKfKYvVkfgYI=\selenium-manager\windows\selenium-manager.exe" Method="Hash" />
+```
+
+#### DLL Files
+```xml
+<Libraries Name="WebConnect-DLLs" Type="Dll" Path="C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\WebConnect\XaOenUHfxubjqknQD9EJKfKYvVkfgYI=\*" Method="Path" />
+```
+
+### 3. Platform Configuration
+
+#### Comment Parameter Configuration
+
+WebConnect uses CyberArk's **Comment parameter** for configuration. This parameter **must be added** to your platform definition:
+
+**Parameter Setup:**
+- **Name**: `Comment`
+- **Type**: Optional or Required (recommended: Required for consistency)
+- **Usage**: Contains pipe-separated configuration options
+
+#### Comment Parameter Format
+
+Configure the Comment field with the following format:
+
+```
+o1=https://|o2=/PasswordVault/v10/logon/ldap|o3=443|o4=none|o5=yes|o6=no|o7=ignore
+```
+
+#### Configuration Options Reference
+
+| Option | Parameter | Description | Common Values | Example |
+|--------|-----------|-------------|---------------|---------|
+| `o1` | WebPrefix | Protocol prefix for URL construction | `https://`, `http://` | `o1=https://` |
+| `o2` | WebSuffix | Path suffix appended to hostname | `/login.htm`, `/auth`, `/signin` | `o2=/login.htm` |
+| `o3` | WebPort | TCP port for web connection | `443` (HTTPS), `80` (HTTP), `8080` | `o3=443` |
+| `o4` | WebDomain | Domain for authentication (if applicable) | `acme.corp`, `none` | `o4=acme.corp` |
+| `o5` | WebIncognitoMode | Enable Chrome incognito mode | `yes`, `no` | `o5=yes` |
+| `o6` | WebKioskMode | Enable Chrome kiosk (fullscreen) mode | `yes`, `no` | `o6=no` |
+| `o7` | WebCertificate | SSL certificate validation mode | `enforce`, `ignore` | `o7=ignore` |
+
+#### Configuration Examples
+
+**Standard HTTPS Web Application:**
+```
+o1=https://|o2=/login|o3=443|o4=none|o5=yes|o6=no|o7=ignore
+```
+
+**Corporate Intranet with Domain:**
+```
+o1=https://|o2=/portal/login.aspx|o3=443|o4=corporate.local|o5=no|o6=no|o7=enforce
+```
+
+**Development Environment:**
+```
+o1=http://|o2=/dev/login|o3=8080|o4=none|o5=yes|o6=no|o7=ignore
+```
+
+⚠️ **Important Configuration Notes:**
+- **All 7 options (o1-o7) must have values** - even if unused (use `none` for unused domain/port)
+- **Recommended Practice**: Configure Comment parameter as **Required** and set at platform level
+- **Admin Control**: Prevent users from editing account properties to maintain configuration consistency
+
+---
+
+## 🔧 Testing Outside of CyberArk
+
+### Prerequisites for Standalone Testing
+- Windows machine with Chrome installed
+- ChromeDriver v136+ matching your Chrome version
+- WebConnect.exe and dependencies
+
+### Basic Test Command
 ```powershell
-# Clone the repository
-git clone https://github.com/MaskoFortwana/webconnect.git
-cd webconnect
-
-# Build using the provided script (PowerShell)
-./publish.ps1 -Version "1.0.0" -Configuration Release -RuntimeIdentifier "win-x64"
-
-# Build for 32-bit Windows
-./publish.ps1 -Version "1.0.0" -Configuration Release -RuntimeIdentifier "win-x86"
-
-# Or build manually
-dotnet publish src/WebConnect -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish
+WebConnect.exe --USR testuser --PSW testpass --URL https://login.example.com --DOM none --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
----
+### Test Parameter Mapping
+When testing outside CyberArk, use these command-line parameters that correspond to Comment options:
 
-## 🚀 Quick Start
+| Comment Option | CLI Parameter | Description |
+|----------------|---------------|-------------|
+| `o1` (WebPrefix) | Include in `--URL` | Use full URL with protocol |
+| `o2` (WebSuffix) | Include in `--URL` | Use full URL with path |
+| `o3` (WebPort) | Include in `--URL` | Use full URL with port if non-standard |
+| `o4` (WebDomain) | `--DOM` | Domain name or `none` |
+| `o5` (WebIncognitoMode) | `--INCOGNITO` | `yes` or `no` |
+| `o6` (WebKioskMode) | `--KIOSK` | `yes` or `no` |
+| `o7` (WebCertificate) | `--CERT` | `ignore` or `enforce` |
 
-### Basic Usage
+### Testing Examples
+
+**Test Corporate Portal:**
 ```powershell
-WebConnect.exe --USR alice --PSW s3cr3t --URL https://login.example.com --DOM mycompany --INCOGNITO no --KIOSK no --CERT ignore
+WebConnect.exe --USR john.doe --PSW MyPassword123 --URL https://portal.company.com:8443/login --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
-### Real-world Example
+**Test Development Environment:**
 ```powershell
-# Corporate portal login
-WebConnect.exe --USR john.doe --PSW MySecurePass123! --URL https://portal.corporate.com/login --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore --debug
+WebConnect.exe --USR devuser --PSW devpass --URL http://localhost:3000/signin --DOM none --INCOGNITO no --KIOSK no --CERT ignore
 ```
+
+### Verification Steps
+1. **Successful Login**: Chrome remains open and authenticated
+2. **Failed Login**: Chrome closes automatically with error details
+3. **Timeout**: Operation completes within 30-60 seconds
+4. **Logs**: Check log output for field detection details
 
 ---
 
-## 📖 Command-line Reference
+## 🎯 Automatic Field Detection vs. Manual Configuration
 
-### Required Parameters
+### Traditional CyberArk Approach
+In standard CyberArk connection components, administrators must:
+1. **Analyze each target website** HTML structure
+2. **Identify CSS selectors** for username/password fields  
+3. **Configure WebFormFields** manually for each platform
+4. **Test and debug** field mappings for each website
+5. **Maintain configurations** when websites change their HTML structure
 
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `--USR` | Username for login form | `--USR john.doe` |
-| `--PSW` | Password (automatically masked in logs) | `--PSW MyPassword123` |
-| `--URL` | Target login page URL | `--URL https://login.example.com` |
-| `--DOM` | Domain or tenant identifier | `--DOM CORPORATE` |
-| `--INCOGNITO` | Enable incognito mode (`yes`/`no`) | `--INCOGNITO yes` |
-| `--KIOSK` | Enable kiosk mode (`yes`/`no`) | `--KIOSK no` |
-| `--CERT` | Certificate validation (`ignore`/`enforce`) | `--CERT ignore` |
+### WebConnect Automated Approach
+WebConnect eliminates this complexity by:
+1. **Automatic Detection**: Uses multiple detection strategies to find login fields
+2. **Intelligent Algorithms**: Recognizes common field patterns and attributes
+3. **Zero Configuration**: No WebFormFields setup required
+4. **Adaptive Logic**: Handles various website structures automatically
+5. **Maintenance-Free**: Adapts to minor website changes without reconfiguration
 
-### Optional Parameters
+### Detection Strategies
+WebConnect employs multiple field detection methods:
 
-| Parameter | Description | Default | Example |
-|-----------|-------------|---------|---------|
-| `--debug` | Enable debug logging | `false` | `--debug` |
-| `--version` | Display version information | - | `--version` |
-| `--help` | Show help information | - | `--help` |
+- **Attribute Analysis**: Examines `name`, `id`, `type`, and `placeholder` attributes
+- **Label Association**: Links form labels with their corresponding input fields  
+- **Context Analysis**: Understands form structure and field relationships
+- **Pattern Recognition**: Identifies common username/password field patterns
+- **Dropdown Handling**: Automatically detects and handles username/domain dropdowns
 
----
-
-## 💡 Usage Examples
-
-### Corporate Single Sign-On (SSO)
-```powershell
-WebConnect.exe --USR employee.id --PSW CompanyPassword --URL https://sso.company.com --DOM COMPANY --INCOGNITO yes --KIOSK no --CERT ignore
-```
-
-### Development Environment
-```powershell
-WebConnect.exe --USR testuser --PSW devpass123 --URL https://dev.example.com/login --DOM DEV --INCOGNITO no --KIOSK no --CERT ignore --debug
-```
-
-### Secure Production Environment
-```powershell
-WebConnect.exe --USR prod.user --PSW SecureProductionPass --URL https://secure.production.com --DOM PROD --INCOGNITO yes --KIOSK yes --CERT enforce
-```
-
-### Automated Testing
-```powershell
-# Create a batch script for automated testing
-WebConnect.exe --USR test.automation --PSW AutomationPass --URL https://test.portal.com --DOM TEST --INCOGNITO yes --KIOSK no --CERT ignore
-```
+### When Custom Selectors Are Needed
+In rare cases where automatic detection fails, custom selectors can be configured through the Comment parameter extensions. Contact your CyberArk administrator for advanced configuration options.
 
 ---
 
-## 🔧 Configuration
+## 📊 Log Files & Monitoring
 
-### Embedded Configuration
-
-WebConnect uses **embedded configuration** - no external configuration files are required! All settings are built into the executable with sensible defaults:
-
-- **Default Timeout**: 30 seconds
-- **Max Retry Attempts**: 3
-- **Screenshot on Error**: Enabled
-- **Logging Level**: Information (use `--debug` for detailed logging)
-- **Log Location**: Windows temp folder (`%TEMP%\WebConnect\`)
-
-### Command-line Overrides
-
-All configuration can be controlled via command-line parameters:
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `--debug` | Enable debug logging | `false` |
-| `--version` | Show version and deployment info | - |
-
----
-
-## 🔐 Enterprise Compatibility
-
-### AppLocker DLL Extraction Solution
-
-WebConnect includes a **specialized DLL extraction solution** designed for enterprise environments with AppLocker or similar security policies that restrict runtime DLL extraction.
-
-#### ✨ Key Features
-- **🛡️ AppLocker Compatible**: No runtime extraction to restricted directories
-- **📦 Pre-extracted Dependencies**: All DLLs included in deployment package
-- **🔧 Zero Configuration**: Works out-of-the-box in restricted environments
-- **⚡ Automated**: Fully integrated into build pipeline
-
-#### 🎯 Target Environments
-- **CyberArk PSM**: Privileged Session Management environments
-- **Corporate Workstations**: With strict AppLocker policies
-- **Zero-Trust Networks**: Where file system access is controlled
-- **Secure Environments**: Any environment blocking temp directory writes
-
-#### 📋 How It Works
-1. **Build-Time Extraction**: DLLs are pre-extracted during the build process
-2. **Package Integration**: Extracted dependencies are included in deployment ZIP
-3. **Runtime Resolution**: .NET finds dependencies without temp directory access
-4. **Security Compliance**: No policy violations or permission issues
-
-For detailed information, see [DLL_EXTRACTION_SOLUTION.md](DLL_EXTRACTION_SOLUTION.md).
-
----
-
-## 🔍 Browser Behavior
-
-### Successful Login
-- ✅ Application terminates with exit code `0`
-- 🌐 Chrome browser **remains open** for continued use
-- 📄 Session is preserved for further browsing
-
-### Failed Login
-- ❌ Application terminates with exit code `1`
-- 🔒 Chrome browser **closes automatically**
-- 📸 Screenshot captured for troubleshooting
-- 📝 Detailed error logged
-
----
-
-## 📸 Screenshots & Logging
-
-### Automatic Screenshots
-WebConnect captures screenshots during failures for easy troubleshooting:
-
-| Scenario | Filename Pattern | Location |
-|----------|------------------|----------|
-| Login Failed | `LoginFailed_YYYYMMDD_HHMMSS.png` | `%TEMP%\WebConnect\screenshots\` |
-| Verification Error | `VerificationError_YYYYMMDD_HHMMSS.png` | `%TEMP%\WebConnect\screenshots\` |
-| Browser Error | `BrowserError_YYYYMMDD_HHMMSS.png` | `%TEMP%\WebConnect\screenshots\` |
-| Form Not Found | `FormNotFound_YYYYMMDD_HHMMSS.png` | `%TEMP%\WebConnect\screenshots\` |
-
-### Log Files
-Detailed logs are stored in the Windows temp folder:
+### Log File Location
+All WebConnect logs are stored in the PSM shadow user's local application data:
 
 ```
-%TEMP%\WebConnect\
-├── webconnect-20241123.log    # Daily log files
-├── webconnect-20241124.log
-└── screenshots/                  # Error screenshots
-    ├── LoginFailed_20241123_143022.png
-    └── ...
+C:\Users\PSM-[ShadowUserID]\AppData\Local\Temp\WebConnect\
+├── webconnect-YYYYMMDD.log        # Daily rotating logs
+├── webconnect-YYYYMMDD-1.log      # Previous day's logs
+└── screenshots\                    # Error screenshots
+    ├── LoginFailed_YYYYMMDD_HHMMSS.png
+    └── VerificationError_YYYYMMDD_HHMMSS.png
 ```
 
-**Log Levels:**
-- `Information`: General operation status
-- `Warning`: Non-critical issues
-- `Error`: Critical failures
-- `Debug`: Detailed debugging information (use `--debug`)
+**Example Path:**
+```
+C:\Users\PSM-XYZ12093124018\AppData\Local\Temp\WebConnect\
+```
+
+### Log Rotation
+- **Automatic Rotation**: Logs rotate on each application run
+- **Size Management**: Prevents log files from growing too large
+- **Retention**: Maintains recent logs while cleaning up old entries
+- **Performance**: Ensures consistent application performance
+
+### Log Content
+Logs include detailed information about:
+- **Field Detection**: What fields were identified and how
+- **Authentication Steps**: Each stage of the login process
+- **Success/Failure**: Detailed results of login attempts
+- **Timing Information**: Execution duration and timeout handling
+- **Error Details**: Specific failure reasons and troubleshooting data
+
+### Monitoring in CyberArk
+- **PSM Logs**: WebConnect activities appear in standard PSM audit logs
+- **Session Recording**: All actions are captured in CyberArk session recordings
+- **Vault Logging**: Credential access logged in Password Vault audit trail
 
 ---
 
-## 🛠️ Troubleshooting
+## 🛠️ Troubleshooting & Common Issues
 
-### Common Issues
+### Login Field Detection Issues
 
-#### ❌ "Chrome driver not found"
-**Solution:**
-```powershell
-# WebConnect automatically downloads ChromeDriver
-# Ensure internet connectivity and check logs
-WebConnect.exe --debug --USR test --PSW test --URL https://example.com --DOM test --INCOGNITO no --KIOSK no --CERT ignore
-```
+#### ❌ "Username field not detected"
+**Possible Causes:**
+- Website uses non-standard field attributes
+- JavaScript dynamically generates login form
+- Multiple login forms present on page
 
-#### ❌ "Login form not detected"
-**Cause:** Website structure may have changed
-**Solution:**
-1. Check the screenshot in `%TEMP%\WebConnect\screenshots\`
-2. Verify the URL is correct
-3. Check if the site requires specific browser settings
+**Resolution Steps:**
+1. Check screenshot in logs directory for visual confirmation
+2. Verify website loads completely (check for loading indicators)
+3. Increase timeout if website loads slowly
+4. Contact administrator for custom selector configuration
 
-#### ❌ "Permission denied" errors
-**Cause:** Insufficient permissions or antivirus blocking
-**Solution:**
-1. Run as administrator
-2. Add WebConnect to antivirus exclusions
-3. Check Windows Defender settings
+#### ❌ "Password field not detected"  
+**Possible Causes:**
+- Password field appears after username entry
+- Two-step authentication process
+- Dynamic form generation
 
-#### ❌ "Browser launch failed"
-**Cause:** Chrome not installed or incompatible version
-**Solution:**
-1. Install [Google Chrome](https://www.google.com/chrome/)
-2. Update Chrome to the latest version
-3. Check Windows compatibility
+**Resolution Steps:**
+1. Verify the website supports single-page login
+2. Check if website requires multi-step authentication
+3. Review log files for field detection attempts
+4. Test with different browser modes (incognito on/off)
+
+### Authentication Verification Issues
+
+#### ❌ "Login success verification failed"
+**Possible Causes:**
+- Website redirects to unexpected page
+- Login succeeded but success criteria not met
+- Multi-factor authentication required
+
+**Resolution Steps:**
+1. Check if website requires additional authentication steps
+2. Verify success page URL patterns
+3. Review screenshot for visual confirmation of page state
+4. Check for popup dialogs or additional prompts
+
+### Timeout and Performance Issues
+
+#### ❌ "Operation timed out"
+**Possible Causes:**
+- Website loads slowly (>30 seconds)
+- Network connectivity issues
+- Browser startup delays
+
+**Resolution Steps:**
+1. Verify network connectivity to target website
+2. Test website access manually from PSM server
+3. Check Chrome/ChromeDriver version compatibility
+4. Review system resource usage during operation
+
+### Browser and ChromeDriver Issues
+
+#### ❌ "ChromeDriver version mismatch"
+**Resolution:**
+1. Check installed Chrome version: `chrome://version/`
+2. Download matching ChromeDriver from [ChromeDriver Downloads](https://chromedriver.chromium.org/downloads)
+3. Replace existing ChromeDriver in WebConnect directory
+4. Verify versions match exactly
+
+#### ❌ "Chrome failed to start"
+**Resolution:**
+1. Verify Chrome is installed and accessible
+2. Check AppLocker rules are properly configured
+3. Ensure PSM shadow user has Chrome access permissions
+4. Test Chrome launch manually as shadow user
+
+### Configuration Issues
+
+#### ❌ "Comment parameter format error"
+**Resolution:**
+1. Verify Comment parameter follows exact format: `o1=value|o2=value|...`
+2. Ensure all 7 options (o1-o7) have values
+3. Check for special characters that might break parsing
+4. Use `none` for unused options rather than leaving empty
+
+#### ❌ "AppLocker blocking execution"
+**Resolution:**
+1. Verify all required AppLocker rules are configured
+2. Check rule paths match actual installation directory
+3. Ensure rules apply to correct user groups
+4. Test AppLocker policy with manual execution
 
 ### Debug Mode
-Enable detailed logging for troubleshooting:
+Enable detailed logging for troubleshooting by adding debug parameter in CyberArk platform configuration or testing with:
 ```powershell
-WebConnect.exe --debug --USR your.user --PSW your.password --URL https://your.site.com --DOM YOUR_DOMAIN --INCOGNITO no --KIOSK no --CERT ignore
+WebConnect.exe --debug --USR test --PSW test --URL https://example.com --DOM none --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 ---
 
-## 🔄 Exit Codes
+## ⏱️ Performance & Timeouts
 
-| Code | Status | Description |
-|------|--------|-------------|
-| `0` | Success | Login completed successfully |
-| `1` | Failure | Login attempt failed (invalid credentials, form not found, etc.) |
-| `2` | Error | Application error (browser launch failed, network issues, etc.) |
+### Login Completion Times
+- **Target Window**: 30 seconds for most websites
+- **Maximum Timeout**: 60 seconds in worst-case scenarios
+- **Typical Performance**: 15-25 seconds for standard login processes
+
+### Timeout Configuration
+WebConnect implements intelligent timeout management:
+- **Page Load Timeout**: 30 seconds for initial page loading
+- **Element Detection Timeout**: 15 seconds for field identification
+- **Authentication Timeout**: 30 seconds for login completion
+- **Verification Timeout**: 15 seconds for success confirmation
+
+### Performance Optimization
+- **Browser Reuse**: Efficient Chrome session management
+- **Smart Waiting**: Intelligent waits for dynamic content
+- **Resource Management**: Optimized memory and CPU usage
+- **Network Efficiency**: Minimal network overhead
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Integration Architecture
 
-WebConnect is built with a modular architecture:
-
+### CyberArk Component Integration
 ```
-WebConnect/
-├── Core/
-│   ├── BrowserManager.cs          # Chrome automation
-│   ├── TimeoutManager.cs          # Timeout handling
-│   └── Constants.cs               # Application constants
-├── Services/
-│   ├── WebConnectService.cs    # Main orchestration
-│   ├── LoginDetector.cs          # Form detection
-│   ├── LoginPerformer.cs         # Login execution
-│   ├── SessionManager.cs         # Session management
-│   └── ErrorHandler.cs           # Error handling
-├── Models/
-│   ├── CommandLineOptions.cs     # CLI options
-│   ├── LoginFormElements.cs      # Form models
-│   └── Configuration models      # Various config models
-└── Exceptions/
-    └── Custom exception classes  # Specific exceptions
+CyberArk PSM
+├── Session Manager
+│   ├── Shadow User Creation
+│   ├── Credential Injection
+│   └── Session Recording
+├── WebConnect.exe
+│   ├── Credential Reception
+│   ├── Browser Automation
+│   └── Success Verification
+└── Audit & Logging
+    ├── Session Logs
+    ├── Credential Access Logs
+    └── WebConnect Activity Logs
 ```
 
----
+### Authentication Flow
+1. **PSM Session Initiation**: User requests access to web application
+2. **Credential Retrieval**: CyberArk retrieves credentials from Password Vault
+3. **WebConnect Launch**: PSM launches WebConnect with credentials
+4. **Field Detection**: WebConnect analyzes website and identifies login fields
+5. **Credential Entry**: Automated entry of username/password/domain
+6. **Success Verification**: Confirms successful authentication
+7. **Session Handover**: Browser remains open for user interaction
 
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Setup
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- [Selenium WebDriver](https://www.selenium.dev/) for browser automation
-- [WebDriverManager](https://github.com/rosolko/WebDriverManager.Net) for automatic driver management
-- [Serilog](https://serilog.net/) for structured logging
-- [CommandLineParser](https://github.com/commandlineparser/commandline) for CLI handling
-
----
-
-## 📞 Support
-
-- 📚 **Documentation**: [Full Documentation](docs/)
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/MaskoFortwana/webconnect/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/MaskoFortwana/webconnect/discussions)
-- 📧 **Email**: support@webconnect.com
+### Security Boundaries
+- **Credential Isolation**: Credentials never stored locally
+- **Process Isolation**: WebConnect runs in dedicated PSM context
+- **Network Security**: All connections through CyberArk's secure channels
+- **Audit Trail**: Complete logging of all authentication activities
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by the WebConnect Team**
+**WebConnect - Streamlining CyberArk Web Authentication**
 
-[⭐ Star this repo](https://github.com/MaskoFortwana/webconnect) | [🐛 Report Bug](https://github.com/MaskoFortwana/webconnect/issues) | [🚀 Request Feature](https://github.com/MaskoFortwana/webconnect/issues)
+Built for CyberArk PSM Environments | Automatic Field Detection | Zero Configuration Required
 
-</div>
+</div> 
