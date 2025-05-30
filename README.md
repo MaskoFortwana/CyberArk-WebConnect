@@ -122,14 +122,14 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
 
 ### 3. AutoIT wrapper Configuration
 
-AutoIT script is being used as "middle-man" between WebConnect and CyberArk, can be found in CyberArk-Files folder of the release .zip file.
+AutoIT script is being used as "middle-man" between WebConnect and CyberArk, can be found in cyb-deploy folder of the release .zip file.
 Its only purpose is to execute the WebConnect.exe correctly, using the parameters from Comment parameter that is explained below in point 5.
 
 Copy WebConnect-wrapper.exe to Components folder
 
 ### 4. Connection Component Configuration
 
-Connection component to import can be found in CyberArk-Files folder of the release .zip file.
+Connection component to import can be found in cyb-deploy folder of the release .zip file.
 Can be imported using psPAS or any other way you are used to import connection components to CyberArk
 
 ### 5. Platform Configuration
