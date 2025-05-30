@@ -151,15 +151,15 @@ o1=https://|o2=/PasswordVault/v10/logon/ldap|o3=443|o4=none|o5=yes|o6=no|o7=igno
 This format is parsed by WebConnect-wrapper.exe and passed correctly to WebConnect.exe
 #### Configuration Options Reference
 
-| Option | Parameter | Description | Common Values | Example |
-|--------|-----------|-------------|---------------|---------|
-| `o1` | WebPrefix | Protocol prefix for URL construction | `https://`, `http://` | `o1=https://` |
-| `o2` | WebSuffix | Path suffix appended to hostname | `/login.htm`, `/auth`, `/signin` | `o2=/login.htm` |
-| `o3` | WebPort | TCP port for web connection | `443` (HTTPS), `80` (HTTP), `8080` | `o3=443` |
-| `o4` | WebDomain | Domain for authentication (if applicable) | `acme.corp`, `none` | `o4=acme.corp` |
-| `o5` | WebIncognitoMode | Enable Chrome incognito mode | `yes`, `no` | `o5=yes` |
-| `o6` | WebKioskMode | Enable Chrome kiosk (fullscreen) mode | `yes`, `no` | `o6=no` |
-| `o7` | WebCertificate | SSL certificate validation mode | `enforce`, `ignore` | `o7=ignore` |
+| Option | Parameter        | Description                          | Common Values                      | Example         |
+| ------ | ---------------- | ------------------------------------ | ---------------------------------- | --------------- |
+| `o1`   | WebPrefix        | Protocol prefix for URL construction | `https://`, `http://`              | `o1=https://`   |
+| `o2`   | WebSuffix        | Path suffix appended to hostname     | `/login.htm`, `/auth`, `/signin`   | `o2=/login.htm` |
+| `o3`   | WebPort          | TCP port for web connection          | `443` (HTTPS), `80` (HTTP), `8080` | `o3=443`        |
+| `o4`   | WebDomain        | Domain for authentication            | `acme.corp`, `none`                | `o4=acme.corp`  |
+| `o5`   | WebIncognitoMode | Enable Chrome incognito mode         | `yes`, `no`                        | `o5=yes`        |
+| `o6`   | WebKioskMode     | Enable Chrome kiosk mode             | `yes`, `no`                        | `o6=no`         |
+| `o7`   | WebCertificate   | SSL certificate validation mode      | `enforce`, `ignore`                | `o7=ignore`     |
 
 #### Configuration Examples
 
@@ -304,6 +304,12 @@ Logs include detailed information about:
 ---
 
 ## 🛠️ Troubleshooting & Common Issues
+
+### ❌ Known Bugs
+1. chromedriver.exe and webconenct.exe has to be placed in 2 locations currently and also allow both paths in applocker
+	1. C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect
+	2. C:\Program Files (x86)\CyberArk\PSM\Components\
+	3. Fix planned for version 1.0.2
 
 ### Login Field Detection Issues
 
