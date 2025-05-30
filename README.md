@@ -38,11 +38,17 @@ This connection component **transforms web authentication management** by removi
 - **Domain Handling**: Supports both username/password and username/domain/password scenarios
 - **Dropdown Support**: Handles username and domain dropdown menus automatically
 
+<<<<<<< HEAD
 ### CyberArk Integration
 - **Seamless PSM Integration**: Works directly with CyberArk's session management infrastructure
 - **Credential Injection**: Receives credentials securely from CyberArk Password Vault
 - **Session Logging**: All actions are logged through CyberArk's audit framework
 - **Shadow User Support**: Operates within PSM shadow user context
+=======
+1. **Download the latest release**
+   - Visit [Releases](https://github.com/MaskoFortwana/CyberArk-WebConnect/releases)
+   - Download `WebConnect-X.X.X-win-x64.zip` (64-bit) or `WebConnect-X.X.X-win-x86.zip` (32-bit)
+>>>>>>> ea071e2c1f5ab9c00faa350caac0b4e6f45be3ee
 
 ### Enterprise Compliance
 - **AppLocker Compatible**: Includes required AppLocker rules for enterprise deployment
