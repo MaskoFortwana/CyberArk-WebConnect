@@ -186,6 +186,7 @@ o1=http://|o2=/dev/login|o3=8080|o4=none|o5=yes|o6=no|o7=ignore
 - **All 7 options (o1-o7) must have values** - even if unused (use `none` for unused domain/port)
 - **Recommended Practice**: Configure Comment parameter as **Required** and set at platform level
 - **Admin Control**: Prevent users from editing account properties to maintain configuration consistency
+- **Check for Known Bugs section
 
 ---
 
@@ -466,11 +467,3 @@ CyberArk PSM
 - **Audit Trail**: Complete logging of all authentication activities
 
 ---
-
-<div align="center">
-
-**WebConnect - Streamlining CyberArk Web Authentication**
-
-Built for CyberArk PSM Environments | Automatic Field Detection | Zero Configuration Required
-
-</div> 
