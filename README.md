@@ -22,7 +22,7 @@ WebConnect is a specialized **CyberArk connection component** designed to provid
 * Code security is being verified on every change by using Snyk
 * It is meant to be a open-source community project, it is not related to CyberArk company anyhow
 * Use at own risk, no guarantees
-* Feel free to reach out for any questions
+* Feel free to reach out for any questions, concerns and ideas, I am up for discussions
 
 ### Key Benefits for CyberArk Administrators
 
