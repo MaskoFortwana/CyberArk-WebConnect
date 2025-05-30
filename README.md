@@ -17,6 +17,10 @@
 
 WebConnect is a specialized **CyberArk connection component** designed to provide automated access to web applications through CyberArk's Privileged Session Management (PSM). Unlike traditional connection components that require manual WebFormFields configuration for each target website, WebConnect **automatically detects login fields and verifies login success**, dramatically reducing administrative overhead and saving significant configuration time.
 
+**Please note**
+The whole code was completely written by AI using Cursor.
+Code security is being verified on every change by using Snyk
+
 ### Key Benefits for CyberArk Administrators
 
 - **🎯 Zero WebFormFields Configuration**: Eliminates the need to manually specify login field selectors for each website
