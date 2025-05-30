@@ -322,9 +322,28 @@ public class LoginDetector
             // Use optimized query for submit buttons
             var submitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"));
             
+            _logger.LogDebug($"FAST-PATH: Found {submitButtons.Count} potential submit buttons");
+            
             // Enhanced submit button selection with improved scoring to avoid utility buttons
-            var submitButton = submitButtons
-                .Select(btn => new { Button = btn, Score = CalculateFastPathSubmitScore(btn) })
+            var scoredButtons = submitButtons
+                .Select(btn => new { Button = btn, Score = CalculateFastPathSubmitScore(btn, driver) })
+                .ToList();
+            
+            // Log all button candidates with their scores for debugging
+            _logger.LogDebug("FAST-PATH: Submit button candidates and scores:");
+            foreach (var scored in scoredButtons.OrderByDescending(x => x.Score))
+            {
+                var btnId = scored.Button.GetAttribute("id") ?? "no-id";
+                var btnText = GetEnhancedButtonText(scored.Button, driver);
+                var btnType = scored.Button.GetAttribute("type") ?? "no-type";
+                var btnClass = scored.Button.GetAttribute("class") ?? "no-class";
+                var btnDataTestId = scored.Button.GetAttribute("data-testid") ?? "no-data-testid";
+                var btnVisible = IsElementVisibleEnhanced(scored.Button, driver);
+                
+                _logger.LogDebug($"  Button: ID='{btnId}', Type='{btnType}', Text='{btnText}', Class='{btnClass}', DataTestId='{btnDataTestId}', Visible={btnVisible}, Score={scored.Score}");
+            }
+            
+            var submitButton = scoredButtons
                 .Where(x => x.Score > -5000) // Filter out explicitly disqualified/non-visible buttons from the main selection
                 .OrderByDescending(x => x.Score)
                 .ThenByDescending(x => IsElementVisible(x.Button) ? 1 : 0) // Secondary sort by visibility, though score should handle this
@@ -333,8 +352,14 @@ public class LoginDetector
 
             if (submitButton != null)
             {
-                var finalScore = CalculateFastPathSubmitScore(submitButton); // Recalculate to log the final score
-                _logger.LogDebug($"FAST-PATH Selected Submit Button: ID='{submitButton.GetAttribute("id")}', Text='{submitButton.Text}', Final Score={finalScore}");
+                var finalScore = CalculateFastPathSubmitScore(submitButton, driver); // Recalculate to log the final score
+                var selectedBtnId = submitButton.GetAttribute("id") ?? "no-id";
+                var selectedBtnText = GetEnhancedButtonText(submitButton, driver);
+                var selectedBtnType = submitButton.GetAttribute("type") ?? "no-type";
+                var selectedBtnDataTestId = submitButton.GetAttribute("data-testid") ?? "no-data-testid";
+                
+                _logger.LogInformation($"FAST-PATH Selected Submit Button: ID='{selectedBtnId}', Type='{selectedBtnType}', Text='{selectedBtnText}', DataTestId='{selectedBtnDataTestId}', Final Score={finalScore}");
+                
                 if (finalScore <= 100) // Check if the selected button still has a low score (e.g. only negative scores were available)
                 {
                     _logger.LogWarning($"FAST-PATH selected a submit button with a low score ({finalScore}). This might indicate an issue or a very unusual page structure.");
@@ -342,7 +367,20 @@ public class LoginDetector
             }
             else
             {
-                _logger.LogDebug("FAST-PATH: No suitable submit button found after scoring and filtering.");
+                _logger.LogWarning("FAST-PATH: No suitable submit button found after scoring and filtering. All buttons were disqualified.");
+                
+                // Log why no button was selected - show the best scoring button that was filtered out
+                var bestDisqualified = scoredButtons
+                    .Where(x => x.Score <= -5000)
+                    .OrderByDescending(x => x.Score)
+                    .FirstOrDefault();
+                    
+                if (bestDisqualified != null)
+                {
+                    var btnId = bestDisqualified.Button.GetAttribute("id") ?? "no-id";
+                    var btnText = GetEnhancedButtonText(bestDisqualified.Button, driver);
+                    _logger.LogWarning($"FAST-PATH: Best disqualified button was ID='{btnId}', Text='{btnText}', Score={bestDisqualified.Score}");
+                }
             }
 
             loginForm.SubmitButton = submitButton;
@@ -3716,13 +3754,14 @@ public class LoginDetector
     /// Calculate a relevance score for a submit button in fast-path detection
     /// Higher score = more likely to be the correct submit button
     /// Enhanced to avoid utility buttons like "Change authentication method"
+    /// Enhanced with JavaScript-based visibility detection for better accuracy
     /// </summary>
-    private int CalculateFastPathSubmitScore(IWebElement element)
+    private int CalculateFastPathSubmitScore(IWebElement element, IWebDriver driver)
     {
         try
         {
             var id = GetAttributeLower(element, "id");
-            var text = element.Text?.ToLower() ?? "";
+            var text = GetEnhancedButtonText(element, driver); // Enhanced text extraction
             var value = GetAttributeLower(element, "value");
             var type = GetAttributeLower(element, "type");
             var className = GetAttributeLower(element, "class");
@@ -3731,9 +3770,79 @@ public class LoginDetector
 
             int score = 0;
 
-            if (!IsElementVisible(element))
+            // Enhanced visibility detection
+            if (!IsElementVisibleEnhanced(element, driver))
             {
-                score -= 10000;
+                // Use a more nuanced approach for visibility instead of -10000 penalty
+                bool isActuallyVisible = false;
+                try
+                {
+                    // Try alternative visibility checks using JavaScript
+                    isActuallyVisible = (bool)((IJavaScriptExecutor)driver).ExecuteScript(
+                        "return (function(el) { " +
+                        "  if (!el) return false; " +
+                        "  const style = window.getComputedStyle(el); " +
+                        "  return style.display !== 'none' && " +
+                        "         style.visibility !== 'hidden' && " +
+                        "         el.offsetWidth > 0 && " +
+                        "         el.offsetHeight > 0; " +
+                        "})(arguments[0]);", element);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug($"Alternative visibility check failed for element ID='{id}': {ex.Message}");
+                }
+                
+                // Apply a smaller penalty if the element might actually be visible
+                if (isActuallyVisible)
+                {
+                    score -= 100; // Much smaller penalty - element may be visible despite WebDriver saying otherwise
+                    _logger.LogDebug($"FastPathSubmitScore: Element ID='{id}' appears visible via JavaScript but not WebDriver - applying small penalty");
+                }
+                else
+                {
+                    score -= 5000; // Larger penalty for truly invisible elements
+                    _logger.LogDebug($"FastPathSubmitScore: Element ID='{id}' confirmed invisible via both WebDriver and JavaScript");
+                }
+            }
+            else
+            {
+                // Bonus for clearly visible elements
+                score += 50;
+                _logger.LogDebug($"FastPathSubmitScore: Element ID='{id}' confirmed visible - applying bonus");
+            }
+
+            // Additional scoring factors that don't rely solely on visibility
+            
+            // Check for submit type attribute - Strong indicator
+            if (string.Equals(type, "submit", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 5000;
+                _logger.LogDebug($"FastPathSubmitScore: Element ID='{id}' has type='submit' - major bonus");
+            }
+            
+            // Check for common submit button IDs or data attributes
+            if (!string.IsNullOrEmpty(id) && (id.Contains("submit", StringComparison.OrdinalIgnoreCase) || 
+                id.Contains("login", StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 2000;
+                _logger.LogDebug($"FastPathSubmitScore: Element ID='{id}' contains submit/login keywords - large bonus");
+            }
+            
+            // Check for data-testid attributes - High value for automation
+            if (!string.IsNullOrEmpty(dataTestId) && (dataTestId.Contains("submit", StringComparison.OrdinalIgnoreCase) || 
+                dataTestId.Contains("login", StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 2000;
+                _logger.LogDebug($"FastPathSubmitScore: Element data-testid='{dataTestId}' contains submit/login keywords - large bonus");
+            }
+            
+            // Check for common submit button classes
+            if (!string.IsNullOrEmpty(className) && (className.Contains("submit", StringComparison.OrdinalIgnoreCase) || 
+                className.Contains("login", StringComparison.OrdinalIgnoreCase)))
+            {
+                score += 1000;
+                _logger.LogDebug($"FastPathSubmitScore: Element class='{className}' contains submit/login keywords - medium bonus");
             }
 
             // --- Keyword Signal Analysis ---
@@ -3828,6 +3937,112 @@ public class LoginDetector
     }
 
     /// <summary>
+    /// Enhanced visibility detection that combines WebDriver and JavaScript checks
+    /// </summary>
+    private bool IsElementVisibleEnhanced(IWebElement element, IWebDriver driver)
+    {
+        try
+        {
+            // First try WebDriver's built-in visibility check
+            if (element.Displayed && element.Enabled)
+            {
+                return true;
+            }
+
+            // If WebDriver says it's not visible, double-check with JavaScript
+            try
+            {
+                return (bool)((IJavaScriptExecutor)driver).ExecuteScript(
+                    "return (function(el) { " +
+                    "  if (!el) return false; " +
+                    "  const style = window.getComputedStyle(el); " +
+                    "  return style.display !== 'none' && " +
+                    "         style.visibility !== 'hidden' && " +
+                    "         style.opacity !== '0' && " +
+                    "         el.offsetWidth > 0 && " +
+                    "         el.offsetHeight > 0 && " +
+                    "         !el.disabled; " +
+                    "})(arguments[0]);", element);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"JavaScript visibility check failed: {ex.Message}");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"Enhanced visibility check failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Enhanced text extraction for nested button content
+    /// </summary>
+    private string GetEnhancedButtonText(IWebElement element, IWebDriver driver)
+    {
+        try
+        {
+            // First try the standard WebDriver approach
+            string buttonText = element.Text?.ToLower() ?? "";
+            
+            if (!string.IsNullOrWhiteSpace(buttonText))
+            {
+                return buttonText;
+            }
+
+            // If standard approach fails, try JavaScript textContent
+            try
+            {
+                buttonText = ((string)((IJavaScriptExecutor)driver).ExecuteScript(
+                    "return arguments[0].textContent || '';", element))?.Trim()?.ToLower() ?? "";
+                
+                if (!string.IsNullOrWhiteSpace(buttonText))
+                {
+                    _logger.LogDebug($"Enhanced text extraction via textContent: '{buttonText}'");
+                    return buttonText;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"JavaScript textContent extraction failed: {ex.Message}");
+            }
+
+            // If textContent is empty, try innerHTML approach
+            try
+            {
+                string innerHTML = ((string)((IJavaScriptExecutor)driver).ExecuteScript(
+                    "return arguments[0].innerHTML || '';", element))?.Trim() ?? "";
+                
+                if (!string.IsNullOrWhiteSpace(innerHTML))
+                {
+                    // Simple HTML tag removal
+                    buttonText = System.Text.RegularExpressions.Regex.Replace(innerHTML, "<[^>]*>", "").Trim().ToLower();
+                    
+                    if (!string.IsNullOrWhiteSpace(buttonText))
+                    {
+                        _logger.LogDebug($"Enhanced text extraction via innerHTML cleanup: '{buttonText}'");
+                        return buttonText;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug($"JavaScript innerHTML extraction failed: {ex.Message}");
+            }
+
+            // Final fallback - return original
+            return element.Text?.ToLower() ?? "";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug($"Enhanced text extraction failed: {ex.Message}");
+            return element.Text?.ToLower() ?? "";
+        }
+    }
+
+    /// <summary>
     /// Calculate a relevance score for a domain field element in fast-path detection
     /// Higher score = more likely to be the correct domain field
     /// </summary>
@@ -3877,3 +4092,4 @@ public class LoginDetector
         }
     }
 }
+
