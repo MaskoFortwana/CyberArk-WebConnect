@@ -96,11 +96,10 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
 ├── WebConnect-Wrapper.exe           # AutoIt wrapper script
 ├── WebConnect-Wrapper.au3           # AutoIt source
 └── WebConnect\                       # Dependencies directory
-    └── WebConnect\
-	    ├── *.dll
-        └──selenium-manager\
-            └── windows\
-	             └── selenium-manager.exe
+    ├── *.dll
+    └──selenium-manager\
+        └── windows\
+        ├──selenium-manager.exe
 
 ```
 
