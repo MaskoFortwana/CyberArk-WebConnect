@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![WebConnect Logo](docs/images/logo.png)
+![WebConnect Logo](docs/images/logo-light.png)
 
 **CyberArk Connection Component for Automated Web Authentication**
 
@@ -302,11 +302,15 @@ Logs include detailed information about:
 
 ## 🛠️ Troubleshooting & Common Issues
 
-### ❌ Known Bugs
+### ❌ Known Bugs & Issues
 1. chromedriver.exe and webconenct.exe has to be placed in 2 locations currently and also allow both paths in applocker
-	1. C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect
-	2. C:\Program Files (x86)\CyberArk\PSM\Components\
-	3. Fix planned for version 1.0.2
+	* C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect
+	* C:\Program Files (x86)\CyberArk\PSM\Components\
+		* Fix planned for version 1.0.2
+2. Not working on websites with cookie notification that is not skippable.
+3. 2FA websites not supported
+4. Basic authentication not supported yet
+	* Fix planned for version 1.0.3
 
 ### Login Field Detection Issues
 
