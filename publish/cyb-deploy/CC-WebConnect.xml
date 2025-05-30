@@ -1,0 +1,23 @@
+    <ConnectionComponent Id="WebConnect" FullScreen="No" Height="768" Width="1024" EnableWindowScrollbar="No" EnableToolbars="No" DisplayName="WebConnect" Type="CyberArk.PasswordVault.TransparentConnection.PSM.PSMConnectionComponent, CyberArk.PasswordVault.TransparentConnection.PSM">
+      <ComponentParameters>
+        <Parameter Name="DisableRemoteApp" Value="No" />
+      </ComponentParameters>
+      <UserParameters>
+        <Parameter Name="AllowMappingLocalDrives" Type="CyberArk.TransparentConnection.BooleanUserParameter, CyberArk.PasswordVault.TransparentConnection" Value="No" Visible="Yes" Required="No" EnforceInDualControlRequest="No" />
+        <Parameter Name="AllowSelectHTML5" DisplayName="Connect from browser" Type="CyberArk.TransparentConnection.BooleanUserParameter, CyberArk.PasswordVault.TransparentConnection" Value="No" Visible="Yes" Required="No" EnforceInDualControlRequest="No" />        
+      </UserParameters>
+      <TargetSettings Protocol="Chrome" ClientApp="dummy.exe" ClientDispatcher="&quot;{PSMComponentsFolder}\WebConnect-Wrapper.exe&quot; &quot;{PSMComponentsFolder}&quot;" ClientInvokeType="Dispatcher" ConnectionComponentInitTimeout="90000">
+        <ClientSpecific>
+          <Parameter Name="WaitBeforeCmdlineParmsHide" Value="20000" />
+          <Parameter Name="CmdLineParmsHideTimeout" Value="30000" />
+          <Parameter Name="EnableTrace" Value="Yes" />
+        </ClientSpecific>
+        <LockAppWindow Enable="Yes" MainWindowClass="Chrome_WidgetWin_1" Timeout="20000" SearchWindowWaitTimeout="30" />
+        <Capabilities>
+          <Capability Id="WindowsEventsAudit" />
+          <Capability Id="WindowsEventsTextRecorder" />
+		  <Capability Id="KeystrokesAudit" />
+		  <Capability Id="KeystrokesTextRecorder" />
+        </Capabilities>
+      </TargetSettings>
+    </ConnectionComponent>

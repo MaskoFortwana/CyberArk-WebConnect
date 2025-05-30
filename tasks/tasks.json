@@ -1021,6 +1021,22 @@
           "testStrategy": "Have multiple stakeholders review the final document for technical accuracy and usability."
         }
       ]
+    },
+    {
+      "id": 19,
+      "title": "Add cyb-deploy Directory to WebConnect Zip Package",
+      "description": "Modify the publish.ps1 script to include the cyb-deploy directory containing CyberArk connection component files in the WebConnect 1.0.1 deployment package.",
+      "details": "1. Create a new 'cyb-deploy' directory in the project root if it doesn't already exist.\n\n2. Ensure the following CyberArk connection component files are placed in the cyb-deploy directory:\n   - CC-WebConnect.zip\n   - CC-WebConnect.xml\n   - WebConnect-Wrapper.exe\n   - WebConnect-Wrapper.au3\n\n3. Modify the publish.ps1 script to include the cyb-deploy directory contents in the final zip package:\n   ```powershell\n   # Add section to copy cyb-deploy files to the root of the zip package\n   Write-Host \"Adding CyberArk connection component files to package...\"\n   \n   # Define source and destination paths\n   $cybDeploySourceDir = Join-Path $PSScriptRoot \"cyb-deploy\"\n   \n   # Verify cyb-deploy directory exists\n   if (-not (Test-Path $cybDeploySourceDir)) {\n       Write-Error \"cyb-deploy directory not found at $cybDeploySourceDir\"\n       exit 1\n   }\n   \n   # Copy all files from cyb-deploy to the root of the zip package\n   Get-ChildItem -Path $cybDeploySourceDir -File | ForEach-Object {\n       $destPath = Join-Path $publishDir $_.Name\n       Copy-Item -Path $_.FullName -Destination $destPath -Force\n       Write-Host \"  Added $($_.Name) to package root\"\n   }\n   ```\n\n4. Update the version number in the appropriate configuration files to 1.0.1:\n   - Update version in .csproj file\n   - Update version in AssemblyInfo.cs if present\n   - Update version in any other relevant configuration files\n\n5. Ensure the README.md or documentation is updated to mention the inclusion of these CyberArk connection component files in the deployment package.\n\n6. Verify that the existing zip packaging logic in publish.ps1 will correctly include these new files in the root of the zip alongside the publish directory structure.\n\n7. If necessary, update any file manifest or verification checksums that might be included in the deployment process.",
+      "testStrategy": "1. Run the modified publish.ps1 script to generate the WebConnect 1.0.1 deployment package.\n\n2. Extract the generated zip package to a temporary location and verify:\n   - CC-WebConnect.zip exists in the root of the extracted package\n   - CC-WebConnect.xml exists in the root of the extracted package\n   - WebConnect-Wrapper.exe exists in the root of the extracted package\n   - WebConnect-Wrapper.au3 exists in the root of the extracted package\n   - The existing publish directory structure is still intact and complete\n\n3. Perform a diff comparison between the previous package structure and the new one to ensure only the intended files were added.\n\n4. Verify the version number is correctly set to 1.0.1 in all relevant files.\n\n5. Test the deployment package in a CyberArk PSM environment:\n   - Deploy the package according to standard procedures\n   - Verify the CyberArk connection component can locate and use the included files\n   - Test the connection component functionality with the WebConnect application\n\n6. Run a validation script that checks for the presence of all required files in the package:\n   ```powershell\n   $requiredFiles = @(\n       \"CC-WebConnect.zip\",\n       \"CC-WebConnect.xml\", \n       \"WebConnect-Wrapper.exe\",\n       \"WebConnect-Wrapper.au3\"\n   )\n   \n   $missingFiles = $requiredFiles | Where-Object { -not (Test-Path (Join-Path $extractPath $_)) }\n   if ($missingFiles.Count -gt 0) {\n       Write-Error \"Missing required files in package: $($missingFiles -join ', ')\"\n       exit 1\n   }\n   ```",
+      "status": "done",
+      "dependencies": [
+        2,
+        13,
+        15,
+        18
+      ],
+      "priority": "high",
+      "subtasks": []
     }
   ]
 }

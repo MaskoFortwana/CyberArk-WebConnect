@@ -39,7 +39,7 @@
 #>
 
 param (
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.0.1",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
     [ValidateSet("win-x64", "win-x86")]
@@ -284,6 +284,32 @@ function Copy-AdditionalFiles {
         } else {
             Write-WarningMessage "File not found, skipping: $($file.Source)"
         }
+    }
+    
+    # Copy CyberArk connection component directory from cyb-deploy
+    Write-InfoMessage "Adding CyberArk connection component directory..."
+    
+    $cybDeploySourceDir = "./cyb-deploy"
+    $cybDeployDestDir = "$OutputDir/cyb-deploy"
+    
+    if (Test-Path $cybDeploySourceDir) {
+        try {
+            $cybDeployFiles = Get-ChildItem -Path $cybDeploySourceDir -File
+            
+            if ($cybDeployFiles.Count -eq 0) {
+                Write-WarningMessage "No files found in cyb-deploy directory"
+            } else {
+                # Copy the entire cyb-deploy directory to the output directory
+                Copy-Item -Path $cybDeploySourceDir -Destination $OutputDir -Recurse -Force
+                Write-InfoMessage "Copied cyb-deploy directory to: $cybDeployDestDir"
+                Write-SuccessMessage "Successfully copied cyb-deploy directory with $($cybDeployFiles.Count) CyberArk connection component files"
+            }
+        }
+        catch {
+            Write-WarningMessage "Failed to copy CyberArk connection component directory: $($_.Exception.Message)"
+        }
+    } else {
+        Write-WarningMessage "cyb-deploy directory not found at $cybDeploySourceDir, skipping CyberArk connection component directory"
     }
 }
 
