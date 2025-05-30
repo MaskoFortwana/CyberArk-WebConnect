@@ -12,7 +12,7 @@
           <Parameter Name="CmdLineParmsHideTimeout" Value="30000" />
           <Parameter Name="EnableTrace" Value="Yes" />
         </ClientSpecific>
-        <LockAppWindow Enable="Yes" MainWindowClass="Chrome_WidgetWin_1" Timeout="20000" SearchWindowWaitTimeout="30" />
+        <LockAppWindow Enable="Yes" MainWindowClass="Chrome_WidgetWin_1" Timeout="90000" SearchWindowWaitTimeout="30" />
         <Capabilities>
           <Capability Id="WindowsEventsAudit" />
           <Capability Id="WindowsEventsTextRecorder" />

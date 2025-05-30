@@ -225,43 +225,39 @@ namespace WebConnect.Services
                             var transitionDetector = new PageTransitionDetector(driver, _loggerFactory.CreateLogger<PageTransitionDetector>());
                             
                             // Configure based on site-specific settings or defaults
-                            if (siteConfig != null)
+                            var maxWaitSeconds = siteConfig?.MaxTransitionWaitTimeSeconds ?? _loginVerifier.Config.MaxTransitionWaitTimeSeconds;
+                            transitionDetector.InitialWaitMs = siteConfig?.InitialDelayMs ?? _loginVerifier.Config.InitialDelayMs;
+                            
+                            _logger.LogInformation("Using {ConfigType} configuration for {Host}: InitialWait={InitialWaitMs}ms, MaxWait={MaxWaitSeconds}s",
+                                siteConfig != null ? "site-specific" : "default", 
+                                currentUri.Host, transitionDetector.InitialWaitMs, maxWaitSeconds);
+                                
+                            // OPTIMIZATION: Use fast detection first to avoid 10-second ImplicitWait delay
+                            _logger.LogInformation("Attempting fast page transition detection");
+                            var fastTimeout = TimeSpan.FromSeconds(3); // Always use 3 seconds for fast detection
+                            var pageTransitioned = await transitionDetector.WaitForPageTransitionFast(fastTimeout);
+                            
+                            if (!pageTransitioned)
                             {
-                                transitionDetector.InitialWaitMs = siteConfig.InitialDelayMs ?? _loginVerifier.Config.InitialDelayMs;
-                                var maxWaitSeconds = siteConfig.MaxTransitionWaitTimeSeconds ?? _loginVerifier.Config.MaxTransitionWaitTimeSeconds;
+                                _logger.LogInformation("Fast detection did not detect transition, falling back to standard detection");
                                 
-                                _logger.LogInformation("Using site-specific configuration for {Host}: InitialWait={InitialWaitMs}ms, MaxWait={MaxWaitSeconds}s",
-                                    currentUri.Host, transitionDetector.InitialWaitMs, maxWaitSeconds);
-                                
-                                // Wait for page transition
-                                var transitionTimeout = TimeSpan.FromSeconds(maxWaitSeconds);
-                                var pageTransitioned = await transitionDetector.WaitForPageTransition(transitionTimeout);
-                                
-                                if (!pageTransitioned)
+                                // Configure for fallback detection
+                                if (siteConfig == null)
                                 {
-                                    _logger.LogWarning("No page transition detected after {Timeout}s, proceeding with verification anyway", maxWaitSeconds);
+                                    transitionDetector.InitialPollingIntervalMs = _loginVerifier.Config.InitialPollingIntervalMs;
+                                    transitionDetector.MaxPollingIntervalMs = _loginVerifier.Config.MaxPollingIntervalMs;
+                                    transitionDetector.PollingIntervalGrowthFactor = _loginVerifier.Config.PollingIntervalGrowthFactor;
+                                    transitionDetector.StableCheckCount = _loginVerifier.Config.StableCheckCount;
                                 }
+                                
+                                // Fallback to original detection with remaining time
+                                var fallbackTimeout = TimeSpan.FromSeconds(Math.Max(1, maxWaitSeconds - 3));
+                                pageTransitioned = await transitionDetector.WaitForPageTransition(fallbackTimeout);
                             }
-                            else
+                            
+                            if (!pageTransitioned)
                             {
-                                // Use default configuration
-                                transitionDetector.InitialWaitMs = _loginVerifier.Config.InitialDelayMs;
-                                transitionDetector.InitialPollingIntervalMs = _loginVerifier.Config.InitialPollingIntervalMs;
-                                transitionDetector.MaxPollingIntervalMs = _loginVerifier.Config.MaxPollingIntervalMs;
-                                transitionDetector.PollingIntervalGrowthFactor = _loginVerifier.Config.PollingIntervalGrowthFactor;
-                                transitionDetector.StableCheckCount = _loginVerifier.Config.StableCheckCount;
-                                
-                                _logger.LogInformation("Using default page transition detection configuration");
-                                
-                                // Wait for page transition
-                                var transitionTimeout = TimeSpan.FromSeconds(_loginVerifier.Config.MaxTransitionWaitTimeSeconds);
-                                var pageTransitioned = await transitionDetector.WaitForPageTransition(transitionTimeout);
-                                
-                                if (!pageTransitioned)
-                                {
-                                    _logger.LogWarning("No page transition detected after {Timeout}s, proceeding with verification anyway", 
-                                        _loginVerifier.Config.MaxTransitionWaitTimeSeconds);
-                                }
+                                _logger.LogWarning("No page transition detected after {Timeout}s, proceeding with verification anyway", maxWaitSeconds);
                             }
                         }
                         catch (Exception ex)

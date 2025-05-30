@@ -22,7 +22,7 @@ WebConnect is a specialized **CyberArk connection component** designed to provid
 * Code security is being verified on every change by using Snyk
 * It is meant to be a open-source community project, it is not related to CyberArk company anyhow
 * Use at own risk, no guarantees
-* Feel free to reach out for any questions
+* Feel free to reach out for any questions, concerns and ideas, I am up for discussions
 
 ### Key Benefits for CyberArk Administrators
 
@@ -124,11 +124,15 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
 AutoIT script is being used as "middle-man" between WebConnect and CyberArk, can be found in cyb-deploy folder of the release .zip file.
 Its only purpose is to execute the WebConnect.exe correctly, using the parameters from Comment parameter that is explained below in point 5.
 
-Copy WebConnect-wrapper.exe to Components folder
+Prepare the exe file according to this example:
+```
+cd "C:\Program Files (x86)\AutoIt3\Aut2Exe"
+.\Aut2Exe.exe /in "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect-Wrapper.au3" /out "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect-Wrapper.exe" /x86
+```
 
 ### 4. Connection Component Configuration
 
-Connection component to import can be found in cyb-deploy folder of the release .zip file.
+Connection component to import can be found in ```cyb-deploy``` folder of the release .zip file.
 Can be imported using psPAS or any other way you are used to import connection components to CyberArk
 
 ### 5. Platform Configuration

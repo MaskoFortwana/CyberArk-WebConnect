@@ -159,12 +159,146 @@ namespace WebConnect
         }
 
         /// <summary>
+        /// Fast transition detection that bypasses WebDriver implicit wait for immediate checks.
+        /// This method quickly checks for title and URL changes without being affected by the 
+        /// 10-second implicit wait timeout, making login verification much faster.
+        /// </summary>
+        public async Task<bool> WaitForPageTransitionFast(TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            var startTime = DateTime.UtcNow;
+            var sessionId = Guid.NewGuid().ToString("N")[..8];
+
+            _logger.LogInformation("[{SessionId}] Starting FAST page transition detection with {Timeout}s timeout",
+                sessionId, timeout.TotalSeconds);
+
+            try
+            {
+                // Store original implicit wait setting
+                var originalImplicitWait = _driver.Manage().Timeouts().ImplicitWait;
+                
+                try
+                {
+                    // Set very short implicit wait for fast detection
+                    _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromMilliseconds(100);
+
+                    // Skip initial wait for fast detection - start checking immediately
+                    _logger.LogDebug("[{SessionId}] Starting immediate fast detection checks", sessionId);
+
+                    var pollingInterval = 100; // Check every 100ms for responsiveness
+                    var transitionDetected = false;
+
+                    while (DateTime.UtcNow - startTime < timeout && !cancellationToken.IsCancellationRequested)
+                    {
+                        var currentState = CaptureFastPageState();
+                        var changes = DetectFastChanges(currentState);
+
+                        if (changes.HasSignificantChanges)
+                        {
+                            _logger.LogInformation("[{SessionId}] FAST transition detected in {Duration}ms: {Changes}",
+                                sessionId, (DateTime.UtcNow - startTime).TotalMilliseconds, changes.Description);
+                            transitionDetected = true;
+                            
+                            // For fast detection, return immediately on first significant change
+                            return true;
+                        }
+
+                        // Short polling interval for responsiveness
+                        await Task.Delay(pollingInterval, cancellationToken);
+                    }
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        _logger.LogWarning("[{SessionId}] Fast page transition detection cancelled", sessionId);
+                        return transitionDetected;
+                    }
+
+                    _logger.LogDebug("[{SessionId}] Fast page transition detection completed after {Duration}ms. Transition detected: {Detected}",
+                        sessionId, (DateTime.UtcNow - startTime).TotalMilliseconds, transitionDetected);
+                    return transitionDetected;
+                }
+                finally
+                {
+                    // Restore original implicit wait setting
+                    _driver.Manage().Timeouts().ImplicitWait = originalImplicitWait;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[{SessionId}] Error during fast page transition detection", sessionId);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Captures the current state of the page optimized for fast detection
+        /// </summary>
+        private FastPageState CaptureFastPageState()
+        {
+            try
+            {
+                var state = new FastPageState
+                {
+                    Url = _driver.Url,
+                    Title = _driver.Title,
+                    Timestamp = DateTime.UtcNow
+                };
+
+                return state;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error capturing fast page state");
+                return new FastPageState
+                {
+                    Url = "",
+                    Title = "",
+                    Timestamp = DateTime.UtcNow
+                };
+            }
+        }
+
+        /// <summary>
+        /// Detects changes for fast transition detection by comparing against initial state
+        /// </summary>
+        private FastPageChangeInfo DetectFastChanges(FastPageState current)
+        {
+            var changes = new FastPageChangeInfo();
+            var changeDescriptions = new List<string>();
+
+            // Check URL change
+            if (!string.Equals(_initialUrl, current.Url, StringComparison.OrdinalIgnoreCase))
+            {
+                changes.UrlChanged = true;
+                changeDescriptions.Add($"URL: '{_initialUrl}' → '{current.Url}'");
+            }
+
+            // Check title change
+            if (!string.Equals(_initialTitle, current.Title, StringComparison.Ordinal))
+            {
+                changes.TitleChanged = true;
+                changeDescriptions.Add($"Title: '{_initialTitle}' → '{current.Title}'");
+            }
+
+            // For fast detection, either URL or title change indicates significant transition
+            changes.HasSignificantChanges = changes.UrlChanged || changes.TitleChanged;
+            changes.Description = string.Join(", ", changeDescriptions);
+
+            return changes;
+        }
+
+        /// <summary>
         /// Captures the current state of the page
         /// </summary>
         private PageState CapturePageState()
         {
+            // Store original implicit wait setting to restore later
+            var originalImplicitWait = _driver.Manage().Timeouts().ImplicitWait;
+            
             try
             {
+                // Set very short implicit wait for standard detection to avoid 10-second delays
+                _driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromMilliseconds(500);
+
                 var state = new PageState
                 {
                     Url = _driver.Url,
@@ -206,6 +340,11 @@ namespace WebConnect
                     PageSourceHash = 0,
                     Timestamp = DateTime.UtcNow
                 };
+            }
+            finally
+            {
+                // Restore original implicit wait setting
+                _driver.Manage().Timeouts().ImplicitWait = originalImplicitWait;
             }
         }
 
@@ -304,6 +443,27 @@ namespace WebConnect
             public bool ReadyStateChanged { get; set; }
             public bool PageSourceChanged { get; set; }
             public bool LoadingStateChanged { get; set; }
+            public bool HasSignificantChanges { get; set; }
+            public string Description { get; set; } = "";
+        }
+
+        /// <summary>
+        /// Represents the state of a page for fast detection
+        /// </summary>
+        private class FastPageState
+        {
+            public string Url { get; set; } = "";
+            public string Title { get; set; } = "";
+            public DateTime Timestamp { get; set; }
+        }
+
+        /// <summary>
+        /// Information about changes detected for fast transition detection
+        /// </summary>
+        private class FastPageChangeInfo
+        {
+            public bool UrlChanged { get; set; }
+            public bool TitleChanged { get; set; }
             public bool HasSignificantChanges { get; set; }
             public string Description { get; set; } = "";
         }
