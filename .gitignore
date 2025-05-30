@@ -212,3 +212,7 @@ node_modules/
 *.njsproj
 *.sln
 *.sw? 
+scripts/
+tasks/
+screenshots/*
+!screenshots/.gitkeep
