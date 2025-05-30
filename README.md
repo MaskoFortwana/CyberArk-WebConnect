@@ -20,6 +20,9 @@ WebConnect is a specialized **CyberArk connection component** designed to provid
 **Please note**
 The whole code was completely written by AI using Cursor.
 Code security is being verified on every change by using Snyk
+It is meant to be a open-source community project, it is not related to CyberArk company anyhow
+Use at own risk, no guarantees
+Feel free to reach out for any questions
 
 ### Key Benefits for CyberArk Administrators
 
