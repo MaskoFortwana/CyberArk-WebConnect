@@ -158,7 +158,7 @@ WebConnect uses CyberArk's **Comment parameter** for configuration. This paramet
 ![Platform Settings](docs/images/platform-settings.png)
 
 </div>
-#### Comment Parameter Format
+
 
 Configure the Comment field with the following format:
 
