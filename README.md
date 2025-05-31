@@ -84,13 +84,22 @@ This connection component **transforms web authentication management** by removi
 
 ### 1. Component Deployment
 
-Deploy WebConnect to your PSM server in the standard CyberArk components directory:
+Deploy WebConnect to your PSM server in the standard CyberArk components directory
 
+From the downloaded zip file, copy following files:
+WebConnect folder -> C:\Program Files (x86)\CyberArk\PSM\Components\
+WebConnect.exe -> C:\Program Files (x86)\CyberArk\PSM\Components\
+WebConnect-Wrapper.exe  -> C:\Program Files (x86)\CyberArk\PSM\Components\ (or build your own exe from au3 script in the zip file. instructions below)
+
+Add your existing chromedriver to webconnect folder:
+C:\Program Files (x86)\CyberArk\PSM\Components\chromedriver.exe -> C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\
+
+Folder structure:
 ```
 C:\Program Files (x86)\CyberArk\PSM\Components\
 ├── WebConnect.exe                    # Main executable
-├── WebConnect-Wrapper.exe           # AutoIt wrapper script
-├── WebConnect-Wrapper.au3           # AutoIt source
+├── WebConnect-Wrapper.exe            # AutoIt wrapper script
+├── WebConnect-Wrapper.au3            # AutoIt source
 └── WebConnect\                       # Dependencies directory
     ├── *.dll
     └──selenium-manager\
@@ -124,7 +133,7 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
 AutoIT script is being used as "middle-man" between WebConnect and CyberArk, can be found in cyb-deploy folder of the release .zip file.
 Its only purpose is to execute the WebConnect.exe correctly, using the parameters from Comment parameter that is explained below in point 5.
 
-Prepare the exe file according to this example:
+Prepare the exe file according to this example (or use the exe already prepared in the release):
 ```
 cd "C:\Program Files (x86)\AutoIt3\Aut2Exe"
 .\Aut2Exe.exe /in "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect-Wrapper.au3" /out "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect-Wrapper.exe" /x86
@@ -143,6 +152,12 @@ WebConnect uses CyberArk's **Comment parameter** for configuration. This paramet
 
 **Parameter Setup:**
 - **Name**: `Comment`
+
+<div align="center">
+
+![Platform Settings](docs/images/platform-settings.png)
+
+</div>
 #### Comment Parameter Format
 
 Configure the Comment field with the following format:
