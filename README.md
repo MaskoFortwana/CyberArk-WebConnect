@@ -29,7 +29,7 @@ WebConnect is a specialized **CyberArk connection component** designed to provid
 - **🎯 Zero WebFormFields Configuration**: Eliminates the need to manually specify login field selectors for each website
 - **🔍 Intelligent Field Detection**: Automatically identifies username, password, and domain fields using advanced algorithms  
 - **✅ Automatic Login Verification**: Confirms successful authentication without manual success criteria configuration
-- **⏱️ Consistent Timeouts**: All logins complete within 20-60 seconds with proper timeout handling
+- **⏱️ Consistent Timeouts**: All logins complete within 10-30 seconds with proper timeout handling
 - **🛡️ Enterprise Security**: Compatible with CyberArk security standards and AppLocker policies
 - **📊 Comprehensive Logging**: Detailed audit trails stored in PSM shadow user locations
 
@@ -72,27 +72,21 @@ This connection component **transforms web authentication management** by removi
 - **Primary**: CyberArk PSM (Privileged Session Management)
 - **Testing**: Standalone testing outside CyberArk environment
 
-### Browser Version Compatibility
-- **Tested and Working**: Chrome v136 with ChromeDriver v136
-- **Requirement**: Chrome and ChromeDriver versions **must match exactly**
-
-⚠️ **Important**: Ensure Chrome and ChromeDriver versions are synchronized. Version mismatches will cause connection failures.
-
 ---
 
 ## 📦 CyberArk Installation & Configuration
 
 ### 1. Component Deployment
 
-Deploy WebConnect to your PSM server in the standard CyberArk components directory
+**Deploy WebConnect to your PSM server in the standard CyberArk components directory
 
-From the downloaded zip file, copy following files:
-WebConnect folder -> C:\Program Files (x86)\CyberArk\PSM\Components\
-WebConnect.exe -> C:\Program Files (x86)\CyberArk\PSM\Components\
-WebConnect-Wrapper.exe  -> C:\Program Files (x86)\CyberArk\PSM\Components\ (or build your own exe from au3 script in the zip file. instructions below)
+* From the downloaded zip file, copy following files:
+ * WebConnect folder -> C:\Program Files (x86)\CyberArk\PSM\Components\
+* WebConnect.exe -> C:\Program Files (x86)\CyberArk\PSM\Components\
+* WebConnect-Wrapper.exe  -> C:\Program Files (x86)\CyberArk\PSM\Components\ (or build your own exe from au3 script in the zip file. instructions below)
 
-Add your existing chromedriver to webconnect folder:
-C:\Program Files (x86)\CyberArk\PSM\Components\chromedriver.exe -> C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\
+* Add your existing chromedriver to webconnect folder:
+	C:\Program Files (x86)\CyberArk\PSM\Components\chromedriver.exe -> C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\
 
 Folder structure:
 ```
@@ -133,7 +127,7 @@ C:\Program Files (x86)\CyberArk\PSM\Components\
 AutoIT script is being used as "middle-man" between WebConnect and CyberArk, can be found in cyb-deploy folder of the release .zip file.
 Its only purpose is to execute the WebConnect.exe correctly, using the parameters from Comment parameter that is explained below in point 5.
 
-Prepare the exe file according to this example (or use the exe already prepared in the release):
+* Prepare the exe file according to this example (or use the exe already prepared in the release):
 ```
 cd "C:\Program Files (x86)\AutoIt3\Aut2Exe"
 .\Aut2Exe.exe /in "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect-Wrapper.au3" /out "C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect-Wrapper.exe" /x86
@@ -202,6 +196,7 @@ o1=http://|o2=/dev/login|o3=8080|o4=none|o5=yes|o6=no|o7=ignore
 - **Admin Control**: Prevent users from editing account properties to maintain configuration consistency
 - **Check for Known Bugs section
 
+
 ---
 
 ## 🔧 Testing Outside of CyberArk
@@ -211,10 +206,21 @@ o1=http://|o2=/dev/login|o3=8080|o4=none|o5=yes|o6=no|o7=ignore
 - ChromeDriver v136+ matching your Chrome version
 - WebConnect.exe and dependencies
 - Testing with production passwords is NOT RECOMMENDED, as those are exposed in clear text
+- Create the same folder structure as outlined here:
+ 
+**Deploy WebConnect to your windows server in the standard CyberArk components directory (create the non-existing folders when testing outside of CyberArk PSM)
+
+* From the downloaded zip file, copy following files:
+* WebConnect folder -> C:\Program Files (x86)\CyberArk\PSM\Components\
+* WebConnect.exe -> C:\Program Files (x86)\CyberArk\PSM\Components\
+* WebConnect-Wrapper.exe  -> C:\Program Files (x86)\CyberArk\PSM\Components\ (or build your own exe from au3 script in the zip file. instructions below)
+
+* Add your existing chromedriver to webconnect folder:
+	C:\Program Files (x86)\CyberArk\PSM\Components\chromedriver.exe -> C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect\
 
 ### Basic Test Command
 ```powershell
-WebConnect.exe --USR testuser --PSW testpass --URL https://login.example.com --DOM none --INCOGNITO yes --KIOSK no --CERT ignore
+"C:\Program Files (x86)\CyberArk\PSM\Components\WebConnect.exe" --USR testuser --PSW testpass --URL https://login.example.com --DOM none --INCOGNITO yes --KIOSK no --CERT ignore
 ```
 
 ### Test Parameter Mapping
@@ -235,11 +241,6 @@ When testing outside CyberArk, use these command-line parameters that correspond
 **Test Corporate Portal:**
 ```powershell
 WebConnect.exe --USR john.doe --PSW MyPassword123 --URL https://portal.company.com:8443/login --DOM CORPORATE --INCOGNITO yes --KIOSK no --CERT ignore
-```
-
-**Test Development Environment:**
-```powershell
-WebConnect.exe --USR devuser --PSW devpass --URL http://localhost:3000/signin --DOM none --INCOGNITO no --KIOSK no --CERT ignore
 ```
 
 ### Verification Steps
@@ -277,8 +278,6 @@ WebConnect employs multiple field detection methods:
 - **Pattern Recognition**: Identifies common username/password field patterns
 - **Dropdown Handling**: Automatically detects and handles username/domain dropdowns
 
-### When Custom Selectors Are Needed
-In rare cases where automatic detection fails, custom selectors can be configured through the Comment parameter extensions. Contact your CyberArk administrator for advanced configuration options.
 
 ---
 
@@ -431,8 +430,8 @@ WebConnect.exe --debug --USR test --PSW test --URL https://example.com --DOM non
 ## ⏱️ Performance & Timeouts
 
 ### Login Completion Times
-- **Target Window**: 30 seconds for most websites
-- **Maximum Timeout**: 60 seconds in worst-case scenarios
+- **Target Window**: 15 seconds for most websites
+- **Maximum Timeout**: 45 seconds in worst-case scenarios
 - **Typical Performance**: 15-25 seconds for standard login processes
 
 ### Timeout Configuration
