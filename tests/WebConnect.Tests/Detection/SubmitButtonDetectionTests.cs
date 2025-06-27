@@ -298,7 +298,7 @@ namespace WebConnect.Tests.Detection
             _mockDriver.Setup(d => d.FindElements(By.CssSelector("input[type='text'], input[type='email'], input:not([type]), select[name*='user'], select[id*='user'], select[name*='login'], select[id*='login']")))
                       .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement> { mockUsernameField.Object }));
 
-            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button")))
+            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button, *[role='button']")))
                       .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement> { wrongButton.Object, correctButton.Object }));
 
             // Setup JavaScript calls for text extraction

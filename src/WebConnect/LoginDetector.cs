@@ -319,8 +319,8 @@ public class LoginDetector
             }
 
             // **STRATEGY 3: Find submit button**
-            // Use optimized query for submit buttons
-            var submitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"));
+            // Use optimized query for submit buttons including ARIA role-based elements (for Dojo widgets, etc.)
+            var submitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button, *[role='button']"));
             
             _logger.LogDebug($"FAST-PATH: Found {submitButtons.Count} potential submit buttons");
             
@@ -1428,9 +1428,26 @@ public class LoginDetector
                         }
                     }
 
-                    // Role attribute consideration
+                    // Enhanced ARIA role attribute scoring for custom button widgets (like Dojo)
                     var role = GetAttributeLower(element, "role");
-                    if (role == "button") score += 10;
+                    if (role == "button") 
+                    {
+                        score += 500; // Significant bonus for role-based buttons (increased from 10)
+                        _logger.LogDebug($"Submit candidate has role='button': ID={id}, Text='{text}' - applying enhanced role bonus");
+                        
+                        // Additional scoring for role-based buttons with login context
+                        if (!string.IsNullOrEmpty(id) && (id.Contains("login") || id.Contains("submit")))
+                        {
+                            score += 200;
+                            _logger.LogDebug($"Role-based button ID='{id}' contains login/submit keywords - additional bonus");
+                        }
+                        
+                        if (!string.IsNullOrEmpty(text) && (text.Contains("login") || text.Contains("sign in")))
+                        {
+                            score += 300;
+                            _logger.LogDebug($"Role-based button text='{text}' contains login/sign-in keywords - additional bonus");
+                        }
+                    }
 
                     // **FINAL VALIDATION: Never select utility buttons regardless of score**
                     // This is a safety mechanism to prevent selecting "Change authentication method" type buttons
@@ -3767,6 +3784,7 @@ public class LoginDetector
             var className = GetAttributeLower(element, "class");
             var dataTestId = GetAttributeLower(element, "data-testid");
             var name = GetAttributeLower(element, "name");
+            var role = GetAttributeLower(element, "role");
 
             int score = 0;
 
@@ -3819,6 +3837,29 @@ public class LoginDetector
             {
                 score += 5000;
                 _logger.LogDebug($"FastPathSubmitScore: Element ID='{id}' has type='submit' - major bonus");
+            }
+            
+            // Check for ARIA role="button" - Strong indicator for custom button widgets (like Dojo)
+            if (string.Equals(role, "button", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 3000; // High bonus for role-based buttons
+                _logger.LogDebug($"FastPathSubmitScore: Element ID='{id}' has role='button' - large bonus for ARIA widget");
+                
+                // Additional boost if it's specifically a login-related role button
+                if (!string.IsNullOrEmpty(id) && (id.Contains("login", StringComparison.OrdinalIgnoreCase) || 
+                    id.Contains("submit", StringComparison.OrdinalIgnoreCase)))
+                {
+                    score += 1000;
+                    _logger.LogDebug($"FastPathSubmitScore: Role-based button ID='{id}' contains login/submit keywords - extra bonus");
+                }
+                
+                // Additional boost for text content on role buttons (like "Login" text in Dojo widgets)
+                if (!string.IsNullOrEmpty(text) && (text.Contains("login", StringComparison.OrdinalIgnoreCase) || 
+                    text.Contains("sign in", StringComparison.OrdinalIgnoreCase)))
+                {
+                    score += 1500;
+                    _logger.LogDebug($"FastPathSubmitScore: Role-based button text='{text}' contains login/sign-in keywords - extra bonus");
+                }
             }
             
             // Check for common submit button IDs or data attributes

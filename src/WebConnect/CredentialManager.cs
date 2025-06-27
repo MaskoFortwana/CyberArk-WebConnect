@@ -185,8 +185,17 @@ public class CredentialManager
                     _logger.LogWarning(ex, "Error clicking submit button, trying JavaScript click");
                     if (_config.UseJavaScriptFallback)
                     {
-                        IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
-                        js.ExecuteScript("arguments[0].click();", loginForm.SubmitButton);
+                        try
+                        {
+                            IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+                            js.ExecuteScript("arguments[0].click();", loginForm.SubmitButton);
+                            _logger.LogInformation("Successfully clicked submit button using JavaScript fallback");
+                        }
+                        catch (Exception jsEx)
+                        {
+                            _logger.LogError(jsEx, "JavaScript click fallback also failed");
+                            throw; // Re-throw if both normal and JavaScript click fail
+                        }
                     }
                     else
                     {
@@ -819,8 +828,8 @@ public class CredentialManager
                 .Where(e => !IsElementVisible(e))
                 .ToList();
                 
-            // Look for submit buttons that exist in DOM but are hidden
-            var hiddenSubmitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"))
+            // Look for submit buttons that exist in DOM but are hidden (including ARIA role-based elements)
+            var hiddenSubmitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button, *[role='button']"))
                 .Where(e => !IsElementVisible(e))
                 .Where(e => {
                     var text = e.Text?.ToLower() ?? "";
@@ -980,8 +989,17 @@ public class CredentialManager
                         _logger.LogWarning(ex, "Error clicking submit button, trying JavaScript click");
                         if (_config.UseJavaScriptFallback)
                         {
-                            IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
-                            js.ExecuteScript("arguments[0].click();", submitButton);
+                            try
+                            {
+                                IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
+                                js.ExecuteScript("arguments[0].click();", submitButton);
+                                _logger.LogInformation("Successfully clicked submit button using JavaScript fallback in sequential flow");
+                            }
+                            catch (Exception jsEx)
+                            {
+                                _logger.LogError(jsEx, "JavaScript click fallback also failed in sequential flow");
+                                throw; // Re-throw if both normal and JavaScript click fail
+                            }
                         }
                         else
                         {
@@ -1310,8 +1328,8 @@ public class CredentialManager
                         lastDomState = currentDomState;
                     }
                     
-                    // Look for submit buttons that have become visible
-                    var submitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button"))
+                    // Look for submit buttons that have become visible (including ARIA role-based elements)
+                    var submitButtons = driver.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button, *[role='button']"))
                         .Where(IsElementVisibleAndStable)
                         .Where(e => {
                             try

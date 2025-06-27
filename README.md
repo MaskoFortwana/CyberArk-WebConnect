@@ -54,7 +54,7 @@ This connection component **transforms web authentication management** by removi
 
 1. **Download the latest release**
    - Visit [Releases](https://github.com/MaskoFortwana/CyberArk-WebConnect/releases)
-   - Download `WebConnect-X.X.X-win-x64.zip`
+   - Download `WebConnect-1.0.2-win-x64.zip` (latest version with enhanced submit button detection)
 
 ---
 

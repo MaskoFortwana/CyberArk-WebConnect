@@ -132,7 +132,7 @@ namespace WebConnect.Tests.Detection
             // Setup driver to return hidden password field
             _mockDriver.Setup(d => d.FindElements(By.CssSelector("input[type='password']")))
                       .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement> { hiddenPasswordElement.Object }));
-            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button")))
+            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button, *[role='button']")))
                       .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement>()));
 
             // Act
@@ -182,7 +182,7 @@ namespace WebConnect.Tests.Detection
                       });
 
             var submitCallCount = 0;
-            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button")))
+            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button, *[role='button']")))
                       .Returns(() =>
                       {
                           submitCallCount++;
@@ -319,7 +319,7 @@ namespace WebConnect.Tests.Detection
             _mockDriver.Setup(d => d.FindElements(By.CssSelector("input[name*='domain'], input[id*='domain'], select[name*='domain'], select[id*='domain']")))
                       .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement> { domainFieldAfterPassword.Object }));
 
-            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button")))
+            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button, *[role='button']")))
                       .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement> { submitButtonAfterDomain.Object }));
 
             // Setup JavaScript executor
@@ -377,7 +377,7 @@ namespace WebConnect.Tests.Detection
             _mockDriver.Setup(d => d.FindElements(By.CssSelector("input[type='password']")))
                       .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement> { passwordFieldAfterUsername.Object }));
 
-            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button")))
+            _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], button, *[role='button']")))
                       .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement>()));
 
             // Setup JavaScript executor

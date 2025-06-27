@@ -5274,7 +5274,7 @@
     "C:\\Users\\Masko\\.nuget\\packages\\": {}
   },
   "project": {
-    "version": "1.0.1",
+    "version": "1.0.2",
     "restore": {
       "projectUniqueName": "C:\\projects\\CyberArk-WebConnect\\src\\WebConnect\\WebConnect.csproj",
       "projectName": "WebConnect",

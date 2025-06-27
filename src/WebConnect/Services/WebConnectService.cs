@@ -176,12 +176,12 @@ namespace WebConnect.Services
                                 else if (!string.IsNullOrEmpty(submitName))
                                     loginFormSelectors.Add(By.Name(submitName));
                                 else
-                                    loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit']"));
+                                    loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit'], *[role='button']"));
                             }
                             catch (StaleElementReferenceException)
                             {
                                 _logger.LogWarning("Submit button became stale, using fallback selector");
-                                loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit']"));
+                                loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit'], *[role='button']"));
                             }
                         }
                     }
@@ -192,7 +192,7 @@ namespace WebConnect.Services
                         loginFormSelectors.Clear();
                         loginFormSelectors.Add(By.CssSelector("input[type='text'], input[type='email']"));
                         loginFormSelectors.Add(By.CssSelector("input[type='password']"));
-                        loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit']"));
+                        loginFormSelectors.Add(By.CssSelector("button[type='submit'], input[type='submit'], *[role='button']"));
                     }
 
                     // Get site-specific configuration once for reuse

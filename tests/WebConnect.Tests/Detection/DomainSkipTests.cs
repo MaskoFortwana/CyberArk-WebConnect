@@ -55,7 +55,7 @@ public class DomainSkipTests
             .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement> { _mockDomainElement.Object }));
 
         // Setup other common selectors that might be used
-        _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit']")))
+                    _mockDriver.Setup(d => d.FindElements(By.CssSelector("button[type='submit'], input[type='submit'], *[role='button']")))
             .Returns(new ReadOnlyCollection<IWebElement>(new List<IWebElement> { _mockSubmitButton.Object }));
 
         // Setup the main domain selector from LoginDetector.cs fast path
